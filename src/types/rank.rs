@@ -2,7 +2,6 @@ use crate::types::bitboard::BitBoard;
 use crate::types::color::Color;
 use std::mem::transmute;
 use std::ops::*;
-use crate::evaluation::score::Value;
 
 pub static RANK_BB: [BitBoard; 8] = [
     BitBoard(0x0000_0000_0000_00FF),
@@ -30,7 +29,6 @@ pub enum Rank {
 }
 
 impl Rank {
-
     #[inline(always)]
     pub fn bb(self) -> BitBoard {
         RANK_BB[self as usize]

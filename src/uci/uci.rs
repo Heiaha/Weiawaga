@@ -9,7 +9,7 @@ use std::{io, thread, sync};
 use crate::perft::perft::print_perft;
 use crate::search::tt::TT;
 use std::time::Instant;
-use std::mem::size_of_val;
+use crate::evaluation::score::Value;
 
 
 pub enum UCICommand {
@@ -50,12 +50,11 @@ pub fn thread_loop(thread: sync::mpsc::Receiver<UCICommand>, abort: Arc<AtomicBo
             UCICommand::Go(time_control) => {
                 let timer = Timer::new(&board, time_control, abort.clone());
                 let mut search = Search::new(timer, &mut tt);
-                let mut best_move = Move::NULL;
-                let mut best_score = 0;
+                let mut best_move: Move = Move::null();
+                let mut best_score: Value = 0;
                 (best_move, best_score) = search.go(&mut board);
                 println!("info score cp {}", best_score);
                 println!("bestmove {}", best_move.to_string());
-                let now = Instant::now();
                 tt.clear();
             }
             UCICommand::Perft(depth) => {

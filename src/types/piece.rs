@@ -1,6 +1,6 @@
 use super::color::Color;
-use std::mem::transmute;
 use std::iter::Step;
+use std::mem::transmute;
 
 pub const N_PIECES: usize = 15;
 pub const N_PIECE_TYPES: usize = 6;
@@ -33,7 +33,6 @@ pub enum PieceType {
 }
 
 impl Piece {
-
     #[inline(always)]
     pub fn index(self) -> usize {
         self as usize
@@ -118,7 +117,6 @@ impl From<char> for Piece {
         Self::from(Self::PIECE_STR.chars().position(|c| c == k).unwrap() as u8)
     }
 }
-
 
 impl Piece {
     const PIECE_STR: &'static str = "PNBRQK  pnbrqk ";

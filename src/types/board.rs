@@ -5,17 +5,16 @@ use super::piece::{Piece, PieceType, N_PIECES};
 use super::square::{Direction, N_SQUARES, SQ};
 use super::undo_info::UndoInfo;
 use super::zobrist;
-use crate::evaluation;
 use crate::evaluation::e_constants;
-use crate::evaluation::score::{Score, Phase};
+use crate::evaluation::score::{Phase, Score};
+use crate::types::bitboard::Key;
 use crate::types::file::File;
 use crate::types::moov::{Move, MoveFlags};
 use crate::types::move_list::MoveList;
 use crate::types::rank::Rank;
 use crate::types::square::SQ_DISPLAY_ORDER;
-use std::fmt;
 use std::cmp::min;
-use crate::types::bitboard::Key;
+use std::fmt;
 
 // BOARD ONLY COPIED IN UCI, NOT IN SEARCH
 #[derive(Clone, Copy)]
@@ -93,7 +92,6 @@ impl Board {
     }
 
     pub fn set_piece_at(&mut self, pc: Piece, sq: SQ) {
-
         self.phase -= Score::piece_phase(pc.type_of());
         self.p_sq_score += e_constants::piece_sq_value(pc, sq);
         self.material_score += e_constants::piece_value(pc);
@@ -204,11 +202,15 @@ impl Board {
         let them = !self.color_to_play;
         let our_king = self.bitboard_of(us, PieceType::King).lsb();
 
-        if attacks::pawn_attacks_sq(our_king, us) & self.bitboard_of(them, PieceType::Pawn) != BitBoard::ZERO {
+        if attacks::pawn_attacks_sq(our_king, us) & self.bitboard_of(them, PieceType::Pawn)
+            != BitBoard::ZERO
+        {
             return true;
         }
 
-        if attacks::knight_attacks(our_king) & self.bitboard_of(them, PieceType::Knight) != BitBoard::ZERO {
+        if attacks::knight_attacks(our_king) & self.bitboard_of(them, PieceType::Knight)
+            != BitBoard::ZERO
+        {
             return true;
         }
 
@@ -231,7 +233,10 @@ impl Board {
         if self.history[self.game_ply].half_move_counter() >= 100 {
             return true;
         }
-        let lookback= min(self.history[self.game_ply].plies_from_null(), self.history[self.game_ply].half_move_counter()) as usize;
+        let lookback = min(
+            self.history[self.game_ply].plies_from_null(),
+            self.history[self.game_ply].half_move_counter(),
+        ) as usize;
 
         for i in (2..=lookback).step_by(2) {
             if self.material_hash == self.history[self.game_ply - i].material_hash() {
@@ -260,7 +265,7 @@ impl Board {
             0,
             Piece::None,
             SQ::None,
-            self.material_hash
+            self.material_hash,
         );
 
         if self.history[self.game_ply - 1].epsq() != SQ::None {
@@ -917,9 +922,9 @@ impl Board {
                     PieceType::Pawn => {
                         if self.checkers
                             == self.history[self.game_ply]
-                            .epsq()
-                            .bb()
-                            .shift(Direction::South.relative(us), 1)
+                                .epsq()
+                                .bb()
+                                .shift(Direction::South.relative(us), 1)
                         {
                             b1 = attacks::pawn_attacks_sq(self.history[self.game_ply].epsq(), them)
                                 & self.bitboard_of(us, PieceType::Pawn)
@@ -935,7 +940,8 @@ impl Board {
                         b1 = self.attackers_from(checker_square, all, us) & not_pinned;
                         for sq in b1 {
                             if self.piece_type_at(sq) == PieceType::Pawn
-                                && sq.rank().relative(us) == Rank::Rank7 {
+                                && sq.rank().relative(us) == Rank::Rank7
+                            {
                                 moves.push(Move::new(sq, checker_square, MoveFlags::PcQueen));
                             } else {
                                 moves.push(Move::new(sq, checker_square, MoveFlags::Capture));
@@ -947,7 +953,8 @@ impl Board {
                         b1 = self.attackers_from(checker_square, all, us) & not_pinned;
                         for sq in b1 {
                             if self.piece_type_at(sq) == PieceType::Pawn
-                                && sq.rank().relative(us) == Rank::Rank7 {
+                                && sq.rank().relative(us) == Rank::Rank7
+                            {
                                 moves.push(Move::new(sq, checker_square, MoveFlags::PcQueen));
                             } else {
                                 moves.push(Move::new(sq, checker_square, MoveFlags::Capture));
@@ -973,9 +980,9 @@ impl Board {
                             our_king,
                             all ^ sq.bb()
                                 ^ self.history[self.game_ply]
-                                .epsq()
-                                .bb()
-                                .shift(Direction::South.relative(us), 1),
+                                    .epsq()
+                                    .bb()
+                                    .shift(Direction::South.relative(us), 1),
                             our_king.rank().bb(),
                         );
 
@@ -1192,12 +1199,11 @@ impl Board {
         let from_sq = SQ::from(&move_str[..2]);
         let to_sq = SQ::from(&move_str[2..4]);
 
-        let mut promo: Option<PieceType>;
+        let promo: Option<PieceType>;
 
         if move_str.len() > 4 {
             promo = Some(Piece::from(move_str.chars().nth(4).unwrap()).type_of());
-        }
-        else {
+        } else {
             promo = None;
         }
 
@@ -1221,8 +1227,7 @@ impl Board {
                 }
                 _ => {}
             }
-        }
-        else {
+        } else {
             match promo {
                 Some(PieceType::Queen) => {
                     m = Move::new(from_sq, to_sq, MoveFlags::PrQueen);
@@ -1237,19 +1242,25 @@ impl Board {
                     m = Move::new(from_sq, to_sq, MoveFlags::PrRook);
                 }
                 None => {
-                    if self.piece_type_at(from_sq) == PieceType::Pawn && to_sq == self.history[self.game_ply].epsq() {
+                    if self.piece_type_at(from_sq) == PieceType::Pawn
+                        && to_sq == self.history[self.game_ply].epsq()
+                    {
                         m = Move::new(from_sq, to_sq, MoveFlags::EnPassant);
-                    }
-                    else if self.piece_type_at(from_sq) == PieceType::Pawn && from_sq as u8 - to_sq as u8 == 16 {
-                            m = Move::new(from_sq, to_sq, MoveFlags::DoublePush);
-                    }
-                    else if self.piece_type_at(from_sq) == PieceType::King && from_sq.file() == File::FileE && to_sq.file() == File::FileG {
+                    } else if self.piece_type_at(from_sq) == PieceType::Pawn
+                        && from_sq as u8 - to_sq as u8 == 16
+                    {
+                        m = Move::new(from_sq, to_sq, MoveFlags::DoublePush);
+                    } else if self.piece_type_at(from_sq) == PieceType::King
+                        && from_sq.file() == File::FileE
+                        && to_sq.file() == File::FileG
+                    {
                         m = Move::new(from_sq, to_sq, MoveFlags::OO);
-                    }
-                    else if self.piece_type_at(from_sq) == PieceType::King && from_sq.file() == File::FileE && to_sq.file() == File::FileC {
+                    } else if self.piece_type_at(from_sq) == PieceType::King
+                        && from_sq.file() == File::FileE
+                        && to_sq.file() == File::FileC
+                    {
                         m = Move::new(from_sq, to_sq, MoveFlags::OOO);
-                    }
-                    else {
+                    } else {
                         m = Move::new(from_sq, to_sq, MoveFlags::Quiet);
                     }
                 }
@@ -1300,7 +1311,6 @@ impl Board {
     }
 }
 
-
 impl From<&str> for Board {
     fn from(fen: &str) -> Self {
         let mut board = Self::new();
@@ -1309,17 +1319,12 @@ impl From<&str> for Board {
     }
 }
 
-
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::with_capacity(N_SQUARES * 2 + 8);
         for sq in SQ_DISPLAY_ORDER {
             let op = self.piece_at(SQ::from(sq));
-            let char = if op != Piece::None {
-                op.uci()
-            } else {
-                '-'
-            };
+            let char = if op != Piece::None { op.uci() } else { '-' };
             s.push(char);
             s.push(' ');
             if sq % 8 == 7 {

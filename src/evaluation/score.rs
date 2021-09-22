@@ -1,6 +1,6 @@
-use std::ops::*;
-use std::fmt;
 use crate::types::piece::{PieceType, N_PIECE_TYPES};
+use std::fmt;
+use std::ops::*;
 
 pub type Value = i32;
 pub type Phase = i32;
@@ -15,7 +15,6 @@ macro_rules! S {
 }
 
 impl Score {
-
     #[inline(always)]
     pub const fn new(mg: i32, eg: i32) -> Self {
         Score((mg << 16) + eg)
@@ -33,7 +32,7 @@ impl Score {
 
     #[inline(always)]
     pub fn eval(&self, phase: Phase) -> Value {
-        (self.mg()*(Self::TOTAL_PHASE - phase) + self.eg()*phase)/Self::TOTAL_PHASE
+        (self.mg() * (Self::TOTAL_PHASE - phase) + self.eg() * phase) / Self::TOTAL_PHASE
     }
 
     #[inline(always)]
@@ -43,7 +42,7 @@ impl Score {
 
     #[inline(always)]
     pub fn is_checkmate(value: Value) -> bool {
-        2*value.abs() >= Score::INF
+        2 * value.abs() >= Score::INF
     }
 
     pub fn scores(&self) -> (Value, Value) {
@@ -118,7 +117,7 @@ impl MulAssign<Value> for Score {
 
 impl fmt::Display for Score {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Score(mg: {} eg: {})",self.mg(), self.eg())
+        write!(f, "Score(mg: {} eg: {})", self.mg(), self.eg())
     }
 }
 

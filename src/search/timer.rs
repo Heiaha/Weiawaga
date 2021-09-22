@@ -1,14 +1,13 @@
-use std::time::{Instant, Duration};
+use crate::evaluation::score::Value;
+use crate::search::search::Depth;
 use crate::types::board::Board;
 use crate::types::color::Color;
-use std::cmp::{min, max};
-use crate::search::search::Depth;
+use std::cmp::min;
 use std::sync;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use crate::evaluation::score::Value;
+use std::time::Instant;
 
-const OVERHEAD: f64 = 100_f64;
 pub type Time = u64;
 
 // Some ideas taken from asymptote
@@ -38,7 +37,7 @@ pub struct Timer {
 }
 
 impl Timer {
-    pub fn new(board: &Board, control: TimeControl, stop: Arc<AtomicBool>) ->  Timer {
+    pub fn new(board: &Board, control: TimeControl, stop: Arc<AtomicBool>) -> Timer {
         let mut tm = Timer {
             start_time: Instant::now(),
             stop: stop,
@@ -58,11 +57,21 @@ impl Timer {
             winc,
             binc,
             moves_to_go,
-        } = self.control {
-            let time = if board.color_to_play() == Color::White { wtime } else { btime } as f64;
-            let inc = if board.color_to_play() == Color::White { winc } else { binc }.unwrap_or(0) as f64;
+        } = self.control
+        {
+            let time = if board.color_to_play() == Color::White {
+                wtime
+            } else {
+                btime
+            } as f64;
+            let inc = if board.color_to_play() == Color::White {
+                winc
+            } else {
+                binc
+            }
+            .unwrap_or(0) as f64;
 
-            let target = time.min(time/moves_to_go.unwrap_or(40) as f64 + inc);
+            let target = time.min(time / moves_to_go.unwrap_or(40) as f64 + inc);
             self.time_target = target as Time;
             self.time_maximum = (target + (time - target) / 4.0) as Time;
         }
@@ -71,12 +80,10 @@ impl Timer {
     pub fn start_check(&self, depth: Depth) -> bool {
         let start = match self.control {
             TimeControl::Infinite => true,
-            TimeControl::FixedMillis(millis) => {
-                self.elapsed() <= millis
-            }
+            TimeControl::FixedMillis(millis) => self.elapsed() <= millis,
             TimeControl::FixedDepth(stop_depth) => depth <= stop_depth,
             TimeControl::FixedNodes(_) => true,
-            TimeControl::Variable {..} => {
+            TimeControl::Variable { .. } => {
                 return self.elapsed() <= self.time_target / 2;
             }
         };
@@ -90,12 +97,8 @@ impl Timer {
         }
         let stop = match self.control {
             TimeControl::Infinite => false,
-            TimeControl::FixedMillis(millis) => {
-                self.elapsed() > millis
-            }
-            TimeControl::Variable {..} => {
-                self.elapsed() >= self.time_maximum
-            }
+            TimeControl::FixedMillis(millis) => self.elapsed() > millis,
+            TimeControl::Variable { .. } => self.elapsed() >= self.time_maximum,
             TimeControl::FixedDepth(_) => false,
             TimeControl::FixedNodes(nodes) => self.times_checked >= nodes,
         };
@@ -113,9 +116,9 @@ impl Timer {
         }
 
         if diff > -75 {
-            self.time_target = min(self.time_maximum, self.time_target*5/4);
+            self.time_target = min(self.time_maximum, self.time_target * 5 / 4);
         }
-        self.time_target = min(self.time_maximum, self.time_target*3/2);
+        self.time_target = min(self.time_maximum, self.time_target * 3 / 2);
     }
 }
 
@@ -133,29 +136,21 @@ impl From<&str> for TimeControl {
         while let Some(s) = split.next() {
             if s == "movetime" {
                 result = TimeControl::FixedMillis(split.next().unwrap().parse().unwrap());
-            }
-            else if s == "infinite" {
+            } else if s == "infinite" {
                 result = TimeControl::Infinite;
-            }
-            else if s == "nodes" {
+            } else if s == "nodes" {
                 result = TimeControl::FixedNodes(split.next().unwrap().parse().unwrap());
-            }
-            else if s == "depth" {
+            } else if s == "depth" {
                 result = TimeControl::FixedDepth(split.next().unwrap().parse().unwrap());
-            }
-            else if s == "wtime" {
+            } else if s == "wtime" {
                 wtime = split.next().unwrap().parse().ok();
-            }
-            else if s == "btime" {
+            } else if s == "btime" {
                 btime = split.next().unwrap().parse().ok();
-            }
-            else if s == "winc" {
+            } else if s == "winc" {
                 winc = split.next().unwrap().parse().ok();
-            }
-            else if s == "binc" {
+            } else if s == "binc" {
                 binc = split.next().unwrap().parse().ok();
-            }
-            else if s == "movestogo" {
+            } else if s == "movestogo" {
                 moves_to_go = split.next().unwrap().parse().ok();
             }
         }
@@ -165,7 +160,7 @@ impl From<&str> for TimeControl {
                 btime: btime.unwrap(),
                 winc,
                 binc,
-                moves_to_go
+                moves_to_go,
             };
         }
         result

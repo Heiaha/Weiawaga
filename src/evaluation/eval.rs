@@ -1,13 +1,12 @@
+use crate::evaluation::e_constants;
+use crate::evaluation::score::{Score, Value};
+use crate::types::attacks;
+use crate::types::bitboard::BitBoard;
 use crate::types::board::Board;
 use crate::types::color::Color;
-use crate::types::bitboard::BitBoard;
-use crate::types::piece::PieceType;
-use crate::evaluation::e_constants;
-use crate::evaluation::score::{Value, Score};
-use crate::types::square::{SQ, Direction};
-use crate::types::attacks;
-use crate::types::file::File::FileE;
 use crate::types::file::File;
+use crate::types::piece::PieceType;
+use crate::types::square::{Direction, SQ};
 
 ////////////////////////////////////////////////////////////////
 // PAWN
@@ -32,14 +31,16 @@ fn n_doubled_pawns(board: &Board, color: Color) -> Value {
 
 fn n_isolated_pawns(board: &Board, color: Color) -> Value {
     let pawns_bb = board.bitboard_of(color, PieceType::Pawn);
-    ((pawns_bb & !pawns_bb.shift(Direction::East, 1).file_fill()) & (pawns_bb & !pawns_bb.shift(Direction::West, 1).file_fill())).pop_count()
+    ((pawns_bb & !pawns_bb.shift(Direction::East, 1).file_fill())
+        & (pawns_bb & !pawns_bb.shift(Direction::West, 1).file_fill()))
+    .pop_count()
 }
 
 pub fn pawn_score(board: &Board, color: Color) -> Score {
     let mut score = Score::ZERO;
-    score += e_constants::PAWN_SCORES[e_constants::IX_PASSED_PAWN_VALUE]*n_passed_pawns(board, color);
-    score += e_constants::PAWN_SCORES[e_constants::IX_DOUBLED_PAWN_PENALTY]*n_doubled_pawns(board, color);
-    score += e_constants::PAWN_SCORES[e_constants::IX_ISOLATED_PAWN_PENALTY]*n_isolated_pawns(board, color);
+    score += e_constants::PAWN_SCORES[e_constants::IX_PASSED_PAWN_VALUE] * n_passed_pawns(board, color);
+    score += e_constants::PAWN_SCORES[e_constants::IX_DOUBLED_PAWN_PENALTY] * n_doubled_pawns(board, color);
+    score += e_constants::PAWN_SCORES[e_constants::IX_ISOLATED_PAWN_PENALTY] * n_isolated_pawns(board, color);
     score
 }
 
@@ -48,13 +49,18 @@ pub fn pawn_score(board: &Board, color: Color) -> Score {
 ////////////////////////////////////////////////////////////////
 
 fn has_bishop_pair(bishop_bb: BitBoard) -> bool {
-    (bishop_bb & BitBoard::LIGHT_SQUARES) != BitBoard::ZERO && (bishop_bb & BitBoard::DARK_SQUARES) != BitBoard::ZERO
+    (bishop_bb & BitBoard::LIGHT_SQUARES) != BitBoard::ZERO
+        && (bishop_bb & BitBoard::DARK_SQUARES) != BitBoard::ZERO
 }
 
 fn pawns_on_same_color_square(board: &Board, sq: SQ, color: Color) -> Value {
-    (board.bitboard_of(color, PieceType::Pawn) &
-        if sq.bb() & BitBoard::DARK_SQUARES != BitBoard::ZERO { BitBoard::DARK_SQUARES }
-        else { BitBoard::LIGHT_SQUARES }).pop_count()
+    (board.bitboard_of(color, PieceType::Pawn)
+        & if sq.bb() & BitBoard::DARK_SQUARES != BitBoard::ZERO {
+            BitBoard::DARK_SQUARES
+        } else {
+            BitBoard::LIGHT_SQUARES
+        })
+    .pop_count()
 }
 
 fn bishop_score(board: &Board, color: Color, all_pieces: BitBoard) -> Score {
@@ -71,7 +77,8 @@ fn bishop_score(board: &Board, color: Color, all_pieces: BitBoard) -> Score {
         if (attacks & BitBoard::CENTER).pop_count() == 2 {
             score += e_constants::BISHOP_SCORES[e_constants::IX_BISHOP_ATTACKS_CENTER];
         }
-        score += e_constants::BISHOP_SCORES[e_constants::IX_BISHOP_SAME_COLOR_PAWN_PENALTY]*pawns_on_same_color_square(board, sq, color);
+        score += e_constants::BISHOP_SCORES[e_constants::IX_BISHOP_SAME_COLOR_PAWN_PENALTY]
+            * pawns_on_same_color_square(board, sq, color);
     }
     score
 }
@@ -96,8 +103,7 @@ fn rook_score(board: &Board, color: Color, all_pieces: BitBoard) -> Score {
         if our_pawns & rook_file_bb == BitBoard::ZERO {
             if their_pawns & rook_file_bb == BitBoard::ZERO {
                 score += e_constants::ROOK_SCORES[e_constants::IX_ROOK_ON_OPEN_FILE];
-            }
-            else {
+            } else {
                 score += e_constants::ROOK_SCORES[e_constants::IX_ROOK_ON_SEMIOPEN_FILE];
             }
         }
@@ -120,13 +126,12 @@ fn rook_score(board: &Board, color: Color, all_pieces: BitBoard) -> Score {
 fn pawns_shielding_king(board: &Board, color: Color) -> Value {
     let king_sq = board.bitboard_of(color, PieceType::King).lsb();
     let pawns = board.bitboard_of(color, PieceType::Pawn);
-    unsafe {
-        (e_constants::PAWN_SHIELD_MASKS[color.index()][king_sq.index()] & pawns).pop_count()
-    }
+    unsafe { (e_constants::PAWN_SHIELD_MASKS[color.index()][king_sq.index()] & pawns).pop_count() }
 }
 
 fn king_score(board: &Board, color: Color) -> Score {
-    e_constants::KING_SCORES[e_constants::IX_KING_PAWN_SHIELD_BONUS]*pawns_shielding_king(board, color)
+    e_constants::KING_SCORES[e_constants::IX_KING_PAWN_SHIELD_BONUS]
+        * pawns_shielding_king(board, color)
 }
 
 pub fn eval(board: &Board) -> Value {
@@ -136,7 +141,11 @@ pub fn eval(board: &Board) -> Value {
 
     let mut score = Score::ZERO;
     score += board.p_sq_score() + board.material_score();
-    score += if board.color_to_play() == Color::White { e_constants::TEMPO[0] } else { -e_constants::TEMPO[0] };
+    score += if board.color_to_play() == Color::White {
+        e_constants::TEMPO[0]
+    } else {
+        -e_constants::TEMPO[0]
+    };
 
     score += pawn_score(board, Color::White);
     score -= pawn_score(board, Color::Black);
@@ -152,8 +161,7 @@ pub fn eval(board: &Board) -> Value {
 
     if board.color_to_play() == Color::White {
         score.eval(board.phase())
-    }
-    else {
+    } else {
         -score.eval(board.phase())
     }
 }

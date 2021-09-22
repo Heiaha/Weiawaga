@@ -1,8 +1,6 @@
+use crate::types::bitboard::BitBoard;
 use std::mem::transmute;
 use std::ops::*;
-
-use crate::types::bitboard::BitBoard;
-use crate::types::color::Color;
 
 pub static FILE_BB: [BitBoard; 8] = [
     BitBoard(0x0101_0101_0101_0101),
@@ -39,7 +37,6 @@ impl File {
     pub fn to_char(&self) -> char {
         FILE_DISPLAYS[*self as usize]
     }
-
 }
 
 impl From<u8> for File {

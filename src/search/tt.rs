@@ -1,9 +1,8 @@
+use crate::evaluation::score::Value;
+use crate::search::search::Depth;
+use crate::types::bitboard::BitBoard;
 use crate::types::bitboard::Key;
 use crate::types::moov::{Move, MoveInt};
-use crate::search::search::Depth;
-use crate::evaluation::score::Value;
-use crate::BitBoard;
-use std::collections::HashMap;
 use std::mem::size_of;
 
 pub struct TT {
@@ -27,30 +26,33 @@ pub struct TTEntry {
     flag: TTFlag,
 }
 
-
 impl TT {
     pub fn new(mb_size: u64) -> Self {
         let count = mb_size * 1024 * 1024 / std::mem::size_of::<TTEntry>() as u64;
-        let new_ttentry_count = count.next_power_of_two()/2;
+        let new_ttentry_count = count.next_power_of_two() / 2;
         let bitmask = B!(new_ttentry_count - 1);
         let table = vec![TTEntry::default(); new_ttentry_count as usize];
-        TT {
-            table,
-            bitmask,
-        }
+        TT { table, bitmask }
     }
 
-    pub fn insert(&mut self, hash: Key, depth: Depth, value: Value, best_move: Option<Move>, flag: TTFlag) {
-        unsafe {
-            self.table[(hash & self.bitmask).0 as usize] =
-                              TTEntry {
-                                key: hash,
-                                best_move: match best_move { Some(best_move) => { Some(best_move.moove()) }, None => None },
-                                depth,
-                                value,
-                                flag,
-            };
-        }
+    pub fn insert(
+        &mut self,
+        hash: Key,
+        depth: Depth,
+        value: Value,
+        best_move: Option<Move>,
+        flag: TTFlag,
+    ) {
+        self.table[(hash & self.bitmask).0 as usize] = TTEntry {
+            key: hash,
+            best_move: match best_move {
+                Some(best_move) => Some(best_move.moove()),
+                None => None,
+            },
+            depth,
+            value,
+            flag,
+        };
     }
 
     pub fn probe(&self, hash: Key) -> Option<&TTEntry> {
@@ -70,7 +72,7 @@ impl TT {
                 count += 1;
             }
         }
-        count as f64/self.table.len() as f64
+        count as f64 / self.table.len() as f64
     }
 
     pub fn clear(&mut self) {
@@ -87,19 +89,13 @@ impl TT {
     }
 }
 
-
 impl TTEntry {
-
     #[inline(always)]
     pub fn best_move(&self) -> Option<Move> {
         return match self.best_move {
-            Some(best_move) => {
-                Some(Move::from(best_move))
-            }
-            None => {
-                None
-            }
-        }
+            Some(best_move) => Some(Move::from(best_move)),
+            None => None,
+        };
     }
 
     #[inline(always)]
@@ -125,7 +121,7 @@ impl Default for TTEntry {
             best_move: None,
             depth: 0,
             value: 0,
-            flag: TTFlag::EXACT
+            flag: TTFlag::EXACT,
         }
     }
 }

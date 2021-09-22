@@ -6,8 +6,6 @@ use crate::types::move_list::MoveList;
 use crate::types::bitboard::BitBoard;
 use crate::search::move_scorer::MoveScorer;
 use crate::evaluation::eval::eval;
-use crate::types::piece::PieceType;
-use crate::types::color::Color;
 use std::cmp::{min, max};
 use crate::search::tt::{TT, TTFlag};
 use crate::search::statistics::Statistics;
@@ -75,7 +73,7 @@ impl<'a> Search<'a> {
         (final_move, final_score)
     }
 
-    pub fn negamax_root(&mut self, board: &mut Board, mut depth: Depth, mut alpha: Value, mut beta: Value) -> (Move, Value) {
+    pub fn negamax_root(&mut self, board: &mut Board, mut depth: Depth, mut alpha: Value, beta: Value) -> (Move, Value) {
         let mut moves = MoveList::new();
         board.generate_legal_moves(&mut moves);
 
@@ -274,7 +272,7 @@ impl<'a> Search<'a> {
             hash_move = tt_entry.best_move();
         }
 
-        let mut value= 0;
+        let mut value;
 
         let mut moves = MoveList::new();
         board.generate_legal_q_moves(&mut moves);

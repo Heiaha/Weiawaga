@@ -1,7 +1,6 @@
 use super::square::SQ;
-use std::mem::transmute;
-use std::fmt;
 use crate::search::move_scorer::SortScore;
+use std::mem::transmute;
 
 pub type MoveInt = u16;
 
@@ -138,7 +137,5 @@ impl PartialEq for Move {
 }
 
 impl Move {
-    pub const FLAG_PROMOTION: u8 = 0b1000;
-    pub const FLAG_NULL: u8 = 0b1001;
-    pub const NULL: Move = Move{ m: 4160, score: 0 };
+    pub const NULL: Move = Move { m: 4160, score: 0 };
 }

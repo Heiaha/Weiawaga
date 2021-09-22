@@ -3,8 +3,8 @@ use super::moov::Move;
 use super::square::SQ;
 use crate::types::moov::MoveFlags;
 use std::ops::{Index, IndexMut};
-use std::slice::IterMut;
 
+// target pointer logic from pleco
 #[cfg(target_pointer_width = "128")]
 pub const MAX_MOVES: usize = 248;
 #[cfg(target_pointer_width = "64")]

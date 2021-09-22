@@ -101,5 +101,4 @@ impl UndoInfo {
     pub fn set_half_move_counter(&mut self, half_move_counter: u16) {
         self.half_move_counter = half_move_counter;
     }
-
 }

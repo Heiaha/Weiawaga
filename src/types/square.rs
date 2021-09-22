@@ -1,13 +1,11 @@
 use super::bitboard::BitBoard;
+use super::color::Color;
 use super::diagonal::{AntiDiagonal, Diagonal};
 use super::file::File;
 use super::rank::Rank;
-use super::color::Color;
-
 use std::iter::Step;
 use std::mem::transmute;
 use std::ops::*;
-use crate::types::rank::RANK_BB;
 
 pub const N_SQUARES: usize = 64;
 
@@ -79,7 +77,6 @@ pub enum Direction {
 }
 
 impl SQ {
-
     pub fn encode(rank: Rank, file: File) -> Self {
         Self::from(((rank as u8) << 3) + (file as u8))
     }
@@ -125,11 +122,11 @@ impl SQ {
             !Rank::Rank1.bb() << 8 * self.rank().relative(color) as u32
         } else {
             !Rank::Rank8.bb() >> 8 * self.rank().relative(color) as u32
-        }
+        };
     }
 
     pub fn forward_files_bb(self, color: Color) -> BitBoard {
-        return self.file().bb() & self.forward_ranks_bb(color)
+        return self.file().bb() & self.forward_ranks_bb(color);
     }
 
     pub fn get_ray(self, dir: Direction) -> BitBoard {
@@ -156,7 +153,7 @@ impl SQ {
                 BitBoard(0x0040201008040201).shift(Direction::West, 7 - self.file() as u32)
                     >> ((7 - self.rank() as u32) * 8)
             }
-            _ => { BitBoard::ZERO }
+            _ => BitBoard::ZERO,
         };
     }
 }
@@ -182,7 +179,6 @@ impl From<u8> for SQ {
 }
 
 impl From<&str> for SQ {
-
     fn from(name: &str) -> Self {
         for (i, &sq_name) in SQ_DISPLAY.iter().enumerate() {
             if name == sq_name {
@@ -191,7 +187,6 @@ impl From<&str> for SQ {
         }
         SQ::None
     }
-
 }
 
 impl From<i8> for Direction {
