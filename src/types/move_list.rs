@@ -1,8 +1,9 @@
-use super::moov::Move;
 use super::bitboard::BitBoard;
+use super::moov::Move;
 use super::square::SQ;
 use crate::types::moov::MoveFlags;
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
+use std::slice::IterMut;
 
 #[cfg(target_pointer_width = "128")]
 pub const MAX_MOVES: usize = 248;
@@ -10,10 +11,7 @@ pub const MAX_MOVES: usize = 248;
 pub const MAX_MOVES: usize = 252;
 #[cfg(target_pointer_width = "32")]
 pub const MAX_MOVES: usize = 254;
-#[cfg(any(
-target_pointer_width = "16",
-target_pointer_width = "8",
-))]
+#[cfg(any(target_pointer_width = "16", target_pointer_width = "8",))]
 pub const MAX_MOVES: usize = 255;
 
 #[derive(Debug)]
@@ -25,10 +23,10 @@ pub struct MoveList {
 
 impl MoveList {
     pub fn new() -> Self {
-        MoveList{
+        MoveList {
             list: [Move::empty(); MAX_MOVES],
             idx: 0,
-            len: 0
+            len: 0,
         }
     }
 
@@ -41,6 +39,7 @@ impl MoveList {
             println!("{}", m.to_string());
         }
     }
+
     #[inline(always)]
     pub fn push(&mut self, m: Move) {
         self.list[self.len] = m;
@@ -99,14 +98,33 @@ impl MoveList {
             self.len += 1;
         }
     }
+
+    pub fn next_best(&mut self) -> Option<Move> {
+        if self.idx == self.len {
+            return None;
+        }
+
+        let mut max = u16::MIN;
+        let mut max_index = self.idx;
+
+        for i in self.idx..self.len() {
+            if self.list[i].score() > max {
+                max = self.list[i].score();
+                max_index = i;
+            }
+        }
+        self.list.swap(self.idx, max_index);
+        self.idx += 1;
+        Some(self.list[self.idx - 1])
+    }
 }
 
 impl Iterator for MoveList {
     type Item = Move;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.idx >= self.len {
-            return None
+        if self.idx == self.len {
+            return None;
         }
         self.idx += 1;
         Some(self.list[self.idx - 1])
@@ -121,3 +139,8 @@ impl Index<usize> for MoveList {
     }
 }
 
+impl IndexMut<usize> for MoveList {
+    fn index_mut(&mut self, i: usize) -> &mut Self::Output {
+        &mut self.list[i]
+    }
+}

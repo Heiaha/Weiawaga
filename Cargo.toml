@@ -1,7 +1,6 @@
 [package]
 name = "Weiawaga"
 version = "0.1.0"
-authors = ["Heiaha"]
 edition = "2018"
 readme = "README.md"
 

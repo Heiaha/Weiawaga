@@ -7,21 +7,21 @@ use std::cmp::min;
 use crate::search::search::{Depth, Ply};
 use crate::types::color::N_COLORS;
 
-type SortScore = u16;
+pub type SortScore = u16;
 
 static mut MVV_LVA_SCORES: [[SortScore; 6]; 6] = [[0; 6]; 6];
-const N_KILLER: usize = 3;
+const N_KILLER: usize = 1;
 
-pub struct MoveSorter {
+pub struct MoveScorer {
     killer_moves: [[[Move; N_KILLER]; 1000]; N_COLORS],
     history_scores: [[SortScore; N_SQUARES]; N_SQUARES],
 }
 
-impl MoveSorter {
+impl MoveScorer {
 
-    pub fn new() -> MoveSorter {
-        MoveSorter {
-            killer_moves: [[[Move::null(); N_KILLER]; 1000]; N_COLORS],
+    pub fn new() -> MoveScorer {
+        MoveScorer {
+            killer_moves: [[[Move::NULL; N_KILLER]; 1000]; N_COLORS],
             history_scores: [[0; N_SQUARES]; N_SQUARES],
         }
     }
@@ -45,6 +45,7 @@ impl MoveSorter {
             if self.is_killer(board, m, ply) {
                 m.add_to_score(Self::KILLER_MOVE_SCORE);
             }
+
             match m.flags() {
                 MoveFlags::PcBishop | MoveFlags::PcKnight | MoveFlags::PcRook | MoveFlags::PcQueen => {
                     m.add_to_score(Self::PROMOTION_SCORE);
@@ -59,7 +60,7 @@ impl MoveSorter {
                     m.add_to_score(Self::mvv_lva_score(board, m));
                 }
                 _ => {
-                    m.add_to_score(min(self.history_score(m), Self::KILLER_MOVE_SCORE));
+                    m.add_to_score(min(Self::KILLER_MOVE_SCORE, self.history_score(m)))
                 }
             }
         }
@@ -78,6 +79,7 @@ impl MoveSorter {
         let from = m.from_sq().index();
         let to = m.to_sq().index();
         self.history_scores[from][to] += depth*depth;
+
         if self.history_scores[from][to] > u16::MAX/2 {
             for sq1 in SQ::A1..=SQ::H8 {
                 for sq2 in SQ::A1..=SQ::H8 {
@@ -110,7 +112,7 @@ impl MoveSorter {
     }
 }
 
-impl MoveSorter {
+impl MoveScorer {
     const HASH_MOVE_SCORE: SortScore = 10000;
     const PROMOTION_SCORE: SortScore = 5000;
     const CAPTURE_SCORE: SortScore = 200;

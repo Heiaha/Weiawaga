@@ -1,13 +1,17 @@
 use super::square::SQ;
 use std::mem::transmute;
+use std::fmt;
+use crate::search::move_scorer::SortScore;
 
+pub type MoveInt = u16;
 
-#[derive(Copy, Clone, Default, PartialEq, Eq, Debug)]
-pub struct Moove {
-    m: u16,
-    score: u16
+#[derive(Copy, Clone, Default, Debug)]
+pub struct Move {
+    m: MoveInt,
+    score: SortScore,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum MoveFlags {
     Quiet = 0b0000,
     DoublePush = 0b0001,
@@ -25,43 +29,47 @@ pub enum MoveFlags {
     PcQueen = 0b1111,
 }
 
-impl Moove {
-    pub const FLAG_PROMOTION: u8 = 0b1000;
-    pub const FLAG_NULL: u8 = 0b1001;
-
+impl Move {
     #[inline(always)]
     pub fn new(from_sq: SQ, to_square: SQ, flags: MoveFlags) -> Self {
-        Moove {
+        Move {
             m: ((flags as u16) << 12) | ((from_sq as u16) << 6) | (to_square as u16),
-              score: 0
+            score: 0,
         }
     }
 
     #[inline(always)]
     pub fn empty() -> Self {
-        Moove {
-            m: 0,
-            score: 0
-        }
+        Move { m: 0, score: 0 }
     }
 
     #[inline(always)]
-    pub fn to_sq(self) -> SQ {
+    pub fn null() -> Self {
+        Move::new(SQ::None, SQ::None, MoveFlags::Quiet)
+    }
+
+    #[inline(always)]
+    pub fn to_sq(&self) -> SQ {
         SQ::from((self.m & 0x3f) as u8)
     }
 
     #[inline(always)]
-    pub fn from_sq(self) -> SQ {
+    pub fn from_sq(&self) -> SQ {
         SQ::from(((self.m >> 6) & 0x3f) as u8)
     }
 
     #[inline(always)]
-    pub fn flags(self) -> MoveFlags {
+    pub fn flags(&self) -> MoveFlags {
         MoveFlags::from(((self.m >> 12) & 0xf) as u8)
     }
 
     #[inline(always)]
-    pub fn moove(self) -> u16 {
+    pub fn score(&self) -> SortScore {
+        self.score
+    }
+
+    #[inline(always)]
+    pub fn moove(&self) -> MoveInt {
         self.m
     }
 
@@ -71,38 +79,66 @@ impl Moove {
     }
 
     #[inline(always)]
-    pub fn set_score(&mut self, score: u16) {
+    pub fn set_score(&mut self, score: SortScore) {
         self.score = score;
     }
 
+    #[inline(always)]
+    pub fn add_to_score(&mut self, score: SortScore) {
+        self.score += score;
+    }
 }
 
-impl From<u16> for Moove {
-
+impl From<MoveInt> for Move {
     #[inline(always)]
-    fn from(m: u16) -> Self {
-        Moove {
-            m,
-            score: 0
-        }
+    fn from(m: MoveInt) -> Self {
+        Move { m, score: 0 }
     }
 }
 
 impl From<u8> for MoveFlags {
-
     #[inline(always)]
     fn from(n: u8) -> Self {
-        unsafe {
-            transmute::<u8, Self>(n)
-        }
+        unsafe { transmute::<u8, Self>(n) }
     }
 }
 
-impl ToString for Moove {
+impl ToString for Move {
     fn to_string(&self) -> String {
         let mut uci = "".to_owned();
         uci.push_str(&*self.from_sq().to_string());
         uci.push_str(&*self.to_sq().to_string());
+        match self.flags() {
+            MoveFlags::PrKnight | MoveFlags::PcKnight => {
+                uci.push_str("n");
+            }
+            MoveFlags::PrBishop | MoveFlags::PcBishop => {
+                uci.push_str("b");
+            }
+            MoveFlags::PrRook | MoveFlags::PcRook => {
+                uci.push_str("r");
+            }
+            MoveFlags::PrQueen | MoveFlags::PcQueen => {
+                uci.push_str("q");
+            }
+            _ => {}
+        }
         uci.to_owned()
     }
+}
+
+impl PartialEq for Move {
+    fn eq(&self, other: &Self) -> bool {
+        self.m == other.m
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        self.m != other.m
+    }
+}
+
+impl Move {
+    pub const FLAG_PROMOTION: u8 = 0b1000;
+    pub const FLAG_NULL: u8 = 0b1001;
+    pub const NULL: Move = Move{ m: 4160, score: 0 };
 }
