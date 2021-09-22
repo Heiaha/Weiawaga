@@ -4,14 +4,14 @@ use std::mem::transmute;
 use std::ops::*;
 
 pub static RANK_BB: [BitBoard; 8] = [
-    BitBoard(0x0000_0000_0000_00FF),
-    BitBoard(0x0000_0000_0000_FF00),
-    BitBoard(0x0000_0000_00FF_0000),
-    BitBoard(0x0000_0000_FF00_0000),
-    BitBoard(0x0000_00FF_0000_0000),
-    BitBoard(0x0000_FF00_0000_0000),
-    BitBoard(0x00FF_0000_0000_0000),
-    BitBoard(0xFF00_0000_0000_0000),
+    B!(0x0000_0000_0000_00FF),
+    B!(0x0000_0000_0000_FF00),
+    B!(0x0000_0000_00FF_0000),
+    B!(0x0000_0000_FF00_0000),
+    B!(0x0000_00FF_0000_0000),
+    B!(0x0000_FF00_0000_0000),
+    B!(0x00FF_0000_0000_0000),
+    B!(0xFF00_0000_0000_0000),
 ];
 
 const RANK_DISPLAYS: [char; 8] = ['1', '2', '3', '4', '5', '6', '7', '8'];

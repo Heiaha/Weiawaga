@@ -49,42 +49,42 @@ impl BitBoard {
 
         match dir {
             Direction::North => {
-                for _i in 0..n {
+                for _ in 0..n {
                     result <<= 8;
                 }
             }
             Direction::South => {
-                for _i in 0..n {
+                for _ in 0..n {
                     result >>= 8;
                 }
             }
             Direction::East => {
-                for _i in 0..n {
+                for _ in 0..n {
                     result = (result << 1) & !File::FileA.bb();
                 }
             }
             Direction::West => {
-                for _i in 0..n {
+                for _ in 0..n {
                     result = (result >> 1) & !File::FileH.bb();
                 }
             }
             Direction::NorthEast => {
-                for _i in 0..n {
+                for _ in 0..n {
                     result = (result & !File::FileH.bb()) << 9;
                 }
             }
             Direction::NorthWest => {
-                for _i in 0..n {
+                for _ in 0..n {
                     result = (result & !File::FileA.bb()) << 7;
                 }
             }
             Direction::SouthEast => {
-                for _i in 0..n {
+                for _ in 0..n {
                     result = (result & !File::FileH.bb()) >> 7;
                 }
             }
             Direction::SouthWest => {
-                for _i in 0..n {
+                for _ in 0..n {
                     result = (result & !File::FileA.bb()) >> 9;
                 }
             }
