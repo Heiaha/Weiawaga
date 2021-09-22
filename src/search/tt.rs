@@ -3,7 +3,6 @@ use crate::search::search::Depth;
 use crate::types::bitboard::BitBoard;
 use crate::types::bitboard::Key;
 use crate::types::moov::{Move, MoveInt};
-use std::mem::size_of;
 
 pub struct TT {
     table: Vec<TTEntry>,

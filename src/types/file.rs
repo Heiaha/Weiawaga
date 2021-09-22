@@ -13,7 +13,7 @@ pub static FILE_BB: [BitBoard; 8] = [
     BitBoard(0x8080_8080_8080_8080),
 ];
 
-pub static FILE_DISPLAYS: [char; 8] = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+const FILE_DISPLAYS: [char; 8] = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
 pub enum File {

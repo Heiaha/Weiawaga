@@ -1,16 +1,14 @@
+use crate::evaluation::score::Value;
+use crate::perft::perft::print_perft;
 use crate::search::search::Search;
 use crate::search::timer::{TimeControl, Timer};
+use crate::search::tt::TT;
 use crate::types::board::Board;
 use crate::types::moov::Move;
 use std::io::BufRead;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::{io, thread, sync};
-use crate::perft::perft::print_perft;
-use crate::search::tt::TT;
-use std::time::Instant;
-use crate::evaluation::score::Value;
-
+use std::{io, sync, thread};
 
 pub enum UCICommand {
     Unknown(String),
@@ -22,12 +20,10 @@ pub enum UCICommand {
     Quit,
     Stop,
     Perft(u8),
-    Option(String, String)
+    Option(String, String),
 }
 
-
 pub fn thread_loop(thread: sync::mpsc::Receiver<UCICommand>, abort: Arc<AtomicBool>) {
-
     // global board
     let mut board = Board::new();
 
@@ -60,21 +56,20 @@ pub fn thread_loop(thread: sync::mpsc::Receiver<UCICommand>, abort: Arc<AtomicBo
             UCICommand::Perft(depth) => {
                 print_perft(&mut board, depth);
             }
-            UCICommand::Option(name, value) => {
-                match name.as_ref() {
-                    "hash" => {
-                        if let Ok(mb) = value.parse::<u64>() {
-                            tt.resize(mb);
-                        }
+            UCICommand::Option(name, value) => match name.as_ref() {
+                "hash" => {
+                    if let Ok(mb) = value.parse::<u64>() {
+                        tt.resize(mb);
                     }
-                    _ => {}
                 }
+                _ => {}
+            },
+            _ => {
+                println!("Unexpected UCI Command.");
             }
-            _ => { println!("Unexpected UCI Command."); }
         }
     }
 }
-
 
 impl UCICommand {
     pub fn run() {
@@ -89,7 +84,9 @@ impl UCICommand {
         let builder = thread::Builder::new()
             .name("Main thread".into())
             .stack_size(8 * 1024 * 1024);
-        let thread = builder.spawn(move || thread_loop(main_rx, thread_moved_abort)).unwrap();
+        let thread = builder
+            .spawn(move || thread_loop(main_rx, thread_moved_abort))
+            .unwrap();
 
         for line in lock.lines() {
             let cmd = UCICommand::from(&*line.unwrap().to_owned());

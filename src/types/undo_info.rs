@@ -2,6 +2,7 @@ use super::bitboard::BitBoard;
 use super::moov::Move;
 use super::piece::Piece;
 use super::square::SQ;
+use crate::types::bitboard::Key;
 
 #[derive(Clone, Copy, Debug)]
 pub struct UndoInfo {
@@ -100,5 +101,9 @@ impl UndoInfo {
     #[inline(always)]
     pub fn set_half_move_counter(&mut self, half_move_counter: u16) {
         self.half_move_counter = half_move_counter;
+    }
+
+    pub fn set_material_hash(&mut self, material_hash: Key) {
+        self.material_hash = material_hash;
     }
 }

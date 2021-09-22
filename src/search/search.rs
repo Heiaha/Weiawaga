@@ -147,7 +147,6 @@ impl<'a> Search<'a> {
 
         if board.is_repetition_or_fifty() {
             self.stats.leafs += 1;
-            println!("draw");
             return 0;
         }
 

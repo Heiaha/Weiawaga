@@ -14,7 +14,7 @@ pub static RANK_BB: [BitBoard; 8] = [
     BitBoard(0xFF00_0000_0000_0000),
 ];
 
-pub static RANK_DISPLAYS: [char; 8] = ['1', '2', '3', '4', '5', '6', '7', '8'];
+const RANK_DISPLAYS: [char; 8] = ['1', '2', '3', '4', '5', '6', '7', '8'];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
 pub enum Rank {

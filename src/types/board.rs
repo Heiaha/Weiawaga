@@ -237,13 +237,11 @@ impl Board {
             self.history[self.game_ply].plies_from_null(),
             self.history[self.game_ply].half_move_counter(),
         ) as usize;
-
         for i in (2..=lookback).step_by(2) {
             if self.material_hash == self.history[self.game_ply - i].material_hash() {
                 return true;
             }
         }
-
         false
     }
 
@@ -265,12 +263,13 @@ impl Board {
             0,
             Piece::None,
             SQ::None,
-            self.material_hash,
+            self.history[self.game_ply - 1].material_hash(),
         );
 
         if self.history[self.game_ply - 1].epsq() != SQ::None {
             self.hash ^= zobrist::zobrist_ep(self.history[self.game_ply - 1].epsq().file());
         }
+
         self.hash ^= zobrist::zobrist_color();
         self.color_to_play = !self.color_to_play;
     }
@@ -285,7 +284,7 @@ impl Board {
     }
 
     pub fn push(&mut self, m: Move) {
-        let mut half_move_counter = self.history[self.game_ply].half_move_counter();
+        let mut half_move_counter = self.history[self.game_ply].half_move_counter() + 1;
         let mut captured = Piece::None;
         let mut epsq = SQ::None;
         self.game_ply += 1;
@@ -1159,33 +1158,6 @@ impl Board {
             Color::Black
         };
 
-        if self.color_to_play == Color::Black {
-            self.hash ^= zobrist::zobrist_color();
-        }
-        if !det_split[2].contains("K") {
-            self.history[0].set_entry(self.history[0].entry() | B!(0x0000000000000080));
-        }
-        if !det_split[2].contains("Q") {
-            self.history[0].set_entry(self.history[0].entry() | B!(0x0000000000000001));
-        }
-        if !det_split[2].contains("k") {
-            self.history[0].set_entry(self.history[0].entry() | B!(0x8000000000000000));
-        }
-        if !det_split[2].contains("q") {
-            self.history[0].set_entry(self.history[0].entry() | B!(0x0100000000000000));
-        }
-
-        let s = det_split[3].to_ascii_lowercase();
-        if s != "-" {
-            let sq = SQ::from(s.trim());
-            self.history[0].set_epsq(sq);
-            self.hash ^= zobrist::zobrist_ep(sq.file());
-        }
-
-        if det_split.len() > 4 {
-            self.history[0].set_half_move_counter(det_split[4].parse::<u16>().unwrap());
-        }
-
         if det_split.len() > 5 {
             let full_move_number = det_split[5].parse::<usize>().unwrap();
             self.game_ply = (full_move_number - 1) * 2;
@@ -1193,6 +1165,35 @@ impl Board {
                 self.game_ply += 1;
             }
         }
+
+        if self.color_to_play == Color::Black {
+            self.hash ^= zobrist::zobrist_color();
+        }
+        if !det_split[2].contains("K") {
+            self.history[self.game_ply].set_entry(self.history[0].entry() | B!(0x0000000000000080));
+        }
+        if !det_split[2].contains("Q") {
+            self.history[self.game_ply].set_entry(self.history[0].entry() | B!(0x0000000000000001));
+        }
+        if !det_split[2].contains("k") {
+            self.history[self.game_ply].set_entry(self.history[0].entry() | B!(0x8000000000000000));
+        }
+        if !det_split[2].contains("q") {
+            self.history[self.game_ply].set_entry(self.history[0].entry() | B!(0x0100000000000000));
+        }
+
+        let s = det_split[3].to_ascii_lowercase();
+        if s != "-" {
+            let sq = SQ::from(s.trim());
+            self.history[self.game_ply].set_epsq(sq);
+            self.hash ^= zobrist::zobrist_ep(sq.file());
+        }
+
+        if det_split.len() > 4 {
+            self.history[self.game_ply].set_half_move_counter(det_split[4].parse::<u16>().unwrap());
+        }
+
+        self.history[self.game_ply].set_material_hash(self.material_hash);
     }
 
     pub fn push_str(&mut self, move_str: String) {
