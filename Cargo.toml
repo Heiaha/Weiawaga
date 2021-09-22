@@ -1,0 +1,20 @@
+[package]
+name = "Weiawaga"
+version = "0.1.0"
+authors = ["Heiaha"]
+edition = "2018"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rand = "0.8.3"
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+debug-assertions = false
+codegen-units = 1
+lto = true
+panic = "abort"
