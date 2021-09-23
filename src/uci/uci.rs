@@ -57,7 +57,7 @@ pub fn thread_loop(thread: sync::mpsc::Receiver<UCICommand>, abort: Arc<AtomicBo
                 print_perft(&mut board, depth);
             }
             UCICommand::Option(name, value) => match name.as_ref() {
-                "hash" => {
+                "Hash" => {
                     if let Ok(mb) = value.parse::<u64>() {
                         tt.resize(mb);
                     }

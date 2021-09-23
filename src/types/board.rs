@@ -1244,22 +1244,14 @@ impl Board {
                 }
                 None => {
                     if self.piece_type_at(from_sq) == PieceType::Pawn
-                        && to_sq == self.history[self.game_ply].epsq()
-                    {
+                        && to_sq == self.history[self.game_ply].epsq() {
                         m = Move::new(from_sq, to_sq, MoveFlags::EnPassant);
                     } else if self.piece_type_at(from_sq) == PieceType::Pawn
-                        && from_sq as u8 - to_sq as u8 == 16
-                    {
+                        && i8::abs(from_sq as i8 - to_sq as i8) == 16 {
                         m = Move::new(from_sq, to_sq, MoveFlags::DoublePush);
-                    } else if self.piece_type_at(from_sq) == PieceType::King
-                        && from_sq.file() == File::FileE
-                        && to_sq.file() == File::FileG
-                    {
+                    } else if self.piece_type_at(from_sq) == PieceType::King && from_sq.file() == File::FileE && to_sq.file() == File::FileG {
                         m = Move::new(from_sq, to_sq, MoveFlags::OO);
-                    } else if self.piece_type_at(from_sq) == PieceType::King
-                        && from_sq.file() == File::FileE
-                        && to_sq.file() == File::FileC
-                    {
+                    } else if self.piece_type_at(from_sq) == PieceType::King && from_sq.file() == File::FileE && to_sq.file() == File::FileC {
                         m = Move::new(from_sq, to_sq, MoveFlags::OOO);
                     } else {
                         m = Move::new(from_sq, to_sq, MoveFlags::Quiet);

@@ -35,8 +35,8 @@ impl MoveList {
     }
 
     pub fn print(&self) {
-        for m in self.list {
-            println!("{}", m.to_string());
+        for i in 0..self.len {
+            println!("{}", self.list[i].to_string());
         }
     }
 
