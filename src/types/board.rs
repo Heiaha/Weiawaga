@@ -1100,6 +1100,14 @@ impl Board {
         let squares: Vec<&str> = det_split[0].split('/').collect();
         let ranks = squares.as_slice();
 
+        if det_split.len() > 5 {
+            let full_move_number = det_split[5].parse::<usize>().unwrap();
+            self.game_ply = (full_move_number - 1) * 2;
+            if self.color_to_play == Color::Black {
+                self.game_ply += 1;
+            }
+        }
+
         for (i, rank) in ranks.iter().enumerate() {
             let mut idx = (7 - i) * 8;
 
@@ -1158,28 +1166,20 @@ impl Board {
             Color::Black
         };
 
-        if det_split.len() > 5 {
-            let full_move_number = det_split[5].parse::<usize>().unwrap();
-            self.game_ply = (full_move_number - 1) * 2;
-            if self.color_to_play == Color::Black {
-                self.game_ply += 1;
-            }
-        }
-
         if self.color_to_play == Color::Black {
             self.hash ^= zobrist::zobrist_color();
         }
         if !det_split[2].contains("K") {
-            self.history[self.game_ply].set_entry(self.history[0].entry() | B!(0x0000000000000080));
+            self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() | BitBoard::WHITE_OO_MASK);
         }
         if !det_split[2].contains("Q") {
-            self.history[self.game_ply].set_entry(self.history[0].entry() | B!(0x0000000000000001));
+            self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() | BitBoard::WHITE_OOO_MASK);
         }
         if !det_split[2].contains("k") {
-            self.history[self.game_ply].set_entry(self.history[0].entry() | B!(0x8000000000000000));
+            self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() | BitBoard::BLACK_OO_MASK);
         }
         if !det_split[2].contains("q") {
-            self.history[self.game_ply].set_entry(self.history[0].entry() | B!(0x0100000000000000));
+            self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() | BitBoard::BLACK_OOO_MASK);
         }
 
         let s = det_split[3].to_ascii_lowercase();

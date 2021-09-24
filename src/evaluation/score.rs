@@ -111,6 +111,12 @@ impl MulAssign<Value> for Score {
     }
 }
 
+impl PartialEq for Score {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
 //////////////////////////////////////////////
 // Display
 //////////////////////////////////////////////
@@ -131,4 +137,29 @@ impl Score {
     pub const TOTAL_PHASE: Phase = 384;
 
     const PIECE_PHASES: [Phase; N_PIECE_TYPES] = [0, 16, 16, 32, 64, 0];
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_score_mgeg() {
+        assert_eq!(S!(1, 1).mg(), 1);
+        assert_eq!(S!(1, 1).eg(), 1);
+        assert_eq!(S!(1, -1).mg(), 1);
+        assert_eq!(S!(1, -1).eg(), -1);
+        assert_eq!(S!(-1, 1).mg(), -1);
+        assert_eq!(S!(-1, 1).eg(), 1);
+        assert_eq!(S!(-1, -1).mg(), -1);
+        assert_eq!(S!(-1, -1).eg(), -1);
+    }
+
+    #[test]
+    fn test_score_calculus() {
+        assert_eq!(S!(1, 2) + S!(3, 4), S!(4, 6));
+        assert_eq!(S!(-1, -2) + S!(3, 4), S!(2, 2));
+        assert_eq!(S!(3, 4) - S!(1, 2), S!(2, 2));
+        assert_eq!(S!(3, 0) - S!(1, 2), S!(2, -2));
+    }
 }
