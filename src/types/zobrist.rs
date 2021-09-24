@@ -30,7 +30,6 @@ pub fn zobrist_color() -> BitBoard {
     }
 }
 
-
 //////////////////////////////////////////////
 // Inits
 //////////////////////////////////////////////
@@ -56,7 +55,7 @@ fn init_zobrist_color() -> BitBoard {
     B!(rng.gen::<u64>())
 }
 
-pub fn init_zobrist(){
+pub fn init_zobrist() {
     unsafe {
         init_zobrist_table(&mut ZOBRIST_TABLE);
         init_zobrist_ep(&mut ZOBRIST_EP);

@@ -16,8 +16,7 @@ use crate::types::square::SQ_DISPLAY_ORDER;
 use std::cmp::min;
 use std::fmt;
 
-// BOARD ONLY COPIED IN UCI, NOT IN SEARCH
-#[derive(Clone, Copy)]
+
 pub struct Board {
     piece_bb: [BitBoard; N_PIECES],
     board: [Piece; N_SQUARES],
