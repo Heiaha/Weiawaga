@@ -1,4 +1,7 @@
 <h1 align="center">Weiawaga</h1>
+<p align="center">
+  <img src="https://github.com/heiaha/weiawaga/actions/workflows/rust.yml/badge.svg">
+</p>
 
 A UCI chess engine written in Rust. If you find this repository, come play me on lichess!
 
