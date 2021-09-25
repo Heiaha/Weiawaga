@@ -1,141 +1,153 @@
+use super::attacks;
 use super::bitboard::BitBoard;
 use super::file::File;
 use super::rank::Rank;
-use super::square::{SQ, N_SQUARES};
-use super::attacks;
+use super::square::{N_SQUARES, SQ};
+use crate::types::attacks::{bishop_attacks_for_init, rook_attacks_for_init};
+use std::cmp::max;
 
-const ROOK_MAGICS_INIT: [BitBoard; N_SQUARES] = [
-    B!(0x0080001020400080), B!(0x0040001000200040), B!(0x0080081000200080), B!(0x0080040800100080),
-    B!(0x0080020400080080), B!(0x0080010200040080), B!(0x0080008001000200), B!(0x0080002040800100),
-    B!(0x0000800020400080), B!(0x0000400020005000), B!(0x0000801000200080), B!(0x0000800800100080),
-    B!(0x0000800400080080), B!(0x0000800200040080), B!(0x0000800100020080), B!(0x0000800040800100),
-    B!(0x0000208000400080), B!(0x0000404000201000), B!(0x0000808010002000), B!(0x0000808008001000),
-    B!(0x0000808004000800), B!(0x0000808002000400), B!(0x0000010100020004), B!(0x0000020000408104),
-    B!(0x0000208080004000), B!(0x0000200040005000), B!(0x0000100080200080), B!(0x0000080080100080),
-    B!(0x0000040080080080), B!(0x0000020080040080), B!(0x0000010080800200), B!(0x0000800080004100),
-    B!(0x0000204000800080), B!(0x0000200040401000), B!(0x0000100080802000), B!(0x0000080080801000),
-    B!(0x0000040080800800), B!(0x0000020080800400), B!(0x0000020001010004), B!(0x0000800040800100),
-    B!(0x0000204000808000), B!(0x0000200040008080), B!(0x0000100020008080), B!(0x0000080010008080),
-    B!(0x0000040008008080), B!(0x0000020004008080), B!(0x0000010002008080), B!(0x0000004081020004),
-    B!(0x0000204000800080), B!(0x0000200040008080), B!(0x0000100020008080), B!(0x0000080010008080),
-    B!(0x0000040008008080), B!(0x0000020004008080), B!(0x0000800100020080), B!(0x0000800041000080),
-    B!(0x00FFFCDDFCED714A), B!(0x007FFCDDFCED714A), B!(0x003FFFCDFFD88096), B!(0x0000040810002101),
-    B!(0x0001000204080011), B!(0x0001000204000801), B!(0x0001000082000401), B!(0x0001FFFAABFAD1A2)
-];
+// Fancy magic bitboard implementation inspired by Rustfish's port of Stockfish
 
-const BISHOP_MAGICS_INIT: [BitBoard; N_SQUARES] = [
-    B!(0x0002020202020200), B!(0x0002020202020000), B!(0x0004010202000000), B!(0x0004040080000000),
-    B!(0x0001104000000000), B!(0x0000821040000000), B!(0x0000410410400000), B!(0x0000104104104000),
-    B!(0x0000040404040400), B!(0x0000020202020200), B!(0x0000040102020000), B!(0x0000040400800000),
-    B!(0x0000011040000000), B!(0x0000008210400000), B!(0x0000004104104000), B!(0x0000002082082000),
-    B!(0x0004000808080800), B!(0x0002000404040400), B!(0x0001000202020200), B!(0x0000800802004000),
-    B!(0x0000800400A00000), B!(0x0000200100884000), B!(0x0000400082082000), B!(0x0000200041041000),
-    B!(0x0002080010101000), B!(0x0001040008080800), B!(0x0000208004010400), B!(0x0000404004010200),
-    B!(0x0000840000802000), B!(0x0000404002011000), B!(0x0000808001041000), B!(0x0000404000820800),
-    B!(0x0001041000202000), B!(0x0000820800101000), B!(0x0000104400080800), B!(0x0000020080080080),
-    B!(0x0000404040040100), B!(0x0000808100020100), B!(0x0001010100020800), B!(0x0000808080010400),
-    B!(0x0000820820004000), B!(0x0000410410002000), B!(0x0000082088001000), B!(0x0000002011000800),
-    B!(0x0000080100400400), B!(0x0001010101000200), B!(0x0002020202000400), B!(0x0001010101000200),
-    B!(0x0000410410400000), B!(0x0000208208200000), B!(0x0000002084100000), B!(0x0000000020880000),
-    B!(0x0000001002020000), B!(0x0000040408020000), B!(0x0004040404040000), B!(0x0002020202020000),
-    B!(0x0000104104104000), B!(0x0000002082082000), B!(0x0000000020841000), B!(0x0000000000208800),
-    B!(0x0000000010020200), B!(0x0000000404080200), B!(0x0000040404040400), B!(0x0002020202020200)
-];
-
-pub static mut ROOK_MAGICS: [RookMagic; N_SQUARES] = [RookMagic::new(); N_SQUARES];
-pub static mut BISHOP_MAGICS: [BishopMagic; N_SQUARES] = [BishopMagic::new(); N_SQUARES];
-
-#[derive(Clone, Copy, Debug)]
-pub struct BishopMagic {
-    pub shift: u32,
-    pub magic: BitBoard,
-    pub attack_masks: BitBoard,
-    pub attacks: [BitBoard; 512],
+struct MagicInit {
+    magic: BitBoard,
+    index: u32,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct RookMagic {
-    pub shift: u32,
-    pub magic: BitBoard,
-    pub attack_masks: BitBoard,
-    pub attacks: [BitBoard; 4096],
-}
-
-impl BishopMagic {
-    const fn new() -> Self {
-        BishopMagic {
-            shift: 0,
-            magic: BitBoard::ZERO,
-            attack_masks: BitBoard::ZERO,
-            attacks: [BitBoard::ZERO; 512],
+macro_rules! M {
+    ($x:expr, $y:expr) => {
+        MagicInit {
+            magic: BitBoard($x),
+            index: $y,
         }
+    };
+}
+
+const BISHOP_MAGICS_INIT: [MagicInit; 64] = [
+    M!(0x007fbfbfbfbfbfff,  5378), M!(0x0000a060401007fc,  4093), M!(0x0001004008020000,  4314), M!(0x0000806004000000,  6587),
+    M!(0x0000100400000000,  6491), M!(0x000021c100b20000,  6330), M!(0x0000040041008000,  5609), M!(0x00000fb0203fff80, 22236),
+    M!(0x0000040100401004,  6106), M!(0x0000020080200802,  5625), M!(0x0000004010202000, 16785), M!(0x0000008060040000, 16817),
+    M!(0x0000004402000000,  6842), M!(0x0000000801008000,  7003), M!(0x000007efe0bfff80,  4197), M!(0x0000000820820020,  7356),
+    M!(0x0000400080808080,  4602), M!(0x00021f0100400808,  4538), M!(0x00018000c06f3fff, 29531), M!(0x0000258200801000, 45393),
+    M!(0x0000240080840000, 12420), M!(0x000018000c03fff8, 15763), M!(0x00000a5840208020,  5050), M!(0x0000020008208020,  4346),
+    M!(0x0000804000810100,  6074), M!(0x0001011900802008,  7866), M!(0x0000804000810100, 32139), M!(0x000100403c0403ff, 57673),
+    M!(0x00078402a8802000, 55365), M!(0x0000101000804400, 15818), M!(0x0000080800104100,  5562), M!(0x00004004c0082008,  6390),
+    M!(0x0001010120008020,  7930), M!(0x000080809a004010, 13329), M!(0x0007fefe08810010,  7170), M!(0x0003ff0f833fc080, 27267),
+    M!(0x007fe08019003042, 53787), M!(0x003fffefea003000,  5097), M!(0x0000101010002080,  6643), M!(0x0000802005080804,  6138),
+    M!(0x0000808080a80040,  7418), M!(0x0000104100200040,  7898), M!(0x0003ffdf7f833fc0, 42012), M!(0x0000008840450020, 57350),
+    M!(0x00007ffc80180030, 22813), M!(0x007fffdd80140028, 56693), M!(0x00020080200a0004,  5818), M!(0x0000101010100020,  7098),
+    M!(0x0007ffdfc1805000,  4451), M!(0x0003ffefe0c02200,  4709), M!(0x0000000820806000,  4794), M!(0x0000000008403000, 13364),
+    M!(0x0000000100202000,  4570), M!(0x0000004040802000,  4282), M!(0x0004010040100400, 14964), M!(0x00006020601803f4,  4026),
+    M!(0x0003ffdfdfc28048,  4826), M!(0x0000000820820020,  7354), M!(0x0000000008208060,  4848), M!(0x0000000000808020, 15946),
+    M!(0x0000000001002020, 14932), M!(0x0000000401002008, 16588), M!(0x0000004040404040,  6905), M!(0x007fff9fdf7ff813, 16076),
+];
+
+const ROOK_MAGICS_INIT: [MagicInit; 64] = [
+    M!(0x00280077ffebfffe, 26304), M!(0x2004010201097fff, 35520), M!(0x0010020010053fff, 38592), M!(0x0040040008004002,  8026),
+    M!(0x7fd00441ffffd003, 22196), M!(0x4020008887dffffe, 80870), M!(0x004000888847ffff, 76747), M!(0x006800fbff75fffd, 30400),
+    M!(0x000028010113ffff, 11115), M!(0x0020040201fcffff, 18205), M!(0x007fe80042ffffe8, 53577), M!(0x00001800217fffe8, 62724),
+    M!(0x00001800073fffe8, 34282), M!(0x00001800e05fffe8, 29196), M!(0x00001800602fffe8, 23806), M!(0x000030002fffffa0, 49481),
+    M!(0x00300018010bffff,  2410), M!(0x0003000c0085fffb, 36498), M!(0x0004000802010008, 24478), M!(0x0004002020020004, 10074),
+    M!(0x0001002002002001, 79315), M!(0x0001001000801040, 51779), M!(0x0000004040008001, 13586), M!(0x0000006800cdfff4, 19323),
+    M!(0x0040200010080010, 70612), M!(0x0000080010040010, 83652), M!(0x0004010008020008, 63110), M!(0x0000040020200200, 34496),
+    M!(0x0002008010100100, 84966), M!(0x0000008020010020, 54341), M!(0x0000008020200040, 60421), M!(0x0000820020004020, 86402),
+    M!(0x00fffd1800300030, 50245), M!(0x007fff7fbfd40020, 76622), M!(0x003fffbd00180018, 84676), M!(0x001fffde80180018, 78757),
+    M!(0x000fffe0bfe80018, 37346), M!(0x0001000080202001,   370), M!(0x0003fffbff980180, 42182), M!(0x0001fffdff9000e0, 45385),
+    M!(0x00fffefeebffd800, 61659), M!(0x007ffff7ffc01400, 12790), M!(0x003fffbfe4ffe800, 16762), M!(0x001ffff01fc03000,     0),
+    M!(0x000fffe7f8bfe800, 38380), M!(0x0007ffdfdf3ff808, 11098), M!(0x0003fff85fffa804, 21803), M!(0x0001fffd75ffa802, 39189),
+    M!(0x00ffffd7ffebffd8, 58628), M!(0x007fff75ff7fbfd8, 44116), M!(0x003fff863fbf7fd8, 78357), M!(0x001fffbfdfd7ffd8, 44481),
+    M!(0x000ffff810280028, 64134), M!(0x0007ffd7f7feffd8, 41759), M!(0x0003fffc0c480048,  1394), M!(0x0001ffffafd7ffd8, 40910),
+    M!(0x00ffffe4ffdfa3ba, 66516), M!(0x007fffef7ff3d3da,  3897), M!(0x003fffbfdfeff7fa,  3930), M!(0x001fffeff7fbfc22, 72934),
+    M!(0x0000020408001001, 72662), M!(0x0007fffeffff77fd, 56325), M!(0x0003ffffbf7dfeec, 66501), M!(0x0001ffff9dffa333, 14826),
+];
+
+pub static mut ATTACKS_TABLE: [BitBoard; 88772] = [BitBoard::ZERO; 88772];
+
+pub struct Magics {
+    masks: [BitBoard; N_SQUARES],
+    magics: [BitBoard; N_SQUARES],
+    pub attacks: [&'static [BitBoard]; N_SQUARES],
+    shift: u32,
+}
+
+impl Magics {
+
+    #[inline(always)]
+    pub fn index(&self, sq: SQ, occ: BitBoard) -> usize {
+        ((occ & self.masks[sq as usize]) * self.magics[sq as usize]
+            >> self.shift)
+            .0 as usize
     }
 }
 
-impl RookMagic {
-    const fn new() -> Self {
-        RookMagic {
-            shift: 0,
-            magic: BitBoard::ZERO,
-            attack_masks: BitBoard::ZERO,
-            attacks: [BitBoard::ZERO; 4096],
-        }
-    }
-}
+pub static mut ROOK_MAGICS: Magics = Magics {
+    masks: [BitBoard::ZERO; N_SQUARES],
+    magics: [BitBoard::ZERO; N_SQUARES],
+    attacks: [&[]; N_SQUARES],
+    shift: 64 - 12,
+};
+
+pub static mut BISHOP_MAGICS: Magics = Magics {
+    masks: [BitBoard::ZERO; N_SQUARES],
+    magics: [BitBoard::ZERO; N_SQUARES],
+    attacks: [&[]; N_SQUARES],
+    shift: 64 - 9,
+};
 
 //////////////////////////////////////////////
 // Inits
 //////////////////////////////////////////////
 
-fn initialize_rook_magics(magics: &mut [RookMagic; N_SQUARES]) {
-    let mut edges: BitBoard;
-    let mut subset: BitBoard;
-    let mut index: BitBoard;
+fn initialize_rook_magics(magics: &mut Magics) {
     for sq in SQ::A1..=SQ::H8 {
-        let sq_index = sq.index();
-        magics[sq_index].magic = ROOK_MAGICS_INIT[sq_index];
-        edges = ((Rank::Rank1.bb() | Rank::Rank8.bb()) & !sq.rank().bb())
+        let edges = ((Rank::Rank1.bb() | Rank::Rank8.bb()) & !sq.rank().bb())
             | ((File::FileA.bb() | File::FileH.bb()) & !sq.file().bb());
 
-        magics[sq_index].attack_masks = (sq.rank().bb() ^ sq.file().bb()) & !edges;
-        magics[sq_index].shift = (64 - magics[sq_index].attack_masks.pop_count()) as u32;
-        subset = BitBoard::ZERO;
+        magics.masks[sq as usize] = (sq.rank().bb() ^ sq.file().bb()) & !edges;
+        magics.magics[sq as usize] = ROOK_MAGICS_INIT[sq as usize].magic;
+
+        let base = ROOK_MAGICS_INIT[sq as usize].index as usize;
+        let mut subset = BitBoard::ZERO;
+        let mut size = 0;
         loop {
-            index = subset;
-            index *= ROOK_MAGICS_INIT[sq_index];
-            index >>= magics[sq_index].shift;
-            magics[sq_index].attacks[index.0 as usize] = attacks::rook_attacks_for_init(sq, subset);
-            subset = (subset - magics[sq_index].attack_masks) & magics[sq_index].attack_masks;
+            let index = magics.index(sq, subset);
+            size = max(size, index + 1);
+
+            unsafe { ATTACKS_TABLE[base + index] = rook_attacks_for_init(sq, subset) }
+
+            // Carry-Rippler for iterating through the subset
+            subset = (subset - magics.masks[sq as usize]) & magics.masks[sq as usize];
             if subset == BitBoard::ZERO {
                 break;
             }
         }
+        magics.attacks[sq as usize] = unsafe { &ATTACKS_TABLE[base..base + size] };
     }
 }
 
-fn initialize_bishop_magics(magics: &mut [BishopMagic; N_SQUARES]) {
-    let mut edges: BitBoard;
-    let mut subset: BitBoard;
-    let mut index: BitBoard;
+fn initialize_bishop_magics(magics: &mut Magics) {
     for sq in SQ::A1..=SQ::H8 {
-        let sq_index = sq.index();
-        magics[sq_index].magic = BISHOP_MAGICS_INIT[sq_index];
-        edges = ((Rank::Rank1.bb() | Rank::Rank8.bb()) & !sq.rank().bb())
+        let edges = ((Rank::Rank1.bb() | Rank::Rank8.bb()) & !sq.rank().bb())
             | ((File::FileA.bb() | File::FileH.bb()) & !sq.file().bb());
 
-        magics[sq_index].attack_masks = (sq.diagonal().bb() ^ sq.antidiagonal().bb()) & !edges;
-        magics[sq_index].shift = (64 - magics[sq_index].attack_masks.pop_count()) as u32;
-        subset = BitBoard::ZERO;
+        magics.masks[sq as usize] = (sq.diagonal().bb() ^ sq.antidiagonal().bb()) & !edges;
+        magics.magics[sq as usize] = BISHOP_MAGICS_INIT[sq as usize].magic;
+
+        let base = BISHOP_MAGICS_INIT[sq as usize].index as usize;
+        let mut subset = BitBoard::ZERO;
+        let mut size = 0;
         loop {
-            index = subset;
-            index *= BISHOP_MAGICS_INIT[sq_index];
-            index >>= magics[sq_index].shift;
-            magics[sq_index].attacks[index.0 as usize] = attacks::bishop_attacks_for_init(sq, subset);
-            subset = (subset - magics[sq_index].attack_masks) & magics[sq_index].attack_masks;
+            let index = magics.index(sq, subset);
+            size = max(size, index + 1);
+
+            unsafe { ATTACKS_TABLE[base + index] = bishop_attacks_for_init(sq, subset) }
+
+            // Carry-Rippler for iterating through the subset
+            subset = (subset - magics.masks[sq as usize]) & magics.masks[sq as usize];
             if subset == BitBoard::ZERO {
                 break;
             }
         }
+        magics.attacks[sq as usize] = unsafe { &ATTACKS_TABLE[base..base + size] };
     }
 }
 

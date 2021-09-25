@@ -85,23 +85,15 @@ static mut PAWN_ATTACKS: [[BitBoard; N_SQUARES]; N_COLORS] = [[BitBoard::ZERO; N
 
 #[inline(always)]
 pub fn rook_attacks(sq: SQ, occ: BitBoard) -> BitBoard {
-    let sq_index = sq as usize;
     unsafe {
-        ROOK_MAGICS[sq_index].attacks[(((occ & ROOK_MAGICS[sq_index].attack_masks)
-            * ROOK_MAGICS[sq_index].magic)
-            >> ROOK_MAGICS[sq_index].shift)
-            .0 as usize]
+        ROOK_MAGICS.attacks[sq as usize][ROOK_MAGICS.index(sq, occ)]
     }
 }
 
 #[inline(always)]
 pub fn bishop_attacks(sq: SQ, occ: BitBoard) -> BitBoard {
-    let sq_index = sq as usize;
     unsafe {
-        BISHOP_MAGICS[sq_index].attacks[(((occ & BISHOP_MAGICS[sq_index].attack_masks)
-            * BISHOP_MAGICS[sq_index].magic)
-            >> BISHOP_MAGICS[sq_index].shift)
-            .0 as usize]
+        BISHOP_MAGICS.attacks[sq as usize][BISHOP_MAGICS.index(sq, occ)]
     }
 }
 

@@ -12,7 +12,7 @@ https://lichess.org/@/Weiawaga
 - Board representation
     - [Bitboards](https://en.wikipedia.org/wiki/Bitboard)
 - Move generation
-    - [Magic bitboard hashing](https://www.chessprogramming.org/Magic_Bitboards)
+    - [Fancy magic bitboard hashing](https://www.chessprogramming.org/Magic_Bitboards#Fancy)
 - Search
     - [Negamax with alpha beta pruning](https://en.wikipedia.org/wiki/Negamax#Negamax_with_alpha_beta_pruning)
     - [Iterative deepening](https://en.wikipedia.org/wiki/Iterative_deepening_depth-first_search)
