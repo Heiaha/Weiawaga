@@ -145,23 +145,23 @@ impl Board {
     }
 
     pub fn diagonal_sliders(&self, color: Color) -> BitBoard {
-        return if color == Color::White {
+        if color == Color::White {
             self.piece_bb[Piece::WhiteBishop.index()] | self.piece_bb[Piece::WhiteQueen.index()]
         } else {
             self.piece_bb[Piece::BlackBishop.index()] | self.piece_bb[Piece::BlackQueen.index()]
-        };
+        }
     }
 
     pub fn orthogonal_sliders(&self, color: Color) -> BitBoard {
-        return if color == Color::White {
+        if color == Color::White {
             self.piece_bb[Piece::WhiteRook.index()] | self.piece_bb[Piece::WhiteQueen.index()]
         } else {
             self.piece_bb[Piece::BlackRook.index()] | self.piece_bb[Piece::BlackQueen.index()]
-        };
+        }
     }
 
     pub fn all_pieces(&self, color: Color) -> BitBoard {
-        return if color == Color::White {
+        if color == Color::White {
             self.piece_bb[Piece::WhitePawn.index()]
                 | self.piece_bb[Piece::WhiteKnight.index()]
                 | self.piece_bb[Piece::WhiteBishop.index()]
@@ -175,11 +175,11 @@ impl Board {
                 | self.piece_bb[Piece::BlackRook.index()]
                 | self.piece_bb[Piece::BlackQueen.index()]
                 | self.piece_bb[Piece::BlackKing.index()]
-        };
+        }
     }
 
     pub fn attackers_from(&self, sq: SQ, occ: BitBoard, color: Color) -> BitBoard {
-        return if color == Color::White {
+        if color == Color::White {
             (self.piece_bb[Piece::WhitePawn.index()] & attacks::pawn_attacks_sq(sq, Color::Black))
                 | (self.piece_bb[Piece::WhiteKnight.index()] & attacks::knight_attacks(sq))
                 | (self.piece_bb[Piece::WhiteBishop.index()] & attacks::bishop_attacks(sq, occ))
@@ -193,7 +193,7 @@ impl Board {
                 | (self.piece_bb[Piece::BlackRook.index()] & attacks::rook_attacks(sq, occ))
                 | (self.piece_bb[Piece::BlackQueen.index()]
                     & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
-        };
+        }
     }
 
     pub fn king_attacked(&self) -> bool {
@@ -568,7 +568,7 @@ impl Board {
                         b1 = self.attackers_from(checker_square, all, us) & not_pinned;
                         for sq in b1 {
                             if self.piece_type_at(sq) == PieceType::Pawn
-                                && sq.rank().relative(us) == Rank::Rank7
+                                && sq.rank().relative(us) == Rank::Seven
                             {
                                 moves.push(Move::new(sq, checker_square, MoveFlags::PcQueen));
                                 moves.push(Move::new(sq, checker_square, MoveFlags::PcRook));
@@ -584,7 +584,7 @@ impl Board {
                         b1 = self.attackers_from(checker_square, all, us) & not_pinned;
                         for sq in b1 {
                             if self.piece_type_at(sq) == PieceType::Pawn
-                                && sq.rank().relative(us) == Rank::Rank7
+                                && sq.rank().relative(us) == Rank::Seven
                             {
                                 moves.push(Move::new(sq, checker_square, MoveFlags::PcQueen));
                                 moves.push(Move::new(sq, checker_square, MoveFlags::PcRook));
@@ -672,7 +672,7 @@ impl Board {
 
                 b1 = !not_pinned & self.bitboard_of(us, PieceType::Pawn);
                 for sq in b1 {
-                    if sq.rank() == Rank::Rank7.relative(us) {
+                    if sq.rank() == Rank::Seven.relative(us) {
                         b2 = attacks::pawn_attacks_sq(sq, us)
                             & capture_mask
                             & BitBoard::line(our_king, sq);
@@ -686,7 +686,7 @@ impl Board {
                         b2 = sq.bb().shift(Direction::North.relative(us), 1)
                             & !all
                             & BitBoard::line(our_king, sq);
-                        b3 = (b2 & Rank::Rank3.relative(us).bb())
+                        b3 = (b2 & Rank::Three.relative(us).bb())
                             .shift(Direction::North.relative(us), 1)
                             & !all
                             & BitBoard::line(our_king, sq);
@@ -719,9 +719,9 @@ impl Board {
             moves.make_q(sq, b2 & quiet_mask);
         }
 
-        b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & !Rank::Rank7.relative(us).bb();
+        b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & !Rank::Seven.relative(us).bb();
         b2 = b1.shift(Direction::North.relative(us), 1) & !all;
-        b3 = (b2 & Rank::Rank3.relative(us).bb()).shift(Direction::North.relative(us), 1)
+        b3 = (b2 & Rank::Three.relative(us).bb()).shift(Direction::North.relative(us), 1)
             & quiet_mask;
 
         b2 &= quiet_mask;
@@ -761,7 +761,7 @@ impl Board {
             ));
         }
 
-        b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & Rank::Rank7.relative(us).bb();
+        b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & Rank::Seven.relative(us).bb();
 
         if b1 != BitBoard::ZERO {
             b2 = b1.shift(Direction::North.relative(us), 1) & quiet_mask;
@@ -938,7 +938,7 @@ impl Board {
                         b1 = self.attackers_from(checker_square, all, us) & not_pinned;
                         for sq in b1 {
                             if self.piece_type_at(sq) == PieceType::Pawn
-                                && sq.rank().relative(us) == Rank::Rank7
+                                && sq.rank().relative(us) == Rank::Seven
                             {
                                 moves.push(Move::new(sq, checker_square, MoveFlags::PcQueen));
                             } else {
@@ -951,7 +951,7 @@ impl Board {
                         b1 = self.attackers_from(checker_square, all, us) & not_pinned;
                         for sq in b1 {
                             if self.piece_type_at(sq) == PieceType::Pawn
-                                && sq.rank().relative(us) == Rank::Rank7
+                                && sq.rank().relative(us) == Rank::Seven
                             {
                                 moves.push(Move::new(sq, checker_square, MoveFlags::PcQueen));
                             } else {
@@ -1013,7 +1013,7 @@ impl Board {
 
                 b1 = !not_pinned & self.bitboard_of(us, PieceType::Pawn);
                 for sq in b1 {
-                    if sq.rank() == Rank::Rank7.relative(us) {
+                    if sq.rank() == Rank::Seven.relative(us) {
                         b2 = attacks::pawn_attacks_sq(sq, us)
                             & capture_mask
                             & BitBoard::line(our_king, sq);
@@ -1041,7 +1041,7 @@ impl Board {
             moves.make_c(sq, b2 & capture_mask);
         }
 
-        b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & !Rank::Rank7.relative(us).bb();
+        b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & !Rank::Seven.relative(us).bb();
         b2 = b1.shift(Direction::NorthWest.relative(us), 1) & capture_mask;
         b3 = b1.shift(Direction::NorthEast.relative(us), 1) & capture_mask;
 
@@ -1061,7 +1061,7 @@ impl Board {
             ));
         }
 
-        b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & Rank::Rank7.relative(us).bb();
+        b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & Rank::Seven.relative(us).bb();
 
         if b1 != BitBoard::ZERO {
             b2 = b1.shift(Direction::North.relative(us), 1) & quiet_mask;
@@ -1168,16 +1168,16 @@ impl Board {
         if self.color_to_play == Color::Black {
             self.hash ^= zobrist::zobrist_color();
         }
-        if !det_split[2].contains("K") {
+        if !det_split[2].contains('K') {
             self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() | BitBoard::WHITE_OO_MASK);
         }
-        if !det_split[2].contains("Q") {
+        if !det_split[2].contains('Q') {
             self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() | BitBoard::WHITE_OOO_MASK);
         }
-        if !det_split[2].contains("k") {
+        if !det_split[2].contains('k') {
             self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() | BitBoard::BLACK_OO_MASK);
         }
-        if !det_split[2].contains("q") {
+        if !det_split[2].contains('q') {
             self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() | BitBoard::BLACK_OOO_MASK);
         }
 
@@ -1248,9 +1248,9 @@ impl Board {
                     } else if self.piece_type_at(from_sq) == PieceType::Pawn
                         && i8::abs(from_sq as i8 - to_sq as i8) == 16 {
                         m = Move::new(from_sq, to_sq, MoveFlags::DoublePush);
-                    } else if self.piece_type_at(from_sq) == PieceType::King && from_sq.file() == File::FileE && to_sq.file() == File::FileG {
+                    } else if self.piece_type_at(from_sq) == PieceType::King && from_sq.file() == File::E && to_sq.file() == File::G {
                         m = Move::new(from_sq, to_sq, MoveFlags::OO);
-                    } else if self.piece_type_at(from_sq) == PieceType::King && from_sq.file() == File::FileE && to_sq.file() == File::FileC {
+                    } else if self.piece_type_at(from_sq) == PieceType::King && from_sq.file() == File::E && to_sq.file() == File::C {
                         m = Move::new(from_sq, to_sq, MoveFlags::OOO);
                     } else {
                         m = Move::new(from_sq, to_sq, MoveFlags::Quiet);

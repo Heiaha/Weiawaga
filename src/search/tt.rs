@@ -11,9 +11,9 @@ pub struct TT {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TTFlag {
-    EXACT,
-    LOWER,
-    UPPER,
+    Exact,
+    Lower,
+    Upper,
 }
 
 #[derive(Eq, PartialEq, Copy, Clone)]
@@ -44,10 +44,7 @@ impl TT {
     ) {
         self.table[(hash & self.bitmask).0 as usize] = TTEntry {
             key: hash,
-            best_move: match best_move {
-                Some(best_move) => Some(best_move.moove()),
-                None => None,
-            },
+            best_move: best_move.map(|x| x.moove()),
             depth,
             value,
             flag,
@@ -91,10 +88,7 @@ impl TT {
 impl TTEntry {
     #[inline(always)]
     pub fn best_move(&self) -> Option<Move> {
-        return match self.best_move {
-            Some(best_move) => Some(Move::from(best_move)),
-            None => None,
-        };
+        self.best_move.map(Move::from)
     }
 
     #[inline(always)]
@@ -120,7 +114,7 @@ impl Default for TTEntry {
             best_move: None,
             depth: 0,
             value: 0,
-            flag: TTFlag::EXACT,
+            flag: TTFlag::Exact,
         }
     }
 }

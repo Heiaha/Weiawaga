@@ -111,7 +111,7 @@ fn rook_score(board: &Board, color: Color, all_pieces: BitBoard) -> Score {
         piece_mobility = (attacks::rook_attacks(sq, all_pieces) & !all_pieces).pop_count();
         if piece_mobility <= 3 {
             let kf = our_king_sq.file();
-            if (kf < File::FileE) == (sq.file() < kf) {
+            if (kf < File::E) == (sq.file() < kf) {
                 score += e_constants::ROOK_SCORES[e_constants::IX_KING_TRAPPING_ROOK_PENALTY];
             }
         }

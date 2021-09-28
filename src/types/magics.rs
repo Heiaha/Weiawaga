@@ -1,4 +1,3 @@
-use super::attacks;
 use super::bitboard::BitBoard;
 use super::file::File;
 use super::rank::Rank;
@@ -73,7 +72,7 @@ impl Magics {
 
     #[inline(always)]
     pub fn index(&self, sq: SQ, occ: BitBoard) -> usize {
-        ((occ & self.masks[sq as usize]) * self.magics[sq as usize]
+        (((occ & self.masks[sq as usize]) * self.magics[sq as usize])
             >> self.shift)
             .0 as usize
     }
@@ -99,8 +98,8 @@ pub static mut BISHOP_MAGICS: Magics = Magics {
 
 fn initialize_rook_magics(magics: &mut Magics) {
     for sq in SQ::A1..=SQ::H8 {
-        let edges = ((Rank::Rank1.bb() | Rank::Rank8.bb()) & !sq.rank().bb())
-            | ((File::FileA.bb() | File::FileH.bb()) & !sq.file().bb());
+        let edges = ((Rank::One.bb() | Rank::Eight.bb()) & !sq.rank().bb())
+            | ((File::A.bb() | File::H.bb()) & !sq.file().bb());
 
         magics.masks[sq as usize] = (sq.rank().bb() ^ sq.file().bb()) & !edges;
         magics.magics[sq as usize] = ROOK_MAGICS_INIT[sq as usize].magic;
@@ -126,8 +125,8 @@ fn initialize_rook_magics(magics: &mut Magics) {
 
 fn initialize_bishop_magics(magics: &mut Magics) {
     for sq in SQ::A1..=SQ::H8 {
-        let edges = ((Rank::Rank1.bb() | Rank::Rank8.bb()) & !sq.rank().bb())
-            | ((File::FileA.bb() | File::FileH.bb()) & !sq.file().bb());
+        let edges = ((Rank::One.bb() | Rank::Eight.bb()) & !sq.rank().bb())
+            | ((File::A.bb() | File::H.bb()) & !sq.file().bb());
 
         magics.masks[sq as usize] = (sq.diagonal().bb() ^ sq.antidiagonal().bb()) & !edges;
         magics.magics[sq as usize] = BISHOP_MAGICS_INIT[sq as usize].magic;

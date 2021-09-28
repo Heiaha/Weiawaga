@@ -17,14 +17,14 @@ const FILE_DISPLAYS: [char; 8] = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
 pub enum File {
-    FileA,
-    FileB,
-    FileC,
-    FileD,
-    FileE,
-    FileF,
-    FileG,
-    FileH,
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
 }
 
 impl File {

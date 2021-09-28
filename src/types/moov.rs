@@ -109,16 +109,16 @@ impl ToString for Move {
         uci.push_str(&*self.to_sq().to_string());
         match self.flags() {
             MoveFlags::PrKnight | MoveFlags::PcKnight => {
-                uci.push_str("n");
+                uci.push('n');
             }
             MoveFlags::PrBishop | MoveFlags::PcBishop => {
-                uci.push_str("b");
+                uci.push('b');
             }
             MoveFlags::PrRook | MoveFlags::PcRook => {
-                uci.push_str("r");
+                uci.push('r');
             }
             MoveFlags::PrQueen | MoveFlags::PcQueen => {
-                uci.push_str("q");
+                uci.push('q');
             }
             _ => {}
         }
@@ -129,10 +129,6 @@ impl ToString for Move {
 impl PartialEq for Move {
     fn eq(&self, other: &Self) -> bool {
         self.m == other.m
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        self.m != other.m
     }
 }
 

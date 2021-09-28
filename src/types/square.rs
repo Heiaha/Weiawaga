@@ -118,11 +118,11 @@ impl SQ {
 
     #[inline]
     pub fn forward_ranks_bb(self, color: Color) -> BitBoard {
-        return if color == Color::White {
-            !Rank::Rank1.bb() << 8 * self.rank().relative(color) as u32
+        if color == Color::White {
+            !Rank::One.bb() << (8 * self.rank().relative(color) as u32)
         } else {
-            !Rank::Rank8.bb() >> 8 * self.rank().relative(color) as u32
-        };
+            !Rank::Eight.bb() >> (8 * self.rank().relative(color) as u32)
+        }
     }
 
     pub fn forward_files_bb(self, color: Color) -> BitBoard {
@@ -130,7 +130,7 @@ impl SQ {
     }
 
     pub fn get_ray(self, dir: Direction) -> BitBoard {
-        return match dir {
+        match dir {
             Direction::North => BitBoard(0x0101010101010100) << self as u32,
             Direction::South => BitBoard(0x0080808080808080) >> (63 - self as u32),
             Direction::East => {
@@ -143,7 +143,7 @@ impl SQ {
             }
             Direction::NorthWest => {
                 BitBoard(0x0102040810204000).shift(Direction::West, 7 - self.file() as u32)
-                    << self.rank() as u32 * 8
+                    << (self.rank() as u32 * 8)
             }
             Direction::SouthEast => {
                 BitBoard(0x0002040810204080).shift(Direction::East, self.file() as u32)
@@ -154,7 +154,7 @@ impl SQ {
                     >> ((7 - self.rank() as u32) * 8)
             }
             _ => BitBoard::ZERO,
-        };
+        }
     }
 }
 

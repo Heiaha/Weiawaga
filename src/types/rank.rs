@@ -18,14 +18,14 @@ const RANK_DISPLAYS: [char; 8] = ['1', '2', '3', '4', '5', '6', '7', '8'];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
 pub enum Rank {
-    Rank1 = 0,
-    Rank2,
-    Rank3,
-    Rank4,
-    Rank5,
-    Rank6,
-    Rank7,
-    Rank8,
+    One,
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    Eight,
 }
 
 impl Rank {

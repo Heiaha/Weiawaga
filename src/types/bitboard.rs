@@ -60,32 +60,32 @@ impl BitBoard {
             }
             Direction::East => {
                 for _ in 0..n {
-                    result = (result << 1) & !File::FileA.bb();
+                    result = (result << 1) & !File::A.bb();
                 }
             }
             Direction::West => {
                 for _ in 0..n {
-                    result = (result >> 1) & !File::FileH.bb();
+                    result = (result >> 1) & !File::H.bb();
                 }
             }
             Direction::NorthEast => {
                 for _ in 0..n {
-                    result = (result & !File::FileH.bb()) << 9;
+                    result = (result & !File::H.bb()) << 9;
                 }
             }
             Direction::NorthWest => {
                 for _ in 0..n {
-                    result = (result & !File::FileA.bb()) << 7;
+                    result = (result & !File::A.bb()) << 7;
                 }
             }
             Direction::SouthEast => {
                 for _ in 0..n {
-                    result = (result & !File::FileH.bb()) >> 7;
+                    result = (result & !File::H.bb()) >> 7;
                 }
             }
             Direction::SouthWest => {
                 for _ in 0..n {
-                    result = (result & !File::FileA.bb()) >> 9;
+                    result = (result & !File::A.bb()) >> 9;
                 }
             }
             _ => {}
@@ -124,7 +124,7 @@ impl BitBoard {
         println!();
         for i in (0..=56).rev().step_by(8) {
             for j in 0..8 {
-                print!("{} ", (&self.0 >> (i + j)) & 1);
+                print!("{} ", (self.0 >> (i + j)) & 1);
             }
             println!();
         }
@@ -147,47 +147,47 @@ impl BitBoard {
 
     #[inline(always)]
     pub fn oo_mask(c: Color) -> BitBoard {
-        return if c == Color::White {
+        if c == Color::White {
             Self::WHITE_OO_MASK
         } else {
             Self::BLACK_OO_MASK
-        };
+        }
     }
 
     #[inline(always)]
     pub fn ooo_mask(c: Color) -> BitBoard {
-        return if c == Color::White {
+        if c == Color::White {
             Self::WHITE_OOO_MASK
         } else {
             Self::BLACK_OOO_MASK
-        };
+        }
     }
 
     #[inline(always)]
     pub fn oo_blockers_mask(c: Color) -> BitBoard {
-        return if c == Color::White {
+        if c == Color::White {
             Self::WHITE_OO_BLOCKERS_AND_ATTACKERS_MASK
         } else {
             Self::BLACK_OO_BLOCKERS_AND_ATTACKERS_MASK
-        };
+        }
     }
 
     #[inline(always)]
     pub fn ooo_blockers_mask(c: Color) -> BitBoard {
-        return if c == Color::White {
+        if c == Color::White {
             Self::WHITE_OOO_BLOCKERS_AND_ATTACKERS_MASK
         } else {
             Self::BLACK_OOO_BLOCKERS_AND_ATTACKERS_MASK
-        };
+        }
     }
 
     #[inline(always)]
     pub fn ignore_ooo_danger(c: Color) -> BitBoard {
-        return if c == Color::White {
+        if c == Color::White {
             B!(0x2)
         } else {
             B!(0x200000000000000)
-        };
+        }
     }
 }
 

@@ -46,7 +46,7 @@ impl Timer {
             time_target: 0,
             time_maximum: 0,
         };
-        tm.calc(&board);
+        tm.calc(board);
         tm
     }
 
@@ -78,7 +78,7 @@ impl Timer {
     }
 
     pub fn start_check(&self, depth: Depth) -> bool {
-        let start = match self.control {
+         match self.control {
             TimeControl::Infinite => true,
             TimeControl::FixedMillis(millis) => self.elapsed() <= millis,
             TimeControl::FixedDepth(stop_depth) => depth <= stop_depth,
@@ -86,8 +86,7 @@ impl Timer {
             TimeControl::Variable { .. } => {
                 return self.elapsed() <= self.time_target / 2;
             }
-        };
-        start
+        }
     }
 
     pub fn stop_check(&mut self) -> bool {
@@ -95,14 +94,13 @@ impl Timer {
         if self.times_checked & 0x1000 == 0 && self.stop.load(sync::atomic::Ordering::Relaxed) {
             return true;
         }
-        let stop = match self.control {
+        match self.control {
             TimeControl::Infinite => false,
             TimeControl::FixedMillis(millis) => self.elapsed() > millis,
             TimeControl::Variable { .. } => self.elapsed() >= self.time_maximum,
             TimeControl::FixedDepth(_) => false,
             TimeControl::FixedNodes(nodes) => self.times_checked >= nodes,
-        };
-        stop
+        }
     }
 
     #[inline(always)]

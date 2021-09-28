@@ -98,7 +98,7 @@ impl<'a> Search<'a> {
         }
 
         let mut value: Value;
-        self.sorter.score_moves(&mut moves, &board, 0, &hash_move);
+        self.sorter.score_moves(&mut moves, board, 0, &hash_move);
         while let Some(m) = moves.next_best() {
             board.push(m);
             value = -self.negamax(board, depth - 1, 1, -beta, -alpha, true);
@@ -113,12 +113,12 @@ impl<'a> Search<'a> {
                 best_move = m;
                 if value >= beta {
                     self.tt
-                        .insert(board.hash(), depth, beta, Some(best_move), TTFlag::LOWER);
+                        .insert(board.hash(), depth, beta, Some(best_move), TTFlag::Lower);
                     return (best_move, beta);
                 }
                 alpha = value;
                 self.tt
-                    .insert(board.hash(), depth, alpha, Some(best_move), TTFlag::UPPER);
+                    .insert(board.hash(), depth, alpha, Some(best_move), TTFlag::Upper);
             }
         }
 
@@ -128,7 +128,7 @@ impl<'a> Search<'a> {
 
         if !self.stop {
             self.tt
-                .insert(board.hash(), depth, alpha, Some(best_move), TTFlag::EXACT);
+                .insert(board.hash(), depth, alpha, Some(best_move), TTFlag::Exact);
         }
         (best_move, alpha)
     }
@@ -175,14 +175,14 @@ impl<'a> Search<'a> {
             if tt_entry.depth() >= depth {
                 self.stats.tt_hits += 1;
                 match tt_entry.flag() {
-                    TTFlag::EXACT => {
+                    TTFlag::Exact => {
                         self.stats.leafs += 1;
                         return tt_entry.value();
                     }
-                    TTFlag::LOWER => {
+                    TTFlag::Lower => {
                         alpha = max(alpha, tt_entry.value());
                     }
-                    TTFlag::UPPER => {
+                    TTFlag::Upper => {
                         beta = min(beta, tt_entry.value());
                     }
                 }
@@ -212,12 +212,12 @@ impl<'a> Search<'a> {
         let mut value: Value;
         let mut reduced_depth: Depth;
         let mut best_move: Option<Move> = None;
-        let mut tt_flag = TTFlag::UPPER;
+        let mut tt_flag = TTFlag::Upper;
         let mut moves = MoveList::new();
         let mut idx = 0;
 
         board.generate_legal_moves(&mut moves);
-        self.sorter.score_moves(&mut moves, &board, ply, &hash_move);
+        self.sorter.score_moves(&mut moves, board, ply, &hash_move);
         while let Some(m) = moves.next_best() {
             reduced_depth = depth;
             if Self::can_apply_lmr(&m, depth, idx) {
@@ -240,15 +240,15 @@ impl<'a> Search<'a> {
                 best_move = Some(m);
                 if value >= beta {
                     if m.flags() == MoveFlags::Quiet {
-                        self.sorter.add_killer(&board, m, ply);
+                        self.sorter.add_killer(board, m, ply);
                         self.sorter.add_history(m, depth);
                     }
                     self.stats.beta_cutoffs += 1;
-                    tt_flag = TTFlag::LOWER;
+                    tt_flag = TTFlag::Lower;
                     alpha = beta;
                     break;
                 }
-                tt_flag = TTFlag::EXACT;
+                tt_flag = TTFlag::Exact;
                 alpha = value;
             }
             idx += 1;
@@ -298,7 +298,7 @@ impl<'a> Search<'a> {
 
         let mut moves = MoveList::new();
         board.generate_legal_q_moves(&mut moves);
-        self.sorter.score_moves(&mut moves, &board, ply, &hash_move);
+        self.sorter.score_moves(&mut moves, board, ply, &hash_move);
         while let Some(m) = moves.next_best() {
             board.push(m);
             value = -self.q_search(board, ply + 1, -beta, -alpha);
@@ -331,7 +331,7 @@ impl<'a> Search<'a> {
             && !in_check
             && depth >= Self::NULL_MIN_DEPTH
             && board.has_non_pawn_material()
-            && eval(&board) >= beta
+            && eval(board) >= beta
     }
 
     #[inline(always)]
@@ -386,7 +386,7 @@ impl<'a> Search<'a> {
 }
 
 impl<'a> Search<'a> {
-    const ASPIRATION_WINDOW: Value = 25;
+    const ASPIRATION_WINDOW: Value = 30;
     const NULL_MIN_DEPTH: Depth = 2;
     const LMR_MOVE_WO_REDUCTION: usize = 1;
     const LMR_MIN_DEPTH: Depth = 2;

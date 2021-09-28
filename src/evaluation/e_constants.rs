@@ -102,8 +102,7 @@ const PIECE_TYPE_TABLES: [[Score; N_SQUARES]; 6] = [
 
 pub static mut PIECE_VALUES: [Score; N_PIECES] = [Score::ZERO; N_PIECES];
 pub static mut PIECE_TABLES: [[Score; N_SQUARES]; N_PIECES] = [[Score::ZERO; N_SQUARES]; N_PIECES];
-pub static mut PAWN_SHIELD_MASKS: [[BitBoard; N_SQUARES]; N_COLORS] =
-    [[BitBoard::ZERO; N_SQUARES]; N_COLORS];
+pub static mut PAWN_SHIELD_MASKS: [[BitBoard; N_SQUARES]; N_COLORS] = [[BitBoard::ZERO; N_SQUARES]; N_COLORS];
 
 #[inline(always)]
 pub fn piece_value(pc: Piece) -> Score {

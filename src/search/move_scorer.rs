@@ -1,4 +1,4 @@
-use crate::search::search::{Depth, Ply};
+use super::search::{Depth, Ply};
 use crate::types::board::Board;
 use crate::types::color::N_COLORS;
 use crate::types::moov::{Move, MoveFlags};

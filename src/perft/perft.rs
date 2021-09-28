@@ -34,7 +34,7 @@ pub fn print_perft(board: &mut Board, depth: u8) -> usize {
         nodes += move_nodes;
         println!("{}", move_nodes);
     }
-    let elapsed = now.elapsed().as_millis() as f64 / 1000.0 as f64;
+    let elapsed = now.elapsed().as_millis() as f64 / 1000.0_f64;
     if elapsed > 0_f64 {
         println!("Elapsed: {}", elapsed);
         println!("NPS: {:.1}", nodes as f64 / elapsed);
