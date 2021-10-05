@@ -1,37 +1,30 @@
-use super::search::{Depth, Ply};
-use crate::types::board::Board;
-use crate::types::color::N_COLORS;
-use crate::types::moov::{Move, MoveFlags};
-use crate::types::move_list::MoveList;
-use crate::types::piece::PieceType;
-use crate::types::square::{N_SQUARES, SQ};
+use super::search::*;
+use crate::types::board::*;
+use crate::types::color::*;
+use crate::types::moov::*;
+use crate::types::move_list::*;
+use crate::types::piece::*;
+use crate::types::square::*;
 use std::cmp::min;
 
 pub type SortScore = u16;
 
 static mut MVV_LVA_SCORES: [[SortScore; 6]; 6] = [[0; 6]; 6];
 const N_KILLER: usize = 1;
+const HISTORY_MAX: SortScore = SortScore::MAX / 2;
 
 pub struct MoveScorer {
-    killer_moves: [[[Move; N_KILLER]; 1000]; N_COLORS],
+    killer_moves: [[[Move; N_KILLER]; 256]; N_COLORS],
     history_scores: [[SortScore; N_SQUARES]; N_SQUARES],
 }
 
 impl MoveScorer {
     pub fn new() -> MoveScorer {
-        MoveScorer {
-            killer_moves: [[[Move::NULL; N_KILLER]; 1000]; N_COLORS],
-            history_scores: [[0; N_SQUARES]; N_SQUARES],
-        }
+        MoveScorer { killer_moves: [[[Move::NULL; N_KILLER]; 256]; N_COLORS],
+                     history_scores: [[0; N_SQUARES]; N_SQUARES] }
     }
 
-    pub fn score_moves(
-        &self,
-        moves: &mut MoveList,
-        board: &Board,
-        ply: Ply,
-        hash_move: &Option<Move>,
-    ) {
+    pub fn score_moves(&self, moves: &mut MoveList, board: &Board, ply: Ply, hash_move: &Option<Move>) {
         if moves.len() == 0 {
             return;
         }
@@ -52,18 +45,12 @@ impl MoveScorer {
             }
 
             match m.flags() {
-                MoveFlags::PcBishop
-                | MoveFlags::PcKnight
-                | MoveFlags::PcRook
-                | MoveFlags::PcQueen => {
+                MoveFlags::PcBishop | MoveFlags::PcKnight | MoveFlags::PcRook | MoveFlags::PcQueen => {
                     m.add_to_score(Self::PROMOTION_SCORE);
                     m.add_to_score(Self::CAPTURE_SCORE);
                     m.add_to_score(Self::mvv_lva_score(board, m));
                 }
-                MoveFlags::PrBishop
-                | MoveFlags::PrKnight
-                | MoveFlags::PrRook
-                | MoveFlags::PrQueen => {
+                MoveFlags::PrBishop | MoveFlags::PrKnight | MoveFlags::PrRook | MoveFlags::PrQueen => {
                     m.add_to_score(Self::PROMOTION_SCORE);
                 }
                 MoveFlags::Capture => {
@@ -84,12 +71,12 @@ impl MoveScorer {
     pub fn add_history(&mut self, m: Move, depth: Depth) {
         debug_assert!(depth >= 0, "Depth is less than 0 in the history heuristic!");
 
-        let depth = depth as u16;
+        let depth = depth as SortScore;
         let from = m.from_sq().index();
         let to = m.to_sq().index();
         self.history_scores[from][to] += depth * depth;
 
-        if self.history_scores[from][to] > u16::MAX / 2 {
+        if self.history_scores[from][to] > HISTORY_MAX {
             for sq1 in SQ::A1..=SQ::H8 {
                 for sq2 in SQ::A1..=SQ::H8 {
                     self.history_scores[sq1.index()][sq2.index()] /= 2;
@@ -115,10 +102,7 @@ impl MoveScorer {
 
     #[inline(always)]
     fn mvv_lva_score(board: &Board, m: &Move) -> SortScore {
-        unsafe {
-            MVV_LVA_SCORES[board.piece_type_at(m.to_sq()).index()]
-                [board.piece_type_at(m.from_sq()).index()]
-        }
+        unsafe { MVV_LVA_SCORES[board.piece_type_at(m.to_sq()).index()][board.piece_type_at(m.from_sq()).index()] }
     }
 }
 
@@ -137,8 +121,7 @@ fn init_mvv_lva(mvv_lva_scores: &mut [[u16; 6]; 6]) {
     let victim_score: [SortScore; 6] = [100, 200, 300, 400, 500, 600];
     for attacker in PieceType::Pawn..=PieceType::King {
         for victim in PieceType::Pawn..=PieceType::King {
-            mvv_lva_scores[victim.index()][attacker.index()] =
-                victim_score[victim.index()] + 6 - (victim_score[attacker.index()] / 100);
+            mvv_lva_scores[victim.index()][attacker.index()] = victim_score[victim.index()] + 6 - (victim_score[attacker.index()] / 100);
         }
     }
 }

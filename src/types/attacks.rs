@@ -1,9 +1,8 @@
-use super::bitboard::BitBoard;
-use super::color::Color;
-use super::magics::{BISHOP_MAGICS, ROOK_MAGICS};
-use super::square::{Direction, SQ, N_SQUARES};
-use crate::types::piece::PieceType;
-use crate::types::color::N_COLORS;
+use super::bitboard::*;
+use super::color::*;
+use super::magics::*;
+use super::piece::*;
+use super::square::*;
 
 const WHITE_PAWN_ATTACKS: [BitBoard; N_SQUARES] = [
     B!(0x0000000000000200), B!(0x0000000000000500), B!(0x0000000000000a00), B!(0x0000000000001400),
@@ -85,16 +84,12 @@ static mut PAWN_ATTACKS: [[BitBoard; N_SQUARES]; N_COLORS] = [[BitBoard::ZERO; N
 
 #[inline(always)]
 pub fn rook_attacks(sq: SQ, occ: BitBoard) -> BitBoard {
-    unsafe {
-        ROOK_MAGICS.attacks[sq as usize][ROOK_MAGICS.index(sq, occ)]
-    }
+    unsafe { ROOK_MAGICS.attacks[sq as usize][ROOK_MAGICS.index(sq, occ)] }
 }
 
 #[inline(always)]
 pub fn bishop_attacks(sq: SQ, occ: BitBoard) -> BitBoard {
-    unsafe {
-        BISHOP_MAGICS.attacks[sq as usize][BISHOP_MAGICS.index(sq, occ)]
-    }
+    unsafe { BISHOP_MAGICS.attacks[sq as usize][BISHOP_MAGICS.index(sq, occ)] }
 }
 
 #[inline(always)]
@@ -118,27 +113,22 @@ pub fn pawn_attacks_bb(bb: BitBoard, color: Color) -> BitBoard {
 
 #[inline(always)]
 pub fn pawn_attacks_sq(sq: SQ, color: Color) -> BitBoard {
-    unsafe {
-        PAWN_ATTACKS[color as usize][sq as usize]
-    }
+    unsafe { PAWN_ATTACKS[color as usize][sq as usize] }
 }
 
 #[inline(always)]
 pub fn sliding_attacks(sq: SQ, occ: BitBoard, mask: BitBoard) -> BitBoard {
-    (((mask & occ) - sq.bb() * BitBoard::TWO)
-        ^ ((mask & occ).reverse() - sq.bb().reverse() * BitBoard::TWO).reverse())
-        & mask
+    (((mask & occ) - sq.bb() * BitBoard::TWO) ^ ((mask & occ).reverse() - sq.bb().reverse() * BitBoard::TWO).reverse()) & mask
 }
-
 
 pub fn attacks(pt: PieceType, sq: SQ, occ: BitBoard) -> BitBoard {
     match pt {
-        PieceType::Pawn => { BitBoard::ZERO }
-        PieceType::Knight => { knight_attacks(sq) }
-        PieceType::Bishop => { bishop_attacks(sq, occ) }
-        PieceType::Rook => { rook_attacks(sq, occ) }
-        PieceType::Queen => { bishop_attacks(sq, occ) | rook_attacks(sq, occ) }
-        PieceType::King => { king_attacks(sq) }
+        PieceType::Pawn => BitBoard::ZERO,
+        PieceType::Knight => knight_attacks(sq),
+        PieceType::Bishop => bishop_attacks(sq, occ),
+        PieceType::Rook => rook_attacks(sq, occ),
+        PieceType::Queen => bishop_attacks(sq, occ) | rook_attacks(sq, occ),
+        PieceType::King => king_attacks(sq),
     }
 }
 
@@ -150,30 +140,22 @@ pub fn rook_attacks_for_init(sq: SQ, blockers: BitBoard) -> BitBoard {
     let mut attacks: BitBoard = BitBoard::ZERO;
     attacks |= sq.get_ray(Direction::North);
     if sq.get_ray(Direction::North) & blockers != BitBoard::ZERO {
-        attacks &= !(sq.get_ray(Direction::North) & blockers)
-            .lsb()
-            .get_ray(Direction::North);
+        attacks &= !(sq.get_ray(Direction::North) & blockers).lsb().get_ray(Direction::North);
     }
 
     attacks |= sq.get_ray(Direction::South);
     if sq.get_ray(Direction::South) & blockers != BitBoard::ZERO {
-        attacks &= !(sq.get_ray(Direction::South) & blockers)
-            .msb()
-            .get_ray(Direction::South);
+        attacks &= !(sq.get_ray(Direction::South) & blockers).msb().get_ray(Direction::South);
     }
 
     attacks |= sq.get_ray(Direction::East);
     if sq.get_ray(Direction::East) & blockers != BitBoard::ZERO {
-        attacks &= !(sq.get_ray(Direction::East) & blockers)
-            .lsb()
-            .get_ray(Direction::East);
+        attacks &= !(sq.get_ray(Direction::East) & blockers).lsb().get_ray(Direction::East);
     }
 
     attacks |= sq.get_ray(Direction::West);
     if sq.get_ray(Direction::West) & blockers != BitBoard::ZERO {
-        attacks &= !(sq.get_ray(Direction::West) & blockers)
-            .msb()
-            .get_ray(Direction::West);
+        attacks &= !(sq.get_ray(Direction::West) & blockers).msb().get_ray(Direction::West);
     }
     attacks
 }
@@ -182,30 +164,22 @@ pub fn bishop_attacks_for_init(sq: SQ, blockers: BitBoard) -> BitBoard {
     let mut attacks: BitBoard = BitBoard::ZERO;
     attacks |= sq.get_ray(Direction::NorthWest);
     if sq.get_ray(Direction::NorthWest) & blockers != BitBoard::ZERO {
-        attacks &= !(sq.get_ray(Direction::NorthWest) & blockers)
-            .lsb()
-            .get_ray(Direction::NorthWest);
+        attacks &= !(sq.get_ray(Direction::NorthWest) & blockers).lsb().get_ray(Direction::NorthWest);
     }
 
     attacks |= sq.get_ray(Direction::NorthEast);
     if sq.get_ray(Direction::NorthEast) & blockers != BitBoard::ZERO {
-        attacks &= !(sq.get_ray(Direction::NorthEast) & blockers)
-            .lsb()
-            .get_ray(Direction::NorthEast);
+        attacks &= !(sq.get_ray(Direction::NorthEast) & blockers).lsb().get_ray(Direction::NorthEast);
     }
 
     attacks |= sq.get_ray(Direction::SouthEast);
     if sq.get_ray(Direction::SouthEast) & blockers != BitBoard::ZERO {
-        attacks &= !(sq.get_ray(Direction::SouthEast) & blockers)
-            .msb()
-            .get_ray(Direction::SouthEast);
+        attacks &= !(sq.get_ray(Direction::SouthEast) & blockers).msb().get_ray(Direction::SouthEast);
     }
 
     attacks |= sq.get_ray(Direction::SouthWest);
     if sq.get_ray(Direction::SouthWest) & blockers != BitBoard::ZERO {
-        attacks &= !(sq.get_ray(Direction::SouthWest) & blockers)
-            .msb()
-            .get_ray(Direction::SouthWest);
+        attacks &= !(sq.get_ray(Direction::SouthWest) & blockers).msb().get_ray(Direction::SouthWest);
     }
     attacks
 }

@@ -1,8 +1,8 @@
-use super::bitboard::BitBoard;
-use super::color::Color;
-use super::diagonal::{AntiDiagonal, Diagonal};
-use super::file::File;
-use super::rank::Rank;
+use super::bitboard::*;
+use super::color::*;
+use super::diagonal::*;
+use super::file::*;
+use super::rank::*;
 use std::iter::Step;
 use std::mem::transmute;
 use std::ops::*;
@@ -133,26 +133,12 @@ impl SQ {
         match dir {
             Direction::North => BitBoard(0x0101010101010100) << self as u32,
             Direction::South => BitBoard(0x0080808080808080) >> (63 - self as u32),
-            Direction::East => {
-                BitBoard(2) * ((BitBoard(1) << (self as u32 | 7)) - (BitBoard(1) << self as u32))
-            }
+            Direction::East => BitBoard(2) * ((BitBoard(1) << (self as u32 | 7)) - (BitBoard(1) << self as u32)),
             Direction::West => (BitBoard(1) << self as u32) - (BitBoard(1) << (self as u32 & 56)),
-            Direction::NorthEast => {
-                BitBoard(0x8040201008040200).shift(Direction::East, self.file() as u32)
-                    << (self.rank() as u32 * 8)
-            }
-            Direction::NorthWest => {
-                BitBoard(0x0102040810204000).shift(Direction::West, 7 - self.file() as u32)
-                    << (self.rank() as u32 * 8)
-            }
-            Direction::SouthEast => {
-                BitBoard(0x0002040810204080).shift(Direction::East, self.file() as u32)
-                    >> ((7 - self.rank() as u32) * 8)
-            }
-            Direction::SouthWest => {
-                BitBoard(0x0040201008040201).shift(Direction::West, 7 - self.file() as u32)
-                    >> ((7 - self.rank() as u32) * 8)
-            }
+            Direction::NorthEast => BitBoard(0x8040201008040200).shift(Direction::East, self.file() as u32) << (self.rank() as u32 * 8),
+            Direction::NorthWest => BitBoard(0x0102040810204000).shift(Direction::West, 7 - self.file() as u32) << (self.rank() as u32 * 8),
+            Direction::SouthEast => BitBoard(0x0002040810204080).shift(Direction::East, self.file() as u32) >> ((7 - self.rank() as u32) * 8),
+            Direction::SouthWest => BitBoard(0x0040201008040201).shift(Direction::West, 7 - self.file() as u32) >> ((7 - self.rank() as u32) * 8),
             _ => BitBoard::ZERO,
         }
     }
@@ -216,11 +202,10 @@ impl Sub<Direction> for SQ {
 
 impl Step for SQ {
     fn steps_between(start: &Self, end: &Self) -> Option<usize> {
-        if start <= &SQ::H8 && end <= &SQ::H8 {
-            Some((*end as usize - *start as usize) as usize)
-        } else {
-            None
+        if *start > SQ::H8 || *end > SQ::H8 {
+            return None;
         }
+        Some(*end as usize - *start as usize)
     }
 
     fn forward_checked(start: Self, count: usize) -> Option<Self> {

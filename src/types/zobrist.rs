@@ -1,33 +1,27 @@
-use super::square::N_SQUARES;
-use super::bitboard::BitBoard;
-use super::piece::{N_PIECES, Piece};
+use super::bitboard::*;
+use super::file::*;
+use super::piece::*;
+use super::square::*;
 use rand::Rng;
-use super::square::SQ;
-use super::file::File;
 
-static mut ZOBRIST_TABLE: [[BitBoard; N_SQUARES]; N_PIECES] = [[BitBoard::ZERO; N_SQUARES]; N_PIECES];
+static mut ZOBRIST_TABLE: [[BitBoard; N_SQUARES]; N_PIECES] =
+    [[BitBoard::ZERO; N_SQUARES]; N_PIECES];
 static mut ZOBRIST_EP: [BitBoard; 8] = [BitBoard::ZERO; 8];
 static mut ZOBRIST_COLOR: BitBoard = BitBoard::ZERO;
 
 #[inline(always)]
 pub fn zobrist_table(pc: Piece, sq: SQ) -> BitBoard {
-    unsafe {
-        ZOBRIST_TABLE[pc as usize][sq as usize]
-    }
+    unsafe { ZOBRIST_TABLE[pc as usize][sq as usize] }
 }
 
 #[inline(always)]
 pub fn zobrist_ep(file: File) -> BitBoard {
-    unsafe {
-        ZOBRIST_EP[file as usize]
-    }
+    unsafe { ZOBRIST_EP[file as usize] }
 }
 
 #[inline(always)]
 pub fn zobrist_color() -> BitBoard {
-    unsafe {
-        ZOBRIST_COLOR
-    }
+    unsafe { ZOBRIST_COLOR }
 }
 
 //////////////////////////////////////////////

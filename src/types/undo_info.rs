@@ -1,15 +1,14 @@
-use super::bitboard::BitBoard;
-use super::moov::Move;
-use super::piece::Piece;
-use super::square::SQ;
-use crate::types::bitboard::Key;
+use super::bitboard::*;
+use super::moov::*;
+use super::piece::*;
+use super::square::*;
 
 #[derive(Clone, Copy, Debug)]
 pub struct UndoInfo {
     entry: BitBoard,
     captured: Piece,
     epsq: SQ,
-    moove: u16,
+    moove: MoveInt,
     material_hash: BitBoard,
     half_move_counter: u16,
     plies_from_null: u16,
@@ -17,35 +16,23 @@ pub struct UndoInfo {
 
 impl UndoInfo {
     pub fn empty() -> Self {
-        UndoInfo {
-            entry: BitBoard::ZERO,
-            captured: Piece::None,
-            epsq: SQ::None,
-            moove: 0,
-            material_hash: BitBoard::ZERO,
-            half_move_counter: 0,
-            plies_from_null: 0,
-        }
+        UndoInfo { entry: BitBoard::ZERO,
+                   captured: Piece::None,
+                   epsq: SQ::None,
+                   moove: 0,
+                   material_hash: BitBoard::ZERO,
+                   half_move_counter: 0,
+                   plies_from_null: 0 }
     }
 
-    pub fn new(
-        entry: BitBoard,
-        moove: Move,
-        half_move_counter: u16,
-        plies_from_null: u16,
-        captured: Piece,
-        epsq: SQ,
-        material_hash: BitBoard,
-    ) -> Self {
-        UndoInfo {
-            entry,
-            moove: moove.moove(),
-            half_move_counter,
-            plies_from_null,
-            captured,
-            epsq,
-            material_hash,
-        }
+    pub fn new(entry: BitBoard, moove: Move, half_move_counter: u16, plies_from_null: u16, captured: Piece, epsq: SQ, material_hash: BitBoard) -> Self {
+        UndoInfo { entry,
+                   moove: moove.moove(),
+                   half_move_counter,
+                   plies_from_null,
+                   captured,
+                   epsq,
+                   material_hash }
     }
 
     #[inline(always)]

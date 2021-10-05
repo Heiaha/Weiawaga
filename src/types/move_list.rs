@@ -1,7 +1,8 @@
-use super::bitboard::BitBoard;
-use super::moov::Move;
-use super::square::SQ;
-use crate::types::moov::MoveFlags;
+use super::bitboard::*;
+use super::moov::*;
+use super::square::*;
+use crate::search::move_scorer::*;
+use crate::types::moov::*;
 use std::ops::{Index, IndexMut};
 
 // target pointer logic from pleco
@@ -19,11 +20,7 @@ pub struct MoveList {
 
 impl MoveList {
     pub fn new() -> Self {
-        MoveList {
-            list: [Move::empty(); MAX_MOVES],
-            idx: 0,
-            len: 0,
-        }
+        MoveList { list: [Move::empty(); MAX_MOVES], idx: 0, len: 0 }
     }
 
     pub fn len(&self) -> usize {
@@ -100,7 +97,7 @@ impl MoveList {
             return None;
         }
 
-        let mut max = u16::MIN;
+        let mut max = SortScore::MIN;
         let mut max_index = self.idx;
 
         for i in self.idx..self.len() {

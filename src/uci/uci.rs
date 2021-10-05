@@ -1,10 +1,10 @@
-use crate::evaluation::score::Value;
-use crate::perft::perft::print_perft;
-use crate::search::search::Search;
-use crate::search::timer::{TimeControl, Timer};
-use crate::search::tt::TT;
-use crate::types::board::Board;
-use crate::types::moov::Move;
+use crate::evaluation::score::*;
+use crate::perft::perft::*;
+use crate::search::search::*;
+use crate::search::timer::*;
+use crate::search::tt::*;
+use crate::types::board::*;
+use crate::types::moov::*;
 use std::io::BufRead;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;

@@ -1,21 +1,18 @@
 use super::attacks;
-use super::bitboard::BitBoard;
-use super::color::Color;
-use super::piece::{Piece, PieceType, N_PIECES};
-use super::square::{Direction, N_SQUARES, SQ};
-use super::undo_info::UndoInfo;
+use super::bitboard::*;
+use super::color::*;
+use super::file::*;
+use super::moov::*;
+use super::move_list::*;
+use super::piece::*;
+use super::rank::*;
+use super::square::*;
+use super::undo_info::*;
 use super::zobrist;
 use crate::evaluation::e_constants;
-use crate::evaluation::score::{Phase, Score};
-use crate::types::bitboard::Key;
-use crate::types::file::File;
-use crate::types::moov::{Move, MoveFlags};
-use crate::types::move_list::MoveList;
-use crate::types::rank::Rank;
-use crate::types::square::SQ_DISPLAY_ORDER;
+use crate::evaluation::score::*;
 use std::cmp::min;
 use std::fmt;
-
 
 pub struct Board {
     piece_bb: [BitBoard; N_PIECES],
@@ -1169,16 +1166,20 @@ impl Board {
             self.hash ^= zobrist::zobrist_color();
         }
         if !det_split[2].contains('K') {
-            self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() | BitBoard::WHITE_OO_MASK);
+            self.history[self.game_ply]
+                .set_entry(self.history[self.game_ply].entry() | BitBoard::WHITE_OO_MASK);
         }
         if !det_split[2].contains('Q') {
-            self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() | BitBoard::WHITE_OOO_MASK);
+            self.history[self.game_ply]
+                .set_entry(self.history[self.game_ply].entry() | BitBoard::WHITE_OOO_MASK);
         }
         if !det_split[2].contains('k') {
-            self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() | BitBoard::BLACK_OO_MASK);
+            self.history[self.game_ply]
+                .set_entry(self.history[self.game_ply].entry() | BitBoard::BLACK_OO_MASK);
         }
         if !det_split[2].contains('q') {
-            self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() | BitBoard::BLACK_OOO_MASK);
+            self.history[self.game_ply]
+                .set_entry(self.history[self.game_ply].entry() | BitBoard::BLACK_OOO_MASK);
         }
 
         let s = det_split[3].to_ascii_lowercase();
@@ -1243,14 +1244,22 @@ impl Board {
                 }
                 None => {
                     if self.piece_type_at(from_sq) == PieceType::Pawn
-                        && to_sq == self.history[self.game_ply].epsq() {
+                        && to_sq == self.history[self.game_ply].epsq()
+                    {
                         m = Move::new(from_sq, to_sq, MoveFlags::EnPassant);
                     } else if self.piece_type_at(from_sq) == PieceType::Pawn
-                        && i8::abs(from_sq as i8 - to_sq as i8) == 16 {
+                        && i8::abs(from_sq as i8 - to_sq as i8) == 16
+                    {
                         m = Move::new(from_sq, to_sq, MoveFlags::DoublePush);
-                    } else if self.piece_type_at(from_sq) == PieceType::King && from_sq.file() == File::E && to_sq.file() == File::G {
+                    } else if self.piece_type_at(from_sq) == PieceType::King
+                        && from_sq.file() == File::E
+                        && to_sq.file() == File::G
+                    {
                         m = Move::new(from_sq, to_sq, MoveFlags::OO);
-                    } else if self.piece_type_at(from_sq) == PieceType::King && from_sq.file() == File::E && to_sq.file() == File::C {
+                    } else if self.piece_type_at(from_sq) == PieceType::King
+                        && from_sq.file() == File::E
+                        && to_sq.file() == File::C
+                    {
                         m = Move::new(from_sq, to_sq, MoveFlags::OOO);
                     } else {
                         m = Move::new(from_sq, to_sq, MoveFlags::Quiet);

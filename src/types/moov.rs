@@ -31,10 +31,8 @@ pub enum MoveFlags {
 impl Move {
     #[inline(always)]
     pub fn new(from_sq: SQ, to_square: SQ, flags: MoveFlags) -> Self {
-        Move {
-            m: ((flags as u16) << 12) | ((from_sq as u16) << 6) | (to_square as u16),
-            score: 0,
-        }
+        Move { m: ((flags as MoveInt) << 12) | ((from_sq as MoveInt) << 6) | (to_square as MoveInt),
+               score: 0 }
     }
 
     #[inline(always)]
@@ -74,7 +72,12 @@ impl Move {
 
     #[inline(always)]
     pub fn is_capture(&self) -> bool {
-        ((self.m >> 12) & MoveFlags::Capture as u16) != 0
+        ((self.m >> 12) & MoveFlags::Capture as MoveInt) != 0
+    }
+
+    #[inline(always)]
+    pub fn is_promotion(&self) -> bool {
+        ((self.m >> 12) & MoveFlags::PrKnight as MoveInt) != 0
     }
 
     #[inline(always)]

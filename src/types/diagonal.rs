@@ -1,4 +1,4 @@
-use super::bitboard::BitBoard;
+use super::bitboard::*;
 use std::mem::transmute;
 
 pub static DIAGONAL_BB: [BitBoard; 15] = [

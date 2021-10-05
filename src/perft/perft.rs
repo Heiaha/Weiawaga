@@ -1,5 +1,5 @@
-use crate::types::board::Board;
-use crate::types::move_list::MoveList;
+use crate::types::board::*;
+use crate::types::move_list::*;
 use std::time::Instant;
 
 pub fn perft(board: &mut Board, depth: u8) -> usize {
@@ -46,9 +46,9 @@ pub fn print_perft(board: &mut Board, depth: u8) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::magics::init_magics;
     use crate::types::attacks::init_attacks;
     use crate::types::bitboard::init_bb;
+    use crate::types::magics::init_magics;
 
     #[test]
     fn test_perft() {

@@ -1,8 +1,7 @@
-use crate::evaluation::score::Value;
-use crate::search::search::Depth;
-use crate::types::bitboard::BitBoard;
-use crate::types::bitboard::Key;
-use crate::types::moov::{Move, MoveInt};
+use super::search::*;
+use crate::evaluation::score::*;
+use crate::types::bitboard::*;
+use crate::types::moov::*;
 
 pub struct TT {
     table: Vec<TTEntry>,
@@ -34,21 +33,12 @@ impl TT {
         TT { table, bitmask }
     }
 
-    pub fn insert(
-        &mut self,
-        hash: Key,
-        depth: Depth,
-        value: Value,
-        best_move: Option<Move>,
-        flag: TTFlag,
-    ) {
-        self.table[(hash & self.bitmask).0 as usize] = TTEntry {
-            key: hash,
-            best_move: best_move.map(|x| x.moove()),
-            depth,
-            value,
-            flag,
-        };
+    pub fn insert(&mut self, hash: Key, depth: Depth, value: Value, best_move: Option<Move>, flag: TTFlag) {
+        self.table[(hash & self.bitmask).0 as usize] = TTEntry { key: hash,
+                                                                 best_move: best_move.map(|x| x.moove()),
+                                                                 depth,
+                                                                 value,
+                                                                 flag };
     }
 
     pub fn probe(&self, hash: Key) -> Option<&TTEntry> {
@@ -109,12 +99,10 @@ impl TTEntry {
 
 impl Default for TTEntry {
     fn default() -> Self {
-        Self {
-            key: B!(0),
-            best_move: None,
-            depth: 0,
-            value: 0,
-            flag: TTFlag::Exact,
-        }
+        Self { key: B!(0),
+               best_move: None,
+               depth: 0,
+               value: 0,
+               flag: TTFlag::Exact }
     }
 }

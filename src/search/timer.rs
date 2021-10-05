@@ -1,7 +1,7 @@
-use crate::evaluation::score::Value;
-use crate::search::search::Depth;
-use crate::types::board::Board;
-use crate::types::color::Color;
+use super::search::*;
+use crate::evaluation::score::*;
+use crate::types::board::*;
+use crate::types::color::*;
 use std::cmp::min;
 use std::sync;
 use std::sync::atomic::AtomicBool;
@@ -17,13 +17,7 @@ pub enum TimeControl {
     FixedMillis(Time),
     FixedDepth(Depth),
     FixedNodes(u64),
-    Variable {
-        wtime: Time,
-        btime: Time,
-        winc: Option<Time>,
-        binc: Option<Time>,
-        moves_to_go: Option<u64>,
-    },
+    Variable { wtime: Time, btime: Time, winc: Option<Time>, binc: Option<Time>, moves_to_go: Option<u64> },
 }
 
 #[derive(Clone)]
@@ -38,38 +32,20 @@ pub struct Timer {
 
 impl Timer {
     pub fn new(board: &Board, control: TimeControl, stop: Arc<AtomicBool>) -> Timer {
-        let mut tm = Timer {
-            start_time: Instant::now(),
-            stop: stop,
-            control: control,
-            times_checked: 0,
-            time_target: 0,
-            time_maximum: 0,
-        };
+        let mut tm = Timer { start_time: Instant::now(),
+                             stop: stop,
+                             control: control,
+                             times_checked: 0,
+                             time_target: 0,
+                             time_maximum: 0 };
         tm.calc(board);
         tm
     }
 
     fn calc(&mut self, board: &Board) {
-        if let TimeControl::Variable {
-            wtime,
-            btime,
-            winc,
-            binc,
-            moves_to_go,
-        } = self.control
-        {
-            let time = if board.color_to_play() == Color::White {
-                wtime
-            } else {
-                btime
-            } as f64;
-            let inc = if board.color_to_play() == Color::White {
-                winc
-            } else {
-                binc
-            }
-            .unwrap_or(0) as f64;
+        if let TimeControl::Variable { wtime, btime, winc, binc, moves_to_go } = self.control {
+            let time = if board.color_to_play() == Color::White { wtime } else { btime } as f64;
+            let inc = if board.color_to_play() == Color::White { winc } else { binc }.unwrap_or(0) as f64;
 
             let target = time.min(time / moves_to_go.unwrap_or(40) as f64 + inc);
             self.time_target = target as Time;
@@ -78,7 +54,7 @@ impl Timer {
     }
 
     pub fn start_check(&self, depth: Depth) -> bool {
-         match self.control {
+        match self.control {
             TimeControl::Infinite => true,
             TimeControl::FixedMillis(millis) => self.elapsed() <= millis,
             TimeControl::FixedDepth(stop_depth) => depth <= stop_depth,
@@ -153,13 +129,11 @@ impl From<&str> for TimeControl {
             }
         }
         if wtime != None {
-            result = TimeControl::Variable {
-                wtime: wtime.unwrap(),
-                btime: btime.unwrap(),
-                winc,
-                binc,
-                moves_to_go,
-            };
+            result = TimeControl::Variable { wtime: wtime.unwrap(),
+                                             btime: btime.unwrap(),
+                                             winc,
+                                             binc,
+                                             moves_to_go };
         }
         result
     }

@@ -1,5 +1,5 @@
-use crate::types::bitboard::BitBoard;
-use crate::types::color::Color;
+use super::bitboard::*;
+use super::color::*;
 use std::mem::transmute;
 use std::ops::*;
 

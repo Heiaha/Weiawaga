@@ -1,8 +1,8 @@
-use super::bitboard::BitBoard;
-use super::file::File;
-use super::rank::Rank;
-use super::square::{N_SQUARES, SQ};
-use crate::types::attacks::{bishop_attacks_for_init, rook_attacks_for_init};
+use super::attacks::*;
+use super::bitboard::*;
+use super::file::*;
+use super::rank::*;
+use super::square::*;
 use std::cmp::max;
 
 // Fancy magic bitboard implementation inspired by Rustfish's port of Stockfish

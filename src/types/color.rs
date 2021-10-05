@@ -5,8 +5,8 @@ pub const N_COLORS: usize = 2;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Color {
-    White = 0,
-    Black = 1,
+    White,
+    Black,
 }
 
 impl Color {

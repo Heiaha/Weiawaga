@@ -1,4 +1,4 @@
-use crate::types::bitboard::BitBoard;
+use super::bitboard::*;
 use std::mem::transmute;
 use std::ops::*;
 

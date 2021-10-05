@@ -1,4 +1,4 @@
-use crate::types::piece::{PieceType, N_PIECE_TYPES};
+use crate::types::piece::*;
 use std::fmt;
 use std::ops::*;
 

@@ -1,8 +1,8 @@
 use super::score::Score;
-use crate::types::bitboard::BitBoard;
-use crate::types::color::{Color, N_COLORS};
-use crate::types::piece::{Piece, N_PIECES};
-use crate::types::square::{Direction, N_SQUARES, SQ};
+use crate::types::bitboard::*;
+use crate::types::color::*;
+use crate::types::piece::*;
+use crate::types::square::*;
 
 pub const TEMPO: [Score; 1] = [S!(18, 17)];
 

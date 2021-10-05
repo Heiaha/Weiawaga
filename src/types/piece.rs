@@ -1,4 +1,4 @@
-use super::color::Color;
+use super::color::*;
 use std::iter::Step;
 use std::mem::transmute;
 

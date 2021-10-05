@@ -1,7 +1,7 @@
 use super::attacks;
-use super::color::Color;
-use super::file::File;
-use super::square::{Direction, N_SQUARES, SQ};
+use super::color::*;
+use super::file::*;
+use super::square::*;
 use crate::evaluation::score::Value;
 use std::ops::*;
 
