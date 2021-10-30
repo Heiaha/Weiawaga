@@ -36,8 +36,7 @@ impl Rank {
 
     #[inline(always)]
     pub fn relative(self, c: Color) -> Rank {
-        let r = (self as u8) ^ (c as u8 * 7);
-        Rank::from(r)
+        Rank::from((self as u8) ^ (c as u8 * 7))
     }
 
     #[inline(never)]
@@ -56,6 +55,7 @@ impl From<u8> for Rank {
 impl Add for Rank {
     type Output = Self;
 
+    #[inline(always)]
     fn add(self, other: Self) -> Self::Output {
         Rank::from(self as u8 + other as u8)
     }
@@ -64,6 +64,7 @@ impl Add for Rank {
 impl Sub for Rank {
     type Output = Self;
 
+    #[inline(always)]
     fn sub(self, other: Self) -> Self::Output {
         Rank::from(self as u8 - other as u8)
     }

@@ -23,12 +23,14 @@ pub enum UCICommand {
     Option(String, String),
 }
 
-pub fn thread_loop(thread: sync::mpsc::Receiver<UCICommand>, abort: Arc<AtomicBool>) {
+const HASH_DEFAULT: u64 = 512;
+
+fn thread_loop(thread: sync::mpsc::Receiver<UCICommand>, abort: Arc<AtomicBool>) {
     // global board
     let mut board = Board::new();
 
     // global transposition table
-    let mut tt: TT = TT::new(512);
+    let mut tt: TT = TT::new(HASH_DEFAULT);
     for cmd in thread {
         match cmd {
             UCICommand::IsReady => {
@@ -98,6 +100,7 @@ impl UCICommand {
                 UCICommand::UCI => {
                     println!("id name Weiawaga");
                     println!("id author Malarksist");
+                    println!("option name Hash type spin default {default}", default=HASH_DEFAULT);
                     println!("uciok");
                 }
                 cmd => {

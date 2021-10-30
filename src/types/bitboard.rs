@@ -35,8 +35,13 @@ impl BitBoard {
     }
 
     #[inline(always)]
+    pub fn is_several(&self) -> bool {
+        self.0 & (self.0.wrapping_sub(1)) != 0
+    }
+
+    #[inline(always)]
     pub fn is_single(&self) -> bool {
-        self.0 & (self.0 - 1) == 0
+        self.0 != 0 && !self.is_several()
     }
 
     #[inline(always)]

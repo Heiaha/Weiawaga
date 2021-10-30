@@ -1,4 +1,5 @@
 use super::score::Score;
+use crate::evaluation::score::*;
 use crate::types::bitboard::*;
 use crate::types::color::*;
 use crate::types::piece::*;
@@ -105,7 +106,12 @@ pub static mut PIECE_TABLES: [[Score; N_SQUARES]; N_PIECES] = [[Score::ZERO; N_S
 pub static mut PAWN_SHIELD_MASKS: [[BitBoard; N_SQUARES]; N_COLORS] = [[BitBoard::ZERO; N_SQUARES]; N_COLORS];
 
 #[inline(always)]
-pub fn piece_value(pc: Piece) -> Score {
+pub fn piece_type_value(pt: PieceType) -> Value {
+    PIECE_TYPE_VALUES[pt.index()].eg()
+}
+
+#[inline(always)]
+pub fn piece_score(pc: Piece) -> Score {
     unsafe { PIECE_VALUES[pc.index()] }
 }
 

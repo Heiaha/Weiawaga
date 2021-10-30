@@ -1,5 +1,5 @@
-use super::square::SQ;
-use crate::search::move_scorer::SortScore;
+use super::square::*;
+use crate::search::move_sorter::*;
 use std::mem::transmute;
 
 pub type MoveInt = u16;

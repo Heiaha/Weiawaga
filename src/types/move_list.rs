@@ -1,7 +1,7 @@
 use super::bitboard::*;
 use super::moov::*;
 use super::square::*;
-use crate::search::move_scorer::*;
+use crate::search::move_sorter::*;
 use crate::types::moov::*;
 use std::ops::{Index, IndexMut};
 

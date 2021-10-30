@@ -14,7 +14,7 @@ https://lichess.org/@/Weiawaga
 - Move generation
     - [Fancy magic bitboard hashing](https://www.chessprogramming.org/Magic_Bitboards#Fancy)
 - Search
-    - [Negamax with alpha beta pruning](https://en.wikipedia.org/wiki/Negamax#Negamax_with_alpha_beta_pruning)
+    - [Principal variation search](https://www.chessprogramming.org/Principal_Variation_Search)
     - [Iterative deepening](https://en.wikipedia.org/wiki/Iterative_deepening_depth-first_search)
     - [Quiescence search](https://en.wikipedia.org/wiki/Quiescence_search)
     - [Aspiration windows](https://www.chessprogramming.org/Aspiration_Windows)

@@ -21,7 +21,7 @@ macro_rules! M {
     };
 }
 
-const BISHOP_MAGICS_INIT: [MagicInit; 64] = [
+const BISHOP_MAGICS_INIT: [MagicInit; N_SQUARES] = [
     M!(0x007fbfbfbfbfbfff,  5378), M!(0x0000a060401007fc,  4093), M!(0x0001004008020000,  4314), M!(0x0000806004000000,  6587),
     M!(0x0000100400000000,  6491), M!(0x000021c100b20000,  6330), M!(0x0000040041008000,  5609), M!(0x00000fb0203fff80, 22236),
     M!(0x0000040100401004,  6106), M!(0x0000020080200802,  5625), M!(0x0000004010202000, 16785), M!(0x0000008060040000, 16817),
@@ -40,7 +40,7 @@ const BISHOP_MAGICS_INIT: [MagicInit; 64] = [
     M!(0x0000000001002020, 14932), M!(0x0000000401002008, 16588), M!(0x0000004040404040,  6905), M!(0x007fff9fdf7ff813, 16076),
 ];
 
-const ROOK_MAGICS_INIT: [MagicInit; 64] = [
+const ROOK_MAGICS_INIT: [MagicInit; N_SQUARES] = [
     M!(0x00280077ffebfffe, 26304), M!(0x2004010201097fff, 35520), M!(0x0010020010053fff, 38592), M!(0x0040040008004002,  8026),
     M!(0x7fd00441ffffd003, 22196), M!(0x4020008887dffffe, 80870), M!(0x004000888847ffff, 76747), M!(0x006800fbff75fffd, 30400),
     M!(0x000028010113ffff, 11115), M!(0x0020040201fcffff, 18205), M!(0x007fe80042ffffe8, 53577), M!(0x00001800217fffe8, 62724),
@@ -69,7 +69,6 @@ pub struct Magics {
 }
 
 impl Magics {
-
     #[inline(always)]
     pub fn index(&self, sq: SQ, occ: BitBoard) -> usize {
         (((occ & self.masks[sq as usize]) * self.magics[sq as usize])

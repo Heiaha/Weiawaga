@@ -90,7 +90,7 @@ impl Board {
     pub fn set_piece_at(&mut self, pc: Piece, sq: SQ) {
         self.phase -= Score::piece_phase(pc.type_of());
         self.p_sq_score += e_constants::piece_sq_value(pc, sq);
-        self.material_score += e_constants::piece_value(pc);
+        self.material_score += e_constants::piece_score(pc);
 
         self.board[sq.index()] = pc;
         self.piece_bb[pc.index()] |= sq.bb();
@@ -103,7 +103,7 @@ impl Board {
         let pc = self.piece_at(sq);
         self.phase += Score::piece_phase(pc.type_of());
         self.p_sq_score -= e_constants::piece_sq_value(pc, sq);
-        self.material_score -= e_constants::piece_value(pc);
+        self.material_score -= e_constants::piece_score(pc);
 
         self.hash ^= zobrist::zobrist_table(pc, sq);
         self.material_hash ^= zobrist::zobrist_table(pc, sq);
@@ -139,6 +139,11 @@ impl Board {
     #[inline(always)]
     pub fn bitboard_of(&self, c: Color, pt: PieceType) -> BitBoard {
         self.piece_bb[Piece::make_piece(c, pt).index()]
+    }
+
+    #[inline(always)]
+    pub fn bitboard_of_piecetype(&self, pt: PieceType) -> BitBoard {
+        self.piece_bb[Piece::make_piece(Color::White, pt).index()] | self.piece_bb[Piece::make_piece(Color::Black, pt).index()]
     }
 
     pub fn diagonal_sliders(&self, color: Color) -> BitBoard {
@@ -225,10 +230,27 @@ impl Board {
         false
     }
 
-    pub fn is_repetition_or_fifty(&self) -> bool {
+    pub fn last_capture(&self) -> PieceType {
+        self.history[self.game_ply].captured().type_of()
+    }
+
+    #[inline(always)]
+    fn is_insufficient_material(&self) -> bool {
+        (self.bitboard_of_piecetype(PieceType::Pawn) | self.bitboard_of_piecetype(PieceType::Rook) | self.bitboard_of_piecetype(PieceType::Queen)) == BitBoard::ZERO &&
+            (!self.all_pieces(Color::White).is_several() || !self.all_pieces(Color::Black).is_several()) &&
+            (!(self.bitboard_of_piecetype(PieceType::Knight) | self.bitboard_of_piecetype(PieceType::Bishop)).is_several() ||
+            (self.bitboard_of_piecetype(PieceType::Bishop) == BitBoard::ZERO && self.bitboard_of_piecetype(PieceType::Knight).pop_count() <= 2))
+    }
+
+    #[inline(always)]
+    fn is_fifty(&self) -> bool {
         if self.history[self.game_ply].half_move_counter() >= 100 {
             return true;
         }
+        false
+    }
+
+    fn is_threefold(&self) -> bool {
         let lookback = min(
             self.history[self.game_ply].plies_from_null(),
             self.history[self.game_ply].half_move_counter(),
@@ -239,6 +261,12 @@ impl Board {
             }
         }
         false
+    }
+
+    pub fn is_draw(&self) -> bool {
+        self.is_fifty() ||
+            self.is_insufficient_material() ||
+            self.is_threefold()
     }
 
     pub fn has_non_pawn_material(&self) -> bool {

@@ -100,7 +100,7 @@ impl Step for Piece {
 
 impl Step for PieceType {
     fn steps_between(start: &Self, end: &Self) -> Option<usize> {
-        Some((*end as usize - *start as usize) as usize)
+        Some(*end as usize - *start as usize)
     }
 
     fn forward_checked(start: Self, count: usize) -> Option<Self> {
