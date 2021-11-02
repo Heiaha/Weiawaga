@@ -125,7 +125,7 @@ pub fn sliding_attacks(sq: SQ, occ: BitBoard, mask: BitBoard) -> BitBoard {
 
 pub fn attacks(pt: PieceType, sq: SQ, occ: BitBoard) -> BitBoard {
     match pt {
-        PieceType::Pawn => BitBoard::ZERO,
+        PieceType::Pawn => BitBoard::ZERO, // Use color-dependent pawn attack generator for that.
         PieceType::Knight => knight_attacks(sq),
         PieceType::Bishop => bishop_attacks(sq, occ),
         PieceType::Rook => rook_attacks(sq, occ),

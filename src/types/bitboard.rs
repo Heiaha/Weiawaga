@@ -30,7 +30,7 @@ impl BitBoard {
     #[inline(always)]
     pub fn pop_lsb(&mut self) -> SQ {
         let s = self.lsb();
-        *self &= *self - Self::ONE;
+        self.0 &= self.0 - 1;
         s
     }
 
@@ -98,6 +98,7 @@ impl BitBoard {
         result
     }
 
+    #[inline(always)]
     pub fn reverse(self) -> Self {
         BitBoard(self.0.reverse_bits())
     }

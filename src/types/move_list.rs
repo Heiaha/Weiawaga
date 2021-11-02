@@ -2,7 +2,6 @@ use super::bitboard::*;
 use super::moov::*;
 use super::square::*;
 use crate::search::move_sorter::*;
-use crate::types::moov::*;
 use std::ops::{Index, IndexMut};
 
 // target pointer logic from pleco
@@ -117,6 +116,7 @@ impl Iterator for MoveList {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.idx == self.len {
+            self.idx = 0;
             return None;
         }
         self.idx += 1;

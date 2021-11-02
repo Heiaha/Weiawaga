@@ -1,10 +1,8 @@
-use crate::evaluation::score::*;
 use crate::perft::perft::*;
 use crate::search::search::*;
 use crate::search::timer::*;
 use crate::search::tt::*;
 use crate::types::board::*;
-use crate::types::moov::*;
 use std::io::BufRead;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -48,9 +46,7 @@ fn thread_loop(thread: sync::mpsc::Receiver<UCICommand>, abort: Arc<AtomicBool>)
             UCICommand::Go(time_control) => {
                 let timer = Timer::new(&board, time_control, abort.clone());
                 let mut search = Search::new(timer, &mut tt);
-                let mut best_move: Move = Move::null();
-                let mut best_score: Value = 0;
-                (best_move, best_score) = search.go(&mut board);
+                let (best_move, best_score) = search.go(&mut board);
                 println!("info score cp {}", best_score);
                 println!("bestmove {}", best_move.to_string());
                 tt.clear();
@@ -131,14 +127,9 @@ impl From<&str> for UCICommand {
             for word in words {
                 value_parts.push(word);
             }
-            let mut name = name_parts
-                .into_iter()
-                .fold(String::new(), |name, part| name + part);
-            name.make_ascii_lowercase();
-            let value = value_parts
-                .into_iter()
-                .fold(String::new(), |name, part| name + part);
-            return UCICommand::Option(name, value);
+            let name = name_parts.last().unwrap();
+            let value = value_parts.last().unwrap_or(&"");
+            return UCICommand::Option(name.parse().unwrap(), value.parse().unwrap());
         } else if line.starts_with("uci") {
             return UCICommand::UCI;
         } else if line.starts_with("isready") {

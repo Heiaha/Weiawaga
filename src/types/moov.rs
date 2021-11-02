@@ -41,11 +41,6 @@ impl Move {
     }
 
     #[inline(always)]
-    pub fn null() -> Self {
-        Move::new(SQ::None, SQ::None, MoveFlags::Quiet)
-    }
-
-    #[inline(always)]
     pub fn to_sq(&self) -> SQ {
         SQ::from((self.m & 0x3f) as u8)
     }

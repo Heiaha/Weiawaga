@@ -17,44 +17,33 @@ const HISTORY_MAX: SortScore = SortScore::MAX / 2;
 static mut KILLER_MOVES: [[[Move; N_KILLER]; 256]; N_COLORS] = [[[Move::NULL; N_KILLER]; 256]; N_COLORS];
 static mut HISTORY_SCORES: [[SortScore; N_SQUARES]; N_SQUARES] = [[0; N_SQUARES]; N_SQUARES];
 
-pub struct MoveSorter {
-    pub moves: MoveList,
-}
+pub struct MoveSorter(MoveList);
 
 impl MoveSorter {
     pub fn new(board: &mut Board, ply: Ply, hash_move: &Option<Move>) -> MoveSorter {
         let mut moves = MoveList::new();
         board.generate_legal_moves(&mut moves);
         MoveSorter::score_moves(&mut moves, board, ply, hash_move);
-        MoveSorter {
-            moves,
-        }
+        MoveSorter(moves)
     }
 
     pub fn new_q(board: &mut Board, ply: Ply, hash_move: &Option<Move>) -> MoveSorter {
         let mut moves = MoveList::new();
         board.generate_legal_q_moves(&mut moves);
         MoveSorter::score_moves(&mut moves, board, ply, hash_move);
-        MoveSorter {
-            moves,
-        }
-    }
-
-    #[inline(always)]
-    pub fn next(&mut self) -> Option<Move> {
-        self.moves.next_best()
+        MoveSorter(moves)
     }
 
     #[inline(always)]
     pub fn len(&self) -> usize {
-        self.moves.len()
+        self.0.len()
     }
 
     fn score_moves(moves: &mut MoveList, board: &Board, ply: Ply, hash_move: &Option<Move>) {
 
         let mut m: &mut Move;
-        for i in 0..moves.len() {
-            m = &mut moves[i];
+        for idx in 0..moves.len() {
+            m = &mut moves[idx];
 
             if let Some(hash_move) = hash_move {
                 if m == hash_move {
@@ -153,17 +142,28 @@ impl MoveSorter {
     }
 }
 
+impl Iterator for MoveSorter {
+    type Item = Move;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next_best()
+    }
+}
+
 impl Index<usize> for MoveSorter {
     type Output = Move;
 
+    #[inline(always)]
     fn index(&self, i: usize) -> &Self::Output {
-        &self.moves[i]
+        &self.0[i]
     }
 }
 
 impl IndexMut<usize> for MoveSorter {
+    #[inline(always)]
     fn index_mut(&mut self, i: usize) -> &mut Self::Output {
-        &mut self.moves[i]
+        &mut self.0[i]
     }
 }
 

@@ -8,22 +8,22 @@ use crate::types::file::*;
 use crate::types::piece::*;
 use crate::types::square::*;
 
-pub struct Evaluator {
+pub struct Evaluator<'a> {
+    board: &'a Board,
     color: Color,
     our_king: SQ,
-    their_king: SQ,
     our_pawns: BitBoard,
     their_pawns: BitBoard,
     all_pieces: BitBoard,
 }
 
-impl Evaluator {
+impl<'a> Evaluator<'a> {
 
     pub fn new(board: &Board, color: Color) -> Evaluator {
         Evaluator {
+            board,
             color,
             our_king: board.bitboard_of(color, PieceType::King).lsb(),
-            their_king: board.bitboard_of(!color, PieceType::King).lsb(),
             our_pawns: board.bitboard_of(color, PieceType::Pawn),
             their_pawns: board.bitboard_of(!color, PieceType::Pawn),
             all_pieces: board.all_pieces(Color::White) | board.all_pieces(Color::Black),
@@ -53,7 +53,7 @@ impl Evaluator {
             (self.our_pawns & !self.our_pawns.shift(Direction::West, 1).file_fill())).pop_count()
     }
 
-    pub fn pawn_score(&self, board: &Board) -> Score {
+    pub fn pawn_score(&self) -> Score {
         let mut score = Score::ZERO;
         score += PAWN_SCORES[IX_PASSED_PAWN_VALUE] * self.n_passed_pawns();
         score += PAWN_SCORES[IX_DOUBLED_PAWN_PENALTY] * self.n_doubled_pawns();
@@ -61,21 +61,21 @@ impl Evaluator {
         score
     }
 
-////////////////////////////////////////////////////////////////
-// BISHOP
-////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////
+    // BISHOP
+    ////////////////////////////////////////////////////////////////
 
     fn has_bishop_pair(&self, bishop_bb: BitBoard) -> bool {
         (bishop_bb & BitBoard::LIGHT_SQUARES) != BitBoard::ZERO && (bishop_bb & BitBoard::DARK_SQUARES) != BitBoard::ZERO
     }
 
-    fn pawns_on_same_color_square(&self, board: &Board, sq: SQ) -> Value {
-        (board.bitboard_of(self.color, PieceType::Pawn) & if sq.bb() & BitBoard::DARK_SQUARES != BitBoard::ZERO { BitBoard::DARK_SQUARES } else { BitBoard::LIGHT_SQUARES }).pop_count()
+    fn pawns_on_same_color_square(&self, sq: SQ) -> Value {
+        (self.board.bitboard_of(self.color, PieceType::Pawn) & if sq.bb() & BitBoard::DARK_SQUARES != BitBoard::ZERO { BitBoard::DARK_SQUARES } else { BitBoard::LIGHT_SQUARES }).pop_count()
     }
 
-    fn bishop_score(&self, board: &Board) -> Score {
+    fn bishop_score(&self) -> Score {
         let mut score = Score::ZERO;
-        let bishops_bb = board.bitboard_of(self.color, PieceType::Bishop);
+        let bishops_bb = self.board.bitboard_of(self.color, PieceType::Bishop);
 
         if self.has_bishop_pair(bishops_bb) {
             score += BISHOP_SCORES[IX_BISHOP_PAIR_VALUE];
@@ -87,18 +87,18 @@ impl Evaluator {
             if (attacks & BitBoard::CENTER).pop_count() == 2 {
                 score += BISHOP_SCORES[IX_BISHOP_ATTACKS_CENTER];
             }
-            score += BISHOP_SCORES[IX_BISHOP_SAME_COLOR_PAWN_PENALTY] * self.pawns_on_same_color_square(board, sq);
+            score += BISHOP_SCORES[IX_BISHOP_SAME_COLOR_PAWN_PENALTY] * self.pawns_on_same_color_square(sq);
         }
         score
     }
 
-////////////////////////////////////////////////////////////////
-// ROOK
-////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////
+    // ROOK
+    ////////////////////////////////////////////////////////////////
 
-    fn rook_score(&self, board: &Board) -> Score {
+    fn rook_score(&self) -> Score {
         let mut score = Score::ZERO;
-        let rooks_bb = board.bitboard_of(self.color, PieceType::Rook);
+        let rooks_bb = self.board.bitboard_of(self.color, PieceType::Rook);
 
         let mut rook_file_bb: BitBoard;
         let mut piece_mobility: Value;
@@ -124,9 +124,9 @@ impl Evaluator {
         score
     }
 
-////////////////////////////////////////////////////////////////
-// KING
-////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////
+    // KING
+    ////////////////////////////////////////////////////////////////
 
     fn pawns_shielding_king(&self) -> Value {
         unsafe { (PAWN_SHIELD_MASKS[self.color.index()][self.our_king.index()] & self.our_pawns).pop_count() }
@@ -147,14 +147,14 @@ pub fn eval(board: &Board) -> Value {
     score += board.p_sq_score() + board.material_score();
     score += if board.color_to_play() == Color::White { TEMPO[0] } else { -TEMPO[0] };
 
-    score += white_evaluator.pawn_score(board);
-    score -= black_evaluator.pawn_score(board);
+    score += white_evaluator.pawn_score();
+    score -= black_evaluator.pawn_score();
 
-    score += white_evaluator.bishop_score(board);
-    score -= black_evaluator.bishop_score(board);
+    score += white_evaluator.bishop_score();
+    score -= black_evaluator.bishop_score();
 
-    score += white_evaluator.rook_score(board);
-    score -= black_evaluator.rook_score(board);
+    score += white_evaluator.rook_score();
+    score -= black_evaluator.rook_score();
 
     score += white_evaluator.king_score();
     score -= black_evaluator.king_score();
