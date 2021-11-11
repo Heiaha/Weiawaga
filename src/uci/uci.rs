@@ -2,6 +2,7 @@ use crate::perft::perft::*;
 use crate::search::search::*;
 use crate::search::timer::*;
 use crate::search::tt::*;
+use crate::search::move_sorter::*;
 use crate::types::board::*;
 use std::io::BufRead;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -21,55 +22,58 @@ pub enum UCICommand {
     Option(String, String),
 }
 
-const HASH_DEFAULT: u64 = 512;
 
-fn thread_loop(thread: sync::mpsc::Receiver<UCICommand>, abort: Arc<AtomicBool>) {
-    // global board
-    let mut board = Board::new();
 
-    // global transposition table
-    let mut tt: TT = TT::new(HASH_DEFAULT);
-    for cmd in thread {
-        match cmd {
-            UCICommand::IsReady => {
-                println!("readyok");
-            }
-            UCICommand::UCINewGame => {
-                board = Board::new();
-            }
-            UCICommand::Position(new_board, moves) => {
-                board = new_board;
-                for m in moves {
-                    board.push_str(m);
+impl UCICommand {
+    fn thread_loop(thread: sync::mpsc::Receiver<UCICommand>, abort: Arc<AtomicBool>) {
+        // global board
+        let mut board = Board::new();
+
+        // global transposition table
+        let mut tt: TT = TT::new(Self::HASH_DEFAULT);
+        for cmd in thread {
+            match cmd {
+                UCICommand::IsReady => {
+                    println!("readyok");
                 }
-            }
-            UCICommand::Go(time_control) => {
-                let timer = Timer::new(&board, time_control, abort.clone());
-                let mut search = Search::new(timer, &mut tt);
-                let (best_move, best_score) = search.go(&mut board);
-                println!("info score cp {}", best_score);
-                println!("bestmove {}", best_move.to_string());
-                tt.clear();
-            }
-            UCICommand::Perft(depth) => {
-                print_perft(&mut board, depth);
-            }
-            UCICommand::Option(name, value) => match name.as_ref() {
-                "Hash" => {
-                    if let Ok(mb) = value.parse::<u64>() {
-                        tt.resize(mb);
+                UCICommand::UCINewGame => {
+                    board = Board::new();
+                }
+                UCICommand::Position(new_board, moves) => {
+                    board = new_board;
+                    for m in moves {
+                        board.push_str(m);
                     }
                 }
-                _ => {}
-            },
-            _ => {
-                println!("Unexpected UCI Command.");
+                UCICommand::Go(time_control) => {
+                    let timer = Timer::new(&board, time_control, abort.clone());
+                    let mut search = Search::new(timer, &mut tt);
+                    let (best_move, best_score) = search.go(&mut board);
+                    println!("info score cp {}", best_score);
+                    println!("bestmove {}", best_move.to_string());
+                    MoveSorter::clear_history();
+                    MoveSorter::clear_killers();
+                    tt.clear();
+                    abort.store(false, Ordering::SeqCst);
+                }
+                UCICommand::Perft(depth) => {
+                    print_perft(&mut board, depth);
+                }
+                UCICommand::Option(name, value) => match name.as_ref() {
+                    "Hash" => {
+                        if let Ok(mb) = value.parse::<u64>() {
+                            tt.resize(mb);
+                        }
+                    }
+                    _ => {}
+                },
+                _ => {
+                    println!("Unexpected UCI Command.");
+                }
             }
         }
     }
-}
 
-impl UCICommand {
     pub fn run() {
         println!("Weiawaga v3.0 September 14, 2021");
         println!("Homepage and source code: https://github.com/Heiaha/Weiawaga");
@@ -83,7 +87,7 @@ impl UCICommand {
             .name("Main thread".into())
             .stack_size(8 * 1024 * 1024);
         let thread = builder
-            .spawn(move || thread_loop(main_rx, thread_moved_abort))
+            .spawn(move || Self::thread_loop(main_rx, thread_moved_abort))
             .unwrap();
 
         for line in lock.lines() {
@@ -96,7 +100,7 @@ impl UCICommand {
                 UCICommand::UCI => {
                     println!("id name Weiawaga");
                     println!("id author Malarksist");
-                    println!("option name Hash type spin default {default}", default=HASH_DEFAULT);
+                    println!("option name Hash type spin default {default}", default=Self::HASH_DEFAULT);
                     println!("uciok");
                 }
                 cmd => {
@@ -105,6 +109,10 @@ impl UCICommand {
             }
         }
     }
+}
+
+impl UCICommand {
+    const HASH_DEFAULT: u64 = 512;
 }
 
 impl From<&str> for UCICommand {

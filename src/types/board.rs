@@ -114,8 +114,7 @@ impl Board {
 
     pub fn move_piece_quiet(&mut self, from_sq: SQ, to_sq: SQ) {
         let pc = self.piece_at(from_sq);
-        self.p_sq_score +=
-            e_constants::piece_sq_value(pc, to_sq) - e_constants::piece_sq_value(pc, from_sq);
+        self.p_sq_score += e_constants::piece_sq_value(pc, to_sq) - e_constants::piece_sq_value(pc, from_sq);
 
         let hash_update = zobrist::zobrist_table(pc, from_sq) ^ zobrist::zobrist_table(pc, to_sq);
         self.hash ^= hash_update;
@@ -223,12 +222,12 @@ impl Board {
     }
 
     #[inline(always)]
-    pub fn last_capture(&self) -> PieceType {
+    pub fn peek_capture(&self) -> PieceType {
         self.history[self.game_ply].captured().type_of()
     }
 
     #[inline(always)]
-    pub fn last_move(&self) -> Move {
+    pub fn peek(&self) -> Move {
         self.history[self.game_ply].moove()
     }
 
@@ -242,10 +241,7 @@ impl Board {
 
     #[inline(always)]
     fn is_fifty(&self) -> bool {
-        if self.history[self.game_ply].half_move_counter() >= 100 {
-            return true;
-        }
-        false
+        self.history[self.game_ply].half_move_counter() >= 100
     }
 
     fn is_threefold(&self) -> bool {
@@ -1383,6 +1379,90 @@ impl Board {
             }
         }
         self.push(m);
+    }
+
+    pub fn fen(&self) -> String {
+        let mut count = 0;
+        let mut rank_counter = 1;
+        let mut sq_count = 0;
+        let mut fen = "".to_owned();
+
+        for rank_i in (0..=7).rev() {
+            for file_i in 0..=7 {
+                let rank = Rank::from(rank_i as u8);
+                let file = File::from(file_i as u8);
+                let sq = SQ::encode(rank, file);
+                let pc = self.board[sq.index()];
+                if pc != Piece::None {
+                    if count > 0 {
+                        fen.push_str(&*count.to_string());
+                    }
+                    fen.push_str(&*pc.uci().to_string());
+                    count = 0;
+                }
+                else {
+                    count += 1;
+                }
+                if (sq_count + 1) % 8 == 0 {
+                    if count > 0 {
+                        fen.push_str(&*count.to_string());
+                        count = 0;
+                    }
+                    if rank_counter < 8 {
+                        fen.push_str("/");
+                    }
+                    rank_counter += 1;
+                }
+                sq_count += 1;
+            }
+        }
+
+        if self.color_to_play == Color::White {
+            fen.push_str(" w");
+        }
+        else {
+            fen.push_str(" b");
+        }
+
+        let mut rights = "".to_owned();
+
+        if BitBoard::WHITE_OO_MASK & self.history[self.game_ply].entry() == BitBoard::ZERO {
+            rights.push_str("K");
+        }
+        if BitBoard::WHITE_OOO_MASK & self.history[self.game_ply].entry() == BitBoard::ZERO {
+            rights.push_str("Q");
+        }
+        if BitBoard::BLACK_OO_MASK & self.history[self.game_ply].entry() == BitBoard::ZERO {
+            rights.push_str("k");
+        }
+        if BitBoard::BLACK_OOO_MASK & self.history[self.game_ply].entry() == BitBoard::ZERO {
+            rights.push_str("q");
+        }
+
+        if rights == "" {
+            fen.push_str(" -");
+        }
+        else {
+            fen.push_str(" ");
+            fen.push_str(&*rights);
+        }
+
+        if self.history[self.game_ply].epsq() != SQ::None {
+            fen.push_str(" ");
+            fen.push_str(&*self.history[self.game_ply].epsq().to_string());
+        }
+        else {
+            fen.push_str(" -");
+        }
+
+        fen.push_str(" ");
+        fen.push_str(&*self.history[self.game_ply].half_move_counter().to_string());
+
+        fen.push_str(" ");
+        fen.push_str(&*(self.game_ply / 2 + 1).to_string());
+
+
+        fen
     }
 
     #[inline(always)]

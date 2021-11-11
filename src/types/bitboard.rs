@@ -3,7 +3,9 @@ use super::color::*;
 use super::file::*;
 use super::square::*;
 use crate::evaluation::score::Value;
+use std::fmt;
 use std::ops::*;
+
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct BitBoard(pub u64);
@@ -335,6 +337,16 @@ impl Iterator for BitBoard {
             return None;
         }
         Some(self.pop_lsb())
+    }
+}
+
+//////////////////////////////////////////////
+// Display
+//////////////////////////////////////////////
+
+impl fmt::Display for BitBoard {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:#x}", self.0)
     }
 }
 

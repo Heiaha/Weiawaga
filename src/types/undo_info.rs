@@ -90,6 +90,7 @@ impl UndoInfo {
         self.half_move_counter = half_move_counter;
     }
 
+    #[inline(always)]
     pub fn set_material_hash(&mut self, material_hash: Key) {
         self.material_hash = material_hash;
     }

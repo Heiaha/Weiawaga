@@ -79,18 +79,13 @@ impl<'a> Search<'a> {
                 self.stats = Statistics::new();
             }
         }
-        MoveSorter::clear_history();
-        MoveSorter::clear_killers();
         (final_move, final_score)
     }
 
     pub fn search_root(&mut self, board: &mut Board, mut depth: Depth, mut alpha: Value, beta: Value) -> (Move, Value) {
-        let ply: Ply = 0;
 
         ///////////////////////////////////////////////////////////////////
-        // Check extension. Since we've already generated
-        // legal moves, we can just use the fact that
-        // this is stored.
+        // Check extension.
         ///////////////////////////////////////////////////////////////////
         if board.in_check() {
             depth += 1;
@@ -108,6 +103,7 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         // Score moves and begin searching recursively.
         ///////////////////////////////////////////////////////////////////
+        let ply: Ply = 0;
         let mut value: Value = -Score::INF;
         let mut best_move: Move = Move::NULL;
         let mut idx = 0;

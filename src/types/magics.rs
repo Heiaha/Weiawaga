@@ -100,10 +100,10 @@ fn initialize_rook_magics(magics: &mut Magics) {
         let edges = ((Rank::One.bb() | Rank::Eight.bb()) & !sq.rank().bb())
             | ((File::A.bb() | File::H.bb()) & !sq.file().bb());
 
-        magics.masks[sq as usize] = (sq.rank().bb() ^ sq.file().bb()) & !edges;
-        magics.magics[sq as usize] = ROOK_MAGICS_INIT[sq as usize].magic;
+        magics.masks[sq.index()] = (sq.rank().bb() ^ sq.file().bb()) & !edges;
+        magics.magics[sq.index()] = ROOK_MAGICS_INIT[sq.index()].magic;
 
-        let base = ROOK_MAGICS_INIT[sq as usize].index as usize;
+        let base = ROOK_MAGICS_INIT[sq.index()].index as usize;
         let mut subset = BitBoard::ZERO;
         let mut size = 0;
         loop {
@@ -113,12 +113,12 @@ fn initialize_rook_magics(magics: &mut Magics) {
             unsafe { ATTACKS_TABLE[base + index] = rook_attacks_for_init(sq, subset) }
 
             // Carry-Rippler for iterating through the subset
-            subset = (subset - magics.masks[sq as usize]) & magics.masks[sq as usize];
+            subset = (subset - magics.masks[sq.index()]) & magics.masks[sq.index()];
             if subset == BitBoard::ZERO {
                 break;
             }
         }
-        magics.attacks[sq as usize] = unsafe { &ATTACKS_TABLE[base..base + size] };
+        magics.attacks[sq.index()] = unsafe { &ATTACKS_TABLE[base..base + size] };
     }
 }
 
@@ -127,10 +127,10 @@ fn initialize_bishop_magics(magics: &mut Magics) {
         let edges = ((Rank::One.bb() | Rank::Eight.bb()) & !sq.rank().bb())
             | ((File::A.bb() | File::H.bb()) & !sq.file().bb());
 
-        magics.masks[sq as usize] = (sq.diagonal().bb() ^ sq.antidiagonal().bb()) & !edges;
-        magics.magics[sq as usize] = BISHOP_MAGICS_INIT[sq as usize].magic;
+        magics.masks[sq.index()] = (sq.diagonal().bb() ^ sq.antidiagonal().bb()) & !edges;
+        magics.magics[sq.index()] = BISHOP_MAGICS_INIT[sq.index()].magic;
 
-        let base = BISHOP_MAGICS_INIT[sq as usize].index as usize;
+        let base = BISHOP_MAGICS_INIT[sq.index()].index as usize;
         let mut subset = BitBoard::ZERO;
         let mut size = 0;
         loop {
@@ -140,12 +140,12 @@ fn initialize_bishop_magics(magics: &mut Magics) {
             unsafe { ATTACKS_TABLE[base + index] = bishop_attacks_for_init(sq, subset) }
 
             // Carry-Rippler for iterating through the subset
-            subset = (subset - magics.masks[sq as usize]) & magics.masks[sq as usize];
+            subset = (subset - magics.masks[sq.index()]) & magics.masks[sq.index()];
             if subset == BitBoard::ZERO {
                 break;
             }
         }
-        magics.attacks[sq as usize] = unsafe { &ATTACKS_TABLE[base..base + size] };
+        magics.attacks[sq.index()] = unsafe { &ATTACKS_TABLE[base..base + size] };
     }
 }
 

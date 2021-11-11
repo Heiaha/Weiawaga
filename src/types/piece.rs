@@ -61,6 +61,10 @@ impl Piece {
     pub fn uci(self) -> char {
         Self::PIECE_STR.chars().nth(self.index()).unwrap()
     }
+
+    pub fn symbol(self) -> char {
+        Self::PIECE_STR.chars().nth(self.index()).unwrap()
+    }
 }
 
 impl PieceType {
@@ -120,4 +124,5 @@ impl From<char> for Piece {
 
 impl Piece {
     const PIECE_STR: &'static str = "PNBRQK  pnbrqk ";
+    const SYMBOL_STR: &'static str = "♙♘♗♖♕♔  ♟♞♝♜♛♚";
 }

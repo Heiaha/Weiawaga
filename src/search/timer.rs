@@ -72,8 +72,18 @@ impl Timer {
         }
         match self.control {
             TimeControl::Infinite => false,
-            TimeControl::FixedMillis(millis) => self.elapsed() > millis,
-            TimeControl::Variable { .. } => self.elapsed() >= self.time_maximum,
+            TimeControl::FixedMillis(millis) => {
+                if self.times_checked & 0x1000 != 0 {
+                    return false;
+                }
+                self.elapsed() > millis
+            }
+            TimeControl::Variable { .. } => {
+                if self.times_checked & 0x1000 != 0 {
+                    return false;
+                }
+                self.elapsed() >= self.time_maximum
+            },
             TimeControl::FixedDepth(_) => false,
             TimeControl::FixedNodes(nodes) => self.times_checked >= nodes,
         }
