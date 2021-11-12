@@ -93,7 +93,7 @@ impl MoveSorter {
             if HISTORY_SCORES[from][to] > HISTORY_MAX {
                 for sq1 in SQ::A1..=SQ::H8 {
                     for sq2 in SQ::A1..=SQ::H8 {
-                        HISTORY_SCORES[sq1.index()][sq2.index()] /= 2;
+                        HISTORY_SCORES[sq1.index()][sq2.index()] >>= 1; // Divide by two
                     }
                 }
             }

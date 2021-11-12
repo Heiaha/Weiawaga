@@ -84,22 +84,22 @@ static mut PAWN_ATTACKS: [[BitBoard; N_SQUARES]; N_COLORS] = [[BitBoard::ZERO; N
 
 #[inline(always)]
 pub fn rook_attacks(sq: SQ, occ: BitBoard) -> BitBoard {
-    unsafe { ROOK_MAGICS.attacks[sq as usize][ROOK_MAGICS.index(sq, occ)] }
+    unsafe { ROOK_MAGICS.attacks[sq.index()][ROOK_MAGICS.index(sq, occ)] }
 }
 
 #[inline(always)]
 pub fn bishop_attacks(sq: SQ, occ: BitBoard) -> BitBoard {
-    unsafe { BISHOP_MAGICS.attacks[sq as usize][BISHOP_MAGICS.index(sq, occ)] }
+    unsafe { BISHOP_MAGICS.attacks[sq.index()][BISHOP_MAGICS.index(sq, occ)] }
 }
 
 #[inline(always)]
 pub fn knight_attacks(sq: SQ) -> BitBoard {
-    KNIGHT_ATTACKS[sq as usize]
+    KNIGHT_ATTACKS[sq.index()]
 }
 
 #[inline(always)]
 pub fn king_attacks(sq: SQ) -> BitBoard {
-    ADJACENT_ATTACKS[sq as usize]
+    ADJACENT_ATTACKS[sq.index()]
 }
 
 #[inline(always)]
@@ -113,7 +113,7 @@ pub fn pawn_attacks_bb(bb: BitBoard, color: Color) -> BitBoard {
 
 #[inline(always)]
 pub fn pawn_attacks_sq(sq: SQ, color: Color) -> BitBoard {
-    unsafe { PAWN_ATTACKS[color as usize][sq as usize] }
+    unsafe { PAWN_ATTACKS[color.index()][sq.index()] }
 }
 
 #[inline(always)]
@@ -150,8 +150,8 @@ pub fn bishop_attacks_for_init(sq: SQ, blockers: BitBoard) -> BitBoard {
 
 pub fn init_pawn_attacks(pawn_attacks: &mut [[BitBoard; N_SQUARES]; N_COLORS]) {
     for sq in SQ::A1..=SQ::H8 {
-        pawn_attacks[Color::White as usize][sq as usize] = WHITE_PAWN_ATTACKS[sq as usize];
-        pawn_attacks[Color::Black as usize][sq as usize] = BLACK_PAWN_ATTACKS[sq as usize];
+        pawn_attacks[Color::White.index()][sq.index()] = WHITE_PAWN_ATTACKS[sq.index()];
+        pawn_attacks[Color::Black.index()][sq.index()] = BLACK_PAWN_ATTACKS[sq.index()];
     }
 }
 

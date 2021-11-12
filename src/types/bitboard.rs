@@ -2,7 +2,7 @@ use super::attacks;
 use super::color::*;
 use super::file::*;
 use super::square::*;
-use crate::evaluation::score::Value;
+use crate::evaluation::score::*;
 use std::fmt;
 use std::ops::*;
 
@@ -118,7 +118,9 @@ impl BitBoard {
                 result |= result >> 16;
                 result |= result >> 32;
             }
-            _ => {}
+            _ => {
+                panic!("Filling a file by something other than North or South.")
+            }
         }
         result
     }
@@ -128,7 +130,7 @@ impl BitBoard {
         self.fill(Direction::North) | self.fill(Direction::South)
     }
 
-    pub fn print_bitboard(&self) {
+    pub fn print(&self) {
         println!();
         for i in (0..=56).rev().step_by(8) {
             for j in 0..8 {
@@ -192,9 +194,9 @@ impl BitBoard {
     #[inline(always)]
     pub fn ignore_ooo_danger(c: Color) -> BitBoard {
         if c == Color::White {
-            B!(0x2)
+            Self::WHITE_OOO_DANGER
         } else {
-            B!(0x200000000000000)
+            Self::BLACK_OOO_DANGER
         }
     }
 }
@@ -370,6 +372,9 @@ impl BitBoard {
     pub const BLACK_OOO_MASK: Self = B!(0x1100000000000000);
     pub const BLACK_OO_BLOCKERS_AND_ATTACKERS_MASK: Self = B!(0x6000000000000000);
     pub const BLACK_OOO_BLOCKERS_AND_ATTACKERS_MASK: Self = B!(0xE00000000000000);
+
+    pub const WHITE_OOO_DANGER: Self = B!(0x2);
+    pub const BLACK_OOO_DANGER: Self = B!(0x200000000000000);
 
     pub const CENTER: Self = B!(0x1818000000);
 }

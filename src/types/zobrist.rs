@@ -11,12 +11,12 @@ static mut ZOBRIST_COLOR: BitBoard = BitBoard::ZERO;
 
 #[inline(always)]
 pub fn zobrist_table(pc: Piece, sq: SQ) -> BitBoard {
-    unsafe { ZOBRIST_TABLE[pc as usize][sq as usize] }
+    unsafe { ZOBRIST_TABLE[pc.index()][sq.index()] }
 }
 
 #[inline(always)]
 pub fn zobrist_ep(file: File) -> BitBoard {
-    unsafe { ZOBRIST_EP[file as usize] }
+    unsafe { ZOBRIST_EP[file.index()] }
 }
 
 #[inline(always)]

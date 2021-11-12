@@ -35,6 +35,11 @@ impl Rank {
     }
 
     #[inline(always)]
+    pub fn index(self) -> usize {
+        self as usize
+    }
+
+    #[inline(always)]
     pub fn relative(self, c: Color) -> Rank {
         Rank::from((self as u8) ^ (c as u8 * 7))
     }

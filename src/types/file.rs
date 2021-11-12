@@ -33,6 +33,11 @@ impl File {
         FILE_BB[self as usize]
     }
 
+    #[inline(always)]
+    pub fn index(self) -> usize {
+        self as usize
+    }
+
     #[inline(never)]
     pub fn to_char(&self) -> char {
         FILE_DISPLAYS[*self as usize]
