@@ -8,6 +8,7 @@ use std::io::BufRead;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::{io, sync, thread};
+use crate::texel::tuner::*;
 
 pub enum UCICommand {
     Unknown(String),
@@ -20,6 +21,7 @@ pub enum UCICommand {
     Stop,
     Perft(u8),
     Option(String, String),
+    Tune(String),
 }
 
 
@@ -66,7 +68,11 @@ impl UCICommand {
                         }
                     }
                     _ => {}
-                },
+                }
+                UCICommand::Tune(filename) => {
+                    let mut tuner = Tuner::new(filename);
+                    tuner.tune();
+                }
                 _ => {
                     println!("Unexpected UCI Command.");
                 }
@@ -75,7 +81,7 @@ impl UCICommand {
     }
 
     pub fn run() {
-        println!("Weiawaga v3.0 September 14, 2021");
+        println!("Weiawaga");
         println!("Homepage and source code: https://github.com/Heiaha/Weiawaga");
         let stdin = io::stdin();
         let lock = stdin.lock();
@@ -174,6 +180,12 @@ impl From<&str> for UCICommand {
             return UCICommand::Perft(depth);
         } else if line == "stop" {
             return UCICommand::Stop;
+        } else if line.starts_with("tune") {
+            let filename = line
+                .split_whitespace()
+                .nth(1)
+                .unwrap();
+            return UCICommand::Tune(filename.parse().unwrap());
         }
         Self::Unknown(line.to_owned())
     }

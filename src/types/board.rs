@@ -1304,7 +1304,14 @@ impl Board {
         }
 
         if det_split.len() > 4 {
-            self.history[self.game_ply].set_half_move_counter(det_split[4].parse::<u16>().unwrap());
+            match det_split[4].parse::<u16>() {
+                Ok(half_move_counter) => {
+                    self.history[self.game_ply].set_half_move_counter(half_move_counter);
+                }
+                Err(e) => {
+                    self.history[self.game_ply].set_half_move_counter(0);
+                }
+            }
         }
 
         self.history[self.game_ply].set_material_hash(self.material_hash);

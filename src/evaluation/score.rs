@@ -16,7 +16,7 @@ macro_rules! S {
 
 impl Score {
     #[inline(always)]
-    pub const fn new(mg: i32, eg: i32) -> Self {
+    pub const fn new(mg: Value, eg: Value) -> Self {
         Score((mg << 16) + eg)
     }
 

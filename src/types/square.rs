@@ -128,6 +128,11 @@ impl SQ {
     pub fn forward_files_bb(self, color: Color) -> BitBoard {
         return self.file().bb() & self.forward_ranks_bb(color);
     }
+
+    #[inline(always)]
+    pub fn relative(self, color: Color) -> Self {
+        return if color == Color::White { self } else { self.square_mirror() }
+    }
 }
 
 impl Direction {
