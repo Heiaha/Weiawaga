@@ -50,14 +50,12 @@ pub fn print_perft(board: &mut Board, depth: u8) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::attacks::init_attacks;
     use crate::types::bitboard::init_bb;
     use crate::types::magics::init_magics;
 
     #[test]
     fn test_perft() {
         init_magics();
-        init_attacks();
         init_bb();
 
         assert_eq!(perft(&mut Board::new(), 5), 4865609);

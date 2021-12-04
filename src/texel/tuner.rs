@@ -63,12 +63,12 @@ impl<'a> Tuner<'a> {
         }
 
         // Find the value of k that minimizes the MSE for the dataset.
-        let K = Self::find_best_k(&boards, &results);
+        let k = Self::find_best_k(&boards, &results);
         Self {
             parameters,
             boards,
             results,
-            k: K,
+            k,
         }
     }
 

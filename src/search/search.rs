@@ -82,7 +82,7 @@ impl<'a> Search<'a> {
         (final_move, final_score)
     }
 
-    pub fn search_root(&mut self, board: &mut Board, mut depth: Depth, mut alpha: Value, beta: Value) -> (Move, Value) {
+    fn search_root(&mut self, board: &mut Board, mut depth: Depth, mut alpha: Value, beta: Value) -> (Move, Value) {
 
         ///////////////////////////////////////////////////////////////////
         // Check extension.
