@@ -42,7 +42,7 @@ const ADJACENT_ATTACKS: [BitBoard; N_SQUARES] = [
     B!(0x2838000000000000), B!(0x5070000000000000), B!(0xa0e0000000000000), B!(0x40c0000000000000)
 ];
 
-static mut PAWN_ATTACKS: [[BitBoard; N_SQUARES]; N_COLORS] = [
+const PAWN_ATTACKS: [[BitBoard; N_SQUARES]; N_COLORS] = [
     [
         B!(0x0000000000000200), B!(0x0000000000000500), B!(0x0000000000000a00), B!(0x0000000000001400),
         B!(0x0000000000002800), B!(0x0000000000005000), B!(0x000000000000a000), B!(0x0000000000004000),
@@ -112,7 +112,7 @@ pub fn pawn_attacks_bb(bb: BitBoard, color: Color) -> BitBoard {
 
 #[inline(always)]
 pub fn pawn_attacks_sq(sq: SQ, color: Color) -> BitBoard {
-    unsafe { PAWN_ATTACKS[color.index()][sq.index()] }
+    PAWN_ATTACKS[color.index()][sq.index()]
 }
 
 #[inline(always)]
