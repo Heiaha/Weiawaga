@@ -19,7 +19,7 @@ pub enum UCICommand {
     Go(TimeControl),
     Quit,
     Stop,
-    Perft(u8),
+    Perft(Depth),
     Option(String, String),
     Tune(String),
 }
@@ -27,13 +27,13 @@ pub enum UCICommand {
 
 
 impl UCICommand {
-    fn thread_loop(thread: sync::mpsc::Receiver<UCICommand>, abort: Arc<AtomicBool>) {
+    fn thread_loop(rec: sync::mpsc::Receiver<UCICommand>, abort: Arc<AtomicBool>) {
         // global board
         let mut board = Board::new();
 
         // global transposition table
         let mut tt: TT = TT::new(Self::HASH_DEFAULT);
-        for cmd in thread {
+        for cmd in rec {
             match cmd {
                 UCICommand::IsReady => {
                     println!("readyok");
@@ -89,15 +89,12 @@ impl UCICommand {
         let thread_moved_abort = sync::Arc::new(sync::atomic::AtomicBool::new(false));
         let abort = sync::Arc::clone(&thread_moved_abort);
         let (main_tx, main_rx) = sync::mpsc::channel();
-        let builder = thread::Builder::new()
-            .name("Main thread".into())
-            .stack_size(8 * 1024 * 1024);
-        let thread = builder
-            .spawn(move || Self::thread_loop(main_rx, thread_moved_abort))
-            .unwrap();
+        let handle = thread::spawn(move || {
+            Self::thread_loop(main_rx, thread_moved_abort)
+        });
 
         for line in lock.lines() {
-            let cmd = UCICommand::from(&*line.unwrap().to_owned());
+            let cmd = UCICommand::from(&*line.unwrap());
             match cmd {
                 UCICommand::Quit => return,
                 UCICommand::Stop => {

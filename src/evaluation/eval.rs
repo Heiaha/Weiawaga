@@ -49,17 +49,18 @@ impl<'a> Evaluator<'a> {
     }
 
     fn n_isolated_pawns(&self) -> Value {
-        ((self.our_pawns & !self.our_pawns.shift(Direction::East, 1).file_fill()) &
-            (self.our_pawns & !self.our_pawns.shift(Direction::West, 1).file_fill())).pop_count()
+        (
+            (self.our_pawns & !self.our_pawns.shift(Direction::East, 1).file_fill()) &
+            (self.our_pawns & !self.our_pawns.shift(Direction::West, 1).file_fill())
+        ).pop_count()
     }
 
     pub fn pawn_eval(&self) -> Score {
         let mut score = Score::ZERO;
-        unsafe {
-            score += pawn_score(IX_PASSED_PAWN_VALUE) * self.n_passed_pawns();
-            score += pawn_score(IX_DOUBLED_PAWN_PENALTY) * self.n_doubled_pawns();
-            score += pawn_score(IX_ISOLATED_PAWN_PENALTY) * self.n_isolated_pawns();
-        }
+        score += pawn_score(IX_PASSED_PAWN_VALUE) * self.n_passed_pawns();
+        score += pawn_score(IX_DOUBLED_PAWN_PENALTY) * self.n_doubled_pawns();
+        score += pawn_score(IX_ISOLATED_PAWN_PENALTY) * self.n_isolated_pawns();
+
         score
     }
 
@@ -132,7 +133,7 @@ impl<'a> Evaluator<'a> {
     ////////////////////////////////////////////////////////////////
 
     fn pawns_shielding_king(&self) -> Value {
-        unsafe { (pawns_shield_mask(self.color, self.our_king) & self.our_pawns).pop_count() }
+        (pawns_shield_mask(self.color, self.our_king) & self.our_pawns).pop_count()
     }
 
     fn king_eval(&self) -> Score {

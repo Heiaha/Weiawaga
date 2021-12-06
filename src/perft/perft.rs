@@ -1,8 +1,9 @@
 use crate::types::board::*;
 use crate::types::move_list::*;
+use crate::search::search::*;
 use std::time::Instant;
 
-pub fn perft(board: &mut Board, depth: u8) -> usize {
+pub fn perft(board: &mut Board, depth: Depth) -> usize {
     let mut moves: MoveList = MoveList::new();
     board.generate_legal_moves(&mut moves);
 
@@ -20,7 +21,7 @@ pub fn perft(board: &mut Board, depth: u8) -> usize {
     nodes
 }
 
-pub fn print_perft(board: &mut Board, depth: u8) -> usize {
+pub fn print_perft(board: &mut Board, depth: Depth) -> usize {
     let mut moves: MoveList = MoveList::new();
     board.generate_legal_moves(&mut moves);
 

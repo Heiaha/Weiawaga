@@ -15,8 +15,8 @@ pub struct UndoInfo {
 }
 
 impl UndoInfo {
-    pub fn empty() -> Self {
-        UndoInfo { entry: BitBoard::ZERO,
+    pub const fn empty() -> Self {
+        Self { entry: BitBoard::ZERO,
                    captured: Piece::None,
                    epsq: SQ::None,
                    moove: 0,
@@ -26,7 +26,7 @@ impl UndoInfo {
     }
 
     pub fn new(entry: BitBoard, moove: Move, half_move_counter: u16, plies_from_null: u16, captured: Piece, epsq: SQ, material_hash: BitBoard) -> Self {
-        UndoInfo { entry,
+        Self { entry,
                    moove: moove.moove(),
                    half_move_counter,
                    plies_from_null,
@@ -93,5 +93,17 @@ impl UndoInfo {
     #[inline(always)]
     pub fn set_material_hash(&mut self, material_hash: Key) {
         self.material_hash = material_hash;
+    }
+}
+
+impl Default for UndoInfo {
+    fn default() -> Self {
+        Self { entry: BitBoard::ZERO,
+            captured: Piece::None,
+            epsq: SQ::None,
+            moove: 0,
+            material_hash: BitBoard::ZERO,
+            half_move_counter: 0,
+            plies_from_null: 0 }
     }
 }

@@ -7,6 +7,7 @@ use crate::evaluation::score::*;
 use crate::types::board::*;
 use crate::types::moov::*;
 use std::cmp::{max, min};
+use std::thread;
 
 pub type Depth = i8;
 pub type Ply = usize;
@@ -50,6 +51,7 @@ impl<'a> Search<'a> {
             return (move_sorter[0], 0);
         }
 
+
         while !self.stop && self.timer.start_check(depth) && !Score::is_checkmate(final_score) && depth < Depth::MAX {
             (final_move, final_score) = self.search_root(board, depth, alpha, beta);
 
@@ -62,7 +64,6 @@ impl<'a> Search<'a> {
                 self.timer.update(final_score - last_score);
             }
             last_score = final_score;
-
 
             ///////////////////////////////////////////////////////////////////
             // Widen aspiration windows.

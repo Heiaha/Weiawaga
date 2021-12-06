@@ -14,6 +14,7 @@ use crate::evaluation::score::*;
 use std::cmp::min;
 use std::fmt;
 
+#[derive(Copy, Clone)]
 pub struct Board {
     piece_bb: [BitBoard; N_PIECES],
     board: [Piece; N_SQUARES],
@@ -40,7 +41,7 @@ impl Board {
         board
     }
 
-    pub fn clean() -> Self {
+    pub const fn clean() -> Self {
         Board {
             piece_bb: [BitBoard::ZERO; N_PIECES],
             board: [Piece::None; N_SQUARES],
