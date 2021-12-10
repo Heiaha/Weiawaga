@@ -4,6 +4,7 @@ use super::magics::*;
 use super::piece::*;
 use super::square::*;
 
+#[rustfmt::skip]
 const KNIGHT_ATTACKS: [BitBoard; N_SQUARES] = [
     B!(0x0000000000020400), B!(0x0000000000050800), B!(0x00000000000a1100), B!(0x0000000000142200),
     B!(0x0000000000284400), B!(0x0000000000508800), B!(0x0000000000a01000), B!(0x0000000000402000),
@@ -23,6 +24,7 @@ const KNIGHT_ATTACKS: [BitBoard; N_SQUARES] = [
     B!(0x0044280000000000), B!(0x0088500000000000), B!(0x0010a00000000000), B!(0x0020400000000000)
 ];
 
+#[rustfmt::skip]
 const ADJACENT_ATTACKS: [BitBoard; N_SQUARES] = [
     B!(0x0000000000000302), B!(0x0000000000000705), B!(0x0000000000000e0a), B!(0x0000000000001c14),
     B!(0x0000000000003828), B!(0x0000000000007050), B!(0x000000000000e0a0), B!(0x000000000000c040),
@@ -42,6 +44,7 @@ const ADJACENT_ATTACKS: [BitBoard; N_SQUARES] = [
     B!(0x2838000000000000), B!(0x5070000000000000), B!(0xa0e0000000000000), B!(0x40c0000000000000)
 ];
 
+#[rustfmt::skip]
 const PAWN_ATTACKS: [[BitBoard; N_SQUARES]; N_COLORS] = [
     [
         B!(0x0000000000000200), B!(0x0000000000000500), B!(0x0000000000000a00), B!(0x0000000000001400),
@@ -103,11 +106,11 @@ pub fn king_attacks(sq: SQ) -> BitBoard {
 
 #[inline(always)]
 pub fn pawn_attacks_bb(bb: BitBoard, color: Color) -> BitBoard {
-    return if color == Color::White {
+    if color == Color::White {
         bb.shift(Direction::NorthWest, 1) | bb.shift(Direction::NorthEast, 1)
     } else {
         bb.shift(Direction::SouthWest, 1) | bb.shift(Direction::SouthEast, 1)
-    };
+    }
 }
 
 #[inline(always)]
@@ -117,8 +120,8 @@ pub fn pawn_attacks_sq(sq: SQ, color: Color) -> BitBoard {
 
 #[inline(always)]
 pub fn sliding_attacks(sq: SQ, occ: BitBoard, mask: BitBoard) -> BitBoard {
-    (((mask & occ) - sq.bb() * BitBoard::TWO) ^
-        ((mask & occ).reverse() - sq.bb().reverse() * BitBoard::TWO).reverse())
+    (((mask & occ) - sq.bb() * BitBoard::TWO)
+        ^ ((mask & occ).reverse() - sq.bb().reverse() * BitBoard::TWO).reverse())
         & mask
 }
 
@@ -138,11 +141,10 @@ pub fn attacks(pt: PieceType, sq: SQ, occ: BitBoard) -> BitBoard {
 //////////////////////////////////////////////
 
 pub fn rook_attacks_for_init(sq: SQ, blockers: BitBoard) -> BitBoard {
-    sliding_attacks(sq, blockers, sq.file().bb()) |
-        sliding_attacks(sq, blockers, sq.rank().bb())
+    sliding_attacks(sq, blockers, sq.file().bb()) | sliding_attacks(sq, blockers, sq.rank().bb())
 }
 
 pub fn bishop_attacks_for_init(sq: SQ, blockers: BitBoard) -> BitBoard {
-    sliding_attacks(sq, blockers, sq.diagonal().bb()) |
-        sliding_attacks(sq, blockers, sq.antidiagonal().bb())
+    sliding_attacks(sq, blockers, sq.diagonal().bb())
+        | sliding_attacks(sq, blockers, sq.antidiagonal().bb())
 }

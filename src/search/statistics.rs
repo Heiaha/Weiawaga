@@ -5,7 +5,7 @@ pub struct Statistics {
     pub qbeta_cutoffs: u64,
     pub tt_hits: u64,
     pub nodes: u64,
-    pub qnodes: u64
+    pub qnodes: u64,
 }
 
 impl Statistics {

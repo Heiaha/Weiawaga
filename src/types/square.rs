@@ -9,6 +9,7 @@ use std::ops::*;
 
 pub const N_SQUARES: usize = 64;
 
+#[rustfmt::skip]
 pub const SQUARES_BB: [BitBoard; N_SQUARES + 1] = [
     BitBoard(1 << 0),  BitBoard(1 << 1),  BitBoard(1 << 2),  BitBoard(1 << 3),
     BitBoard(1 << 4),  BitBoard(1 << 5),  BitBoard(1 << 6),  BitBoard(1 << 7),
@@ -29,6 +30,7 @@ pub const SQUARES_BB: [BitBoard; N_SQUARES + 1] = [
     BitBoard(0)
 ];
 
+#[rustfmt::skip]
 pub const SQ_DISPLAY: [&str; N_SQUARES] = [
     "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
     "a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2",
@@ -39,6 +41,7 @@ pub const SQ_DISPLAY: [&str; N_SQUARES] = [
     "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
     "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8"];
 
+#[rustfmt::skip]
 pub const SQ_DISPLAY_ORDER: [u8; N_SQUARES] = [
     56, 57, 58, 59, 60, 61, 62, 63,
     48, 49, 50, 51, 52, 53, 54, 55,
@@ -49,7 +52,9 @@ pub const SQ_DISPLAY_ORDER: [u8; N_SQUARES] = [
     8,  9,  10, 11, 12, 13, 14, 15,
     0,  1,   2,  3,  4,  5,  6,  7];
 
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
+#[rustfmt::skip]
 pub enum SQ {
     A1, B1, C1, D1, E1, F1, G1, H1,
     A2, B2, C2, D2, E2, F2, G2, H2,
@@ -126,12 +131,12 @@ impl SQ {
     }
 
     pub fn forward_files_bb(self, color: Color) -> BitBoard {
-        return self.file().bb() & self.forward_ranks_bb(color);
+        self.file().bb() & self.forward_ranks_bb(color)
     }
 
     #[inline(always)]
     pub fn relative(self, color: Color) -> Self {
-        return if color == Color::White { self } else { self.square_mirror() }
+        if color == Color::White { self } else { self.square_mirror() }
     }
 }
 

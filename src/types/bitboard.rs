@@ -6,7 +6,6 @@ use crate::evaluation::score::*;
 use std::fmt;
 use std::ops::*;
 
-
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct BitBoard(pub u64);
 

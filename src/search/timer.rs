@@ -17,7 +17,13 @@ pub enum TimeControl {
     FixedMillis(Time),
     FixedDepth(Depth),
     FixedNodes(u64),
-    Variable { wtime: Time, btime: Time, winc: Option<Time>, binc: Option<Time>, moves_to_go: Option<u64> },
+    Variable {
+        wtime: Time,
+        btime: Time,
+        winc: Option<Time>,
+        binc: Option<Time>,
+        moves_to_go: Option<u64>,
+    },
 }
 
 #[derive(Clone)]
@@ -32,20 +38,38 @@ pub struct Timer {
 
 impl Timer {
     pub fn new(board: &Board, control: TimeControl, stop: Arc<AtomicBool>) -> Timer {
-        let mut tm = Timer { start_time: Instant::now(),
-                             stop: stop,
-                             control: control,
-                             times_checked: 0,
-                             time_target: 0,
-                             time_maximum: 0 };
+        let mut tm = Timer {
+            start_time: Instant::now(),
+            stop: stop,
+            control: control,
+            times_checked: 0,
+            time_target: 0,
+            time_maximum: 0,
+        };
         tm.calc(board);
         tm
     }
 
     fn calc(&mut self, board: &Board) {
-        if let TimeControl::Variable { wtime, btime, winc, binc, moves_to_go } = self.control {
-            let time = if board.color_to_play() == Color::White { wtime } else { btime } as f64;
-            let inc = if board.color_to_play() == Color::White { winc } else { binc }.unwrap_or(0) as f64;
+        if let TimeControl::Variable {
+            wtime,
+            btime,
+            winc,
+            binc,
+            moves_to_go,
+        } = self.control
+        {
+            let time = if board.color_to_play() == Color::White {
+                wtime
+            } else {
+                btime
+            } as f64;
+            let inc = if board.color_to_play() == Color::White {
+                winc
+            } else {
+                binc
+            }
+            .unwrap_or(0) as f64;
 
             let target = time.min(time / moves_to_go.unwrap_or(40) as f64 + inc);
             self.time_target = target as Time;
@@ -60,7 +84,7 @@ impl Timer {
             TimeControl::FixedDepth(stop_depth) => depth <= stop_depth,
             TimeControl::FixedNodes(_) => true,
             TimeControl::Variable { .. } => {
-                return self.elapsed() <= self.time_target / 2;
+                self.elapsed() <= self.time_target / 2
             }
         }
     }
@@ -83,7 +107,7 @@ impl Timer {
                     return false;
                 }
                 self.elapsed() >= self.time_maximum
-            },
+            }
             TimeControl::FixedDepth(_) => false,
             TimeControl::FixedNodes(nodes) => self.times_checked >= nodes,
         }
@@ -139,11 +163,13 @@ impl From<&str> for TimeControl {
             }
         }
         if wtime != None {
-            result = TimeControl::Variable { wtime: wtime.unwrap(),
-                                             btime: btime.unwrap(),
-                                             winc,
-                                             binc,
-                                             moves_to_go };
+            result = TimeControl::Variable {
+                wtime: wtime.unwrap(),
+                btime: btime.unwrap(),
+                winc,
+                binc,
+                moves_to_go,
+            };
         }
         result
     }

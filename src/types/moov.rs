@@ -31,8 +31,10 @@ pub enum MoveFlags {
 impl Move {
     #[inline(always)]
     pub fn new(from_sq: SQ, to_square: SQ, flags: MoveFlags) -> Self {
-        Move { m: ((flags as MoveInt) << 12) | ((from_sq as MoveInt) << 6) | (to_square as MoveInt),
-               score: 0 }
+        Move {
+            m: ((flags as MoveInt) << 12) | ((from_sq as MoveInt) << 6) | (to_square as MoveInt),
+            score: 0,
+        }
     }
 
     #[inline(always)]

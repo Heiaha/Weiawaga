@@ -18,7 +18,6 @@ pub struct Evaluator<'a> {
 }
 
 impl<'a> Evaluator<'a> {
-
     pub fn new(board: &Board, color: Color) -> Evaluator {
         Evaluator {
             board,
@@ -36,8 +35,12 @@ impl<'a> Evaluator<'a> {
 
     fn n_passed_pawns(&self) -> Value {
         let mut fill = BitBoard::ZERO;
-        fill |= self.their_pawns.shift(Direction::SouthWest.relative(self.color), 1);
-        fill |= self.their_pawns.shift(Direction::SouthEast.relative(self.color), 1);
+        fill |= self
+            .their_pawns
+            .shift(Direction::SouthWest.relative(self.color), 1);
+        fill |= self
+            .their_pawns
+            .shift(Direction::SouthEast.relative(self.color), 1);
         fill = fill.fill(Direction::South.relative(self.color));
         (!fill & self.our_pawns).pop_count()
     }
@@ -49,10 +52,9 @@ impl<'a> Evaluator<'a> {
     }
 
     fn n_isolated_pawns(&self) -> Value {
-        (
-            (self.our_pawns & !self.our_pawns.shift(Direction::East, 1).file_fill()) &
-            (self.our_pawns & !self.our_pawns.shift(Direction::West, 1).file_fill())
-        ).pop_count()
+        ((self.our_pawns & !self.our_pawns.shift(Direction::East, 1).file_fill())
+            & (self.our_pawns & !self.our_pawns.shift(Direction::West, 1).file_fill()))
+        .pop_count()
     }
 
     pub fn pawn_eval(&self) -> Score {
@@ -69,11 +71,18 @@ impl<'a> Evaluator<'a> {
     ////////////////////////////////////////////////////////////////
 
     fn has_bishop_pair(&self, bishop_bb: BitBoard) -> bool {
-        (bishop_bb & BitBoard::LIGHT_SQUARES) != BitBoard::ZERO && (bishop_bb & BitBoard::DARK_SQUARES) != BitBoard::ZERO
+        (bishop_bb & BitBoard::LIGHT_SQUARES) != BitBoard::ZERO
+            && (bishop_bb & BitBoard::DARK_SQUARES) != BitBoard::ZERO
     }
 
     fn pawns_on_same_color_square(&self, sq: SQ) -> Value {
-        (self.board.bitboard_of(self.color, PieceType::Pawn) & if sq.bb() & BitBoard::DARK_SQUARES != BitBoard::ZERO { BitBoard::DARK_SQUARES } else { BitBoard::LIGHT_SQUARES }).pop_count()
+        (self.board.bitboard_of(self.color, PieceType::Pawn)
+            & if sq.bb() & BitBoard::DARK_SQUARES != BitBoard::ZERO {
+                BitBoard::DARK_SQUARES
+            } else {
+                BitBoard::LIGHT_SQUARES
+            })
+        .pop_count()
     }
 
     fn bishop_eval(&self) -> Score {
@@ -90,7 +99,8 @@ impl<'a> Evaluator<'a> {
             if (attacks & BitBoard::CENTER).pop_count() == 2 {
                 score += bishop_score(IX_BISHOP_ATTACKS_CENTER);
             }
-            score += bishop_score(IX_BISHOP_SAME_COLOR_PAWN_PENALTY) * self.pawns_on_same_color_square(sq);
+            score += bishop_score(IX_BISHOP_SAME_COLOR_PAWN_PENALTY)
+                * self.pawns_on_same_color_square(sq);
         }
         score
     }
@@ -116,7 +126,8 @@ impl<'a> Evaluator<'a> {
                 }
             }
 
-            piece_mobility = (attacks::rook_attacks(sq, self.all_pieces) & !self.all_pieces).pop_count();
+            piece_mobility =
+                (attacks::rook_attacks(sq, self.all_pieces) & !self.all_pieces).pop_count();
             if piece_mobility <= 3 {
                 let kf = self.our_king.file();
                 if (kf < File::E) == (sq.file() < kf) {
@@ -148,7 +159,6 @@ impl<'a> Evaluator<'a> {
             for sq in bb {
                 score += piecetype_sq_value(pt, sq.relative(self.color));
             }
-
         }
         score
     }
@@ -163,15 +173,17 @@ impl<'a> Evaluator<'a> {
     }
 }
 
-
 pub fn eval(board: &Board) -> Value {
-
     let mut score = Score::ZERO;
     let white_evaluator = Evaluator::new(board, Color::White);
     let black_evaluator = Evaluator::new(board, Color::Black);
     score += board.p_sq_score() + board.material_score();
 
-    score += if board.color_to_play() == Color::White { tempo() } else { -tempo() };
+    score += if board.color_to_play() == Color::White {
+        tempo()
+    } else {
+        -tempo()
+    };
 
     score += white_evaluator.pawn_eval();
     score -= black_evaluator.pawn_eval();
@@ -203,7 +215,11 @@ pub fn tune_eval(board: &Board) -> Value {
     score += white_evaluator.p_sq_eval();
     score -= black_evaluator.p_sq_eval();
 
-    score += if board.color_to_play() == Color::White { tempo() } else { -tempo() };
+    score += if board.color_to_play() == Color::White {
+        tempo()
+    } else {
+        -tempo()
+    };
 
     score += white_evaluator.pawn_eval();
     score -= black_evaluator.pawn_eval();

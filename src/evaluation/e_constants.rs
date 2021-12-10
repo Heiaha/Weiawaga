@@ -1,38 +1,44 @@
 use super::score::Score;
-use crate::evaluation::score::*;
 use crate::types::bitboard::*;
 use crate::types::color::*;
 use crate::types::piece::*;
 use crate::types::square::*;
 
+#[rustfmt::skip]
 pub static mut TEMPO: [Score; 1] = [S!(  17,   16), ];
 
+#[rustfmt::skip]
 pub static mut PIECE_TYPE_VALUES: [Score; 6] = [
     S!( 102,  117), S!( 382,  319), S!( 370,  324), S!( 499,  539), S!(1028, 1025), S!(  0,   0),
 ];
 
 //pawn scoring
+#[rustfmt::skip]
 pub static mut PAWN_SCORES: [Score; 3] = [S!(  -7,   32), S!(   2,  -16), S!( -20,    5), ];
 pub const IX_PASSED_PAWN_VALUE: usize = 0;
 pub const IX_DOUBLED_PAWN_PENALTY: usize = 1;
 pub const IX_ISOLATED_PAWN_PENALTY: usize = 2;
 
 //bishop scoring
+#[rustfmt::skip]
 pub static mut BISHOP_SCORES: [Score; 3] = [S!(   1,   -8), S!(  29,   13), S!(  51,   57), ];
 pub const IX_BISHOP_SAME_COLOR_PAWN_PENALTY: usize = 0; // per pawn
 pub const IX_BISHOP_ATTACKS_CENTER: usize = 1;
 pub const IX_BISHOP_PAIR_VALUE: usize = 2;
 
 //rook scoring
+#[rustfmt::skip]
 pub static mut ROOK_SCORES: [Score; 3] = [S!( -24,  -36), S!(  52,   20), S!(  18,   27), ];
 pub const IX_KING_TRAPPING_ROOK_PENALTY: usize = 0;
 pub const IX_ROOK_ON_OPEN_FILE: usize = 1;
 pub const IX_ROOK_ON_SEMIOPEN_FILE: usize = 2;
 
 //king scoring
+#[rustfmt::skip]
 pub static mut KING_SCORES: [Score; 1] = [S!(  21,   -7), ];
 pub const IX_KING_PAWN_SHIELD_BONUS: usize = 0;
 
+#[rustfmt::skip]
 pub static mut PIECE_TYPE_TABLES: [[Score; N_SQUARES]; 6] = [
     [
         S!( -60,  -49), S!( -60,  -49), S!( -60,  -49), S!( -60,  -49), S!( -60,  -49), S!( -60,  -49), S!( -60,  -49), S!( -60,  -49),
@@ -97,43 +103,38 @@ pub static mut PIECE_TYPE_TABLES: [[Score; N_SQUARES]; 6] = [
     ],
 ];
 
+#[rustfmt::skip]
 pub static mut PIECE_VALUES: [Score; N_PIECES] = [Score::ZERO; N_PIECES];
+
+#[rustfmt::skip]
 pub static mut PIECE_TABLES: [[Score; N_SQUARES]; N_PIECES] = [[Score::ZERO; N_SQUARES]; N_PIECES];
+
+#[rustfmt::skip]
 pub static mut PAWN_SHIELD_MASKS: [[BitBoard; N_SQUARES]; N_COLORS] = [[BitBoard::ZERO; N_SQUARES]; N_COLORS];
 
 #[inline(always)]
 pub fn tempo() -> Score {
-    unsafe {
-        TEMPO[0]
-    }
+    unsafe { TEMPO[0] }
 }
 
 #[inline(always)]
 pub fn pawn_score(index: usize) -> Score {
-    unsafe {
-        PAWN_SCORES[index]
-    }
+    unsafe { PAWN_SCORES[index] }
 }
 
 #[inline(always)]
 pub fn bishop_score(index: usize) -> Score {
-    unsafe {
-        BISHOP_SCORES[index]
-    }
+    unsafe { BISHOP_SCORES[index] }
 }
 
 #[inline(always)]
 pub fn rook_score(index: usize) -> Score {
-    unsafe {
-        ROOK_SCORES[index]
-    }
+    unsafe { ROOK_SCORES[index] }
 }
 
 #[inline(always)]
 pub fn king_score(index: usize) -> Score {
-    unsafe {
-        KING_SCORES[index]
-    }
+    unsafe { KING_SCORES[index] }
 }
 
 #[inline(always)]
@@ -153,23 +154,13 @@ pub fn piece_sq_value(pc: Piece, sq: SQ) -> Score {
 
 #[inline(always)]
 pub fn piecetype_sq_value(pt: PieceType, sq: SQ) -> Score {
-    unsafe {
-        PIECE_TYPE_TABLES[pt.index()][sq.index()]
-    }
+    unsafe { PIECE_TYPE_TABLES[pt.index()][sq.index()] }
 }
 
 #[inline(always)]
 pub fn pawns_shield_mask(color: Color, sq: SQ) -> BitBoard {
-    unsafe {
-        PAWN_SHIELD_MASKS[color.index()][sq.index()]
-    }
+    unsafe { PAWN_SHIELD_MASKS[color.index()][sq.index()] }
 }
-
-
-
-
-
-
 
 fn init_pawn_shields(pawn_shields: &mut [[BitBoard; N_SQUARES]; N_COLORS]) {
     for sq in SQ::A1..=SQ::H8 {

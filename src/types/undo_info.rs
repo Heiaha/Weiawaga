@@ -15,24 +15,24 @@ pub struct UndoInfo {
 }
 
 impl UndoInfo {
-    pub const fn empty() -> Self {
-        Self { entry: BitBoard::ZERO,
-                   captured: Piece::None,
-                   epsq: SQ::None,
-                   moove: 0,
-                   material_hash: BitBoard::ZERO,
-                   half_move_counter: 0,
-                   plies_from_null: 0 }
-    }
-
-    pub fn new(entry: BitBoard, moove: Move, half_move_counter: u16, plies_from_null: u16, captured: Piece, epsq: SQ, material_hash: BitBoard) -> Self {
-        Self { entry,
-                   moove: moove.moove(),
-                   half_move_counter,
-                   plies_from_null,
-                   captured,
-                   epsq,
-                   material_hash }
+    pub fn new(
+        entry: BitBoard,
+        moove: Move,
+        half_move_counter: u16,
+        plies_from_null: u16,
+        captured: Piece,
+        epsq: SQ,
+        material_hash: BitBoard,
+    ) -> Self {
+        Self {
+            entry,
+            moove: moove.moove(),
+            half_move_counter,
+            plies_from_null,
+            captured,
+            epsq,
+            material_hash,
+        }
     }
 
     #[inline(always)]
@@ -98,12 +98,14 @@ impl UndoInfo {
 
 impl Default for UndoInfo {
     fn default() -> Self {
-        Self { entry: BitBoard::ZERO,
+        Self {
+            entry: BitBoard::ZERO,
             captured: Piece::None,
             epsq: SQ::None,
             moove: 0,
             material_hash: BitBoard::ZERO,
             half_move_counter: 0,
-            plies_from_null: 0 }
+            plies_from_null: 0,
+        }
     }
 }

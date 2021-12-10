@@ -8,9 +8,8 @@ pub mod diagonal;
 pub mod file;
 pub mod magics;
 pub mod moov;
+pub mod move_list;
 pub mod piece;
 pub mod rank;
-pub mod zobrist;
 pub mod undo_info;
-pub mod move_list;
-
+pub mod zobrist;

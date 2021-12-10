@@ -1,14 +1,14 @@
 use crate::perft::perft::*;
+use crate::search::move_sorter::*;
 use crate::search::search::*;
 use crate::search::timer::*;
 use crate::search::tt::*;
-use crate::search::move_sorter::*;
+use crate::texel::tuner::*;
 use crate::types::board::*;
 use std::io::BufRead;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::{io, sync, thread};
-use crate::texel::tuner::*;
 
 pub enum UCICommand {
     Unknown(String),
@@ -23,8 +23,6 @@ pub enum UCICommand {
     Option(String, String),
     Tune(String),
 }
-
-
 
 impl UCICommand {
     fn thread_loop(rec: sync::mpsc::Receiver<UCICommand>, abort: Arc<AtomicBool>) {
@@ -68,7 +66,7 @@ impl UCICommand {
                         }
                     }
                     _ => {}
-                }
+                },
                 UCICommand::Tune(filename) => {
                     let mut tuner = Tuner::new(filename);
                     tuner.tune();
@@ -89,9 +87,7 @@ impl UCICommand {
         let thread_moved_abort = sync::Arc::new(sync::atomic::AtomicBool::new(false));
         let abort = sync::Arc::clone(&thread_moved_abort);
         let (main_tx, main_rx) = sync::mpsc::channel();
-        let handle = thread::spawn(move || {
-            Self::thread_loop(main_rx, thread_moved_abort)
-        });
+        let handle = thread::spawn(move || Self::thread_loop(main_rx, thread_moved_abort));
 
         for line in lock.lines() {
             let cmd = UCICommand::from(&*line.unwrap());
@@ -103,7 +99,10 @@ impl UCICommand {
                 UCICommand::UCI => {
                     println!("id name Weiawaga");
                     println!("id author Malarksist");
-                    println!("option name Hash type spin default {default}", default=Self::HASH_DEFAULT);
+                    println!(
+                        "option name Hash type spin default {default}",
+                        default = Self::HASH_DEFAULT
+                    );
                     println!("uciok");
                 }
                 cmd => {
@@ -128,7 +127,7 @@ impl From<&str> for UCICommand {
             let mut value_parts = Vec::new();
 
             // parse option name
-            while let Some(word) = words.next() {
+            for word in words.by_ref() {
                 if word == "value" {
                     break;
                 } else {
@@ -178,10 +177,7 @@ impl From<&str> for UCICommand {
         } else if line == "stop" {
             return UCICommand::Stop;
         } else if line.starts_with("tune") {
-            let filename = line
-                .split_whitespace()
-                .nth(1)
-                .unwrap();
+            let filename = line.split_whitespace().nth(1).unwrap();
             return UCICommand::Tune(filename.parse().unwrap());
         }
         Self::Unknown(line.to_owned())

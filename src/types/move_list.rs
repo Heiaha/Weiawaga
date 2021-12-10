@@ -19,7 +19,11 @@ pub struct MoveList {
 
 impl MoveList {
     pub fn new() -> Self {
-        MoveList { list: [Move::empty(); MAX_MOVES], idx: 0, len: 0 }
+        MoveList {
+            list: [Move::empty(); MAX_MOVES],
+            idx: 0,
+            len: 0,
+        }
     }
 
     pub fn len(&self) -> usize {

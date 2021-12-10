@@ -17,38 +17,47 @@ pub enum TTFlag {
 
 #[derive(Eq, PartialEq, Copy, Clone)]
 pub struct TTEntry {
-    key: Key,
-    best_move: Option<MoveInt>,
-    depth: Depth,
-    value: Value,
-    flag: TTFlag,
+    key: Key,                   // 8 byte
+    value: Value,               // 4 byte
+    best_move: Option<MoveInt>, // 4 byte
+    depth: Depth,               // 1 byte
+    flag: TTFlag,               // 1 byte
 }
 
 impl TT {
     pub fn new(mb_size: u64) -> Self {
-        let count = mb_size * 1024 * 1024 / std::mem::size_of::<TTEntry>() as u64;
-        let new_ttentry_count = count.next_power_of_two() / 2;
-        let bitmask = B!(new_ttentry_count - 1);
-        let table = vec![TTEntry::default(); new_ttentry_count as usize];
-        TT { table, bitmask }
-    }
+        let upper_limit = mb_size * 1024 * 1024 / std::mem::size_of::<TTEntry>() as u64;
+        let count = upper_limit.next_power_of_two() / 2;
 
-    pub fn insert(&mut self, hash: Key, depth: Depth, value: Value, best_move: Option<Move>, flag: TTFlag) {
-        self.table[(hash & self.bitmask).0 as usize] = TTEntry { key: hash,
-                                                                 best_move: best_move.map(|x| x.moove()),
-                                                                 depth,
-                                                                 value,
-                                                                 flag };
-    }
-
-    pub fn probe(&self, hash: Key) -> Option<&TTEntry> {
-        unsafe {
-            let entry = self.table.get_unchecked((hash & self.bitmask).0 as usize);
-            if entry.key == hash {
-                return Some(entry);
-            }
-            None
+        TT {
+            table: vec![TTEntry::default(); count as usize],
+            bitmask: B!(count - 1),
         }
+    }
+
+    pub fn insert(
+        &mut self,
+        hash: Key,
+        depth: Depth,
+        value: Value,
+        best_move: Option<Move>,
+        flag: TTFlag,
+    ) {
+        self.table[(hash & self.bitmask).0 as usize] = TTEntry {
+            key: hash,
+            best_move: best_move.map(|x| x.moove()),
+            depth,
+            value,
+            flag,
+        };
+    }
+
+    pub fn probe(&self, hash: Key) -> Option<TTEntry> {
+        let entry = self.table[(hash & self.bitmask).0 as usize];
+        if entry.key == hash {
+            return Some(entry);
+        }
+        None
     }
 
     pub fn use_pct(&self) -> f64 {
@@ -68,10 +77,10 @@ impl TT {
     }
 
     pub fn resize(&mut self, mb_size: u64) {
-        let count = mb_size * 1024 * 1024 / std::mem::size_of::<TTEntry>() as u64;
-        let new_ttentry_count = count.next_power_of_two() / 2;
-        self.bitmask = B!(new_ttentry_count - 1);
-        self.table = vec![TTEntry::default(); new_ttentry_count as usize];
+        let upper_limit = mb_size * 1024 * 1024 / std::mem::size_of::<TTEntry>() as u64;
+        let count = upper_limit.next_power_of_two() / 2;
+        self.bitmask = B!(count - 1);
+        self.table = vec![TTEntry::default(); count as usize];
     }
 }
 
@@ -99,10 +108,12 @@ impl TTEntry {
 
 impl Default for TTEntry {
     fn default() -> Self {
-        Self { key: B!(0),
-               best_move: None,
-               depth: 0,
-               value: 0,
-               flag: TTFlag::Exact }
+        Self {
+            key: B!(0),
+            best_move: None,
+            depth: 0,
+            value: 0,
+            flag: TTFlag::Exact,
+        }
     }
 }

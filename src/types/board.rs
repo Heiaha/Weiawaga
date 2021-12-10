@@ -41,7 +41,7 @@ impl Board {
         board
     }
 
-    pub const fn clean() -> Self {
+    pub fn clean() -> Self {
         Board {
             piece_bb: [BitBoard::ZERO; N_PIECES],
             board: [Piece::None; N_SQUARES],
@@ -52,7 +52,7 @@ impl Board {
             phase: Score::TOTAL_PHASE,
             material_score: Score::ZERO,
             p_sq_score: Score::ZERO,
-            history: [UndoInfo::empty(); 1000],
+            history: [UndoInfo::default(); 1000],
             checkers: BitBoard::ZERO,
             pinned: BitBoard::ZERO,
         }
@@ -65,7 +65,7 @@ impl Board {
         self.phase = Score::TOTAL_PHASE;
         self.material_score = Score::ZERO;
         self.p_sq_score = Score::ZERO;
-        self.history = [UndoInfo::empty(); 1000];
+        self.history = [UndoInfo::default(); 1000];
         self.checkers = BitBoard::ZERO;
         self.pinned = BitBoard::ZERO;
 
@@ -115,7 +115,8 @@ impl Board {
 
     pub fn move_piece_quiet(&mut self, from_sq: SQ, to_sq: SQ) {
         let pc = self.piece_at(from_sq);
-        self.p_sq_score += e_constants::piece_sq_value(pc, to_sq) - e_constants::piece_sq_value(pc, from_sq);
+        self.p_sq_score +=
+            e_constants::piece_sq_value(pc, to_sq) - e_constants::piece_sq_value(pc, from_sq);
 
         let hash_update = zobrist::zobrist_table(pc, from_sq) ^ zobrist::zobrist_table(pc, to_sq);
         self.hash ^= hash_update;
@@ -143,7 +144,8 @@ impl Board {
 
     #[inline(always)]
     pub fn bitboard_of_piecetype(&self, pt: PieceType) -> BitBoard {
-        self.piece_bb[Piece::make_piece(Color::White, pt).index()] | self.piece_bb[Piece::make_piece(Color::Black, pt).index()]
+        self.piece_bb[Piece::make_piece(Color::White, pt).index()]
+            | self.piece_bb[Piece::make_piece(Color::Black, pt).index()]
     }
 
     pub fn diagonal_sliders(&self, color: Color) -> BitBoard {
@@ -203,11 +205,15 @@ impl Board {
         let them = !self.color_to_play;
         let our_king = self.bitboard_of(us, PieceType::King).lsb();
 
-        if attacks::knight_attacks(our_king) & self.bitboard_of(them, PieceType::Knight) != BitBoard::ZERO {
+        if attacks::knight_attacks(our_king) & self.bitboard_of(them, PieceType::Knight)
+            != BitBoard::ZERO
+        {
             return true;
         }
 
-        if attacks::pawn_attacks_sq(our_king, us) & self.bitboard_of(them, PieceType::Pawn) != BitBoard::ZERO {
+        if attacks::pawn_attacks_sq(our_king, us) & self.bitboard_of(them, PieceType::Pawn)
+            != BitBoard::ZERO
+        {
             return true;
         }
 
@@ -234,10 +240,17 @@ impl Board {
 
     #[inline(always)]
     fn is_insufficient_material(&self) -> bool {
-        (self.bitboard_of_piecetype(PieceType::Pawn) | self.bitboard_of_piecetype(PieceType::Rook) | self.bitboard_of_piecetype(PieceType::Queen)) == BitBoard::ZERO &&
-            (!self.all_pieces(Color::White).is_several() || !self.all_pieces(Color::Black).is_several()) &&
-            (!(self.bitboard_of_piecetype(PieceType::Knight) | self.bitboard_of_piecetype(PieceType::Bishop)).is_several() ||
-            (self.bitboard_of_piecetype(PieceType::Bishop) == BitBoard::ZERO && self.bitboard_of_piecetype(PieceType::Knight).pop_count() <= 2))
+        (self.bitboard_of_piecetype(PieceType::Pawn)
+            | self.bitboard_of_piecetype(PieceType::Rook)
+            | self.bitboard_of_piecetype(PieceType::Queen))
+            == BitBoard::ZERO
+            && (!self.all_pieces(Color::White).is_several()
+                || !self.all_pieces(Color::Black).is_several())
+            && (!(self.bitboard_of_piecetype(PieceType::Knight)
+                | self.bitboard_of_piecetype(PieceType::Bishop))
+            .is_several()
+                || (self.bitboard_of_piecetype(PieceType::Bishop) == BitBoard::ZERO
+                    && self.bitboard_of_piecetype(PieceType::Knight).pop_count() <= 2))
     }
 
     #[inline(always)]
@@ -260,9 +273,7 @@ impl Board {
 
     #[inline(always)]
     pub fn is_draw(&self) -> bool {
-        self.is_fifty() ||
-            self.is_insufficient_material() ||
-            self.is_threefold()
+        self.is_fifty() || self.is_insufficient_material() || self.is_threefold()
     }
 
     pub fn has_non_pawn_material(&self) -> bool {
@@ -743,7 +754,8 @@ impl Board {
                 ///////////////////////////////////////////////////////////////////
                 if ((self.history[self.game_ply].entry() & BitBoard::oo_mask(us))
                     | ((all | danger) & BitBoard::oo_blockers_mask(us)))
-                    == BitBoard::ZERO {
+                    == BitBoard::ZERO
+                {
                     moves.push(if us == Color::White {
                         Move::new(SQ::E1, SQ::G1, MoveFlags::OO)
                     } else {
@@ -753,7 +765,8 @@ impl Board {
                 if ((self.history[self.game_ply].entry() & BitBoard::ooo_mask(us))
                     | ((all | (danger & !BitBoard::ignore_ooo_danger(us)))
                         & BitBoard::ooo_blockers_mask(us)))
-                    == BitBoard::ZERO {
+                    == BitBoard::ZERO
+                {
                     moves.push(if us == Color::White {
                         Move::new(SQ::E1, SQ::C1, MoveFlags::OOO)
                     } else {
@@ -1036,7 +1049,8 @@ impl Board {
                             == self.history[self.game_ply]
                                 .epsq()
                                 .bb()
-                                .shift(Direction::South.relative(us), 1) {
+                                .shift(Direction::South.relative(us), 1)
+                        {
                             b1 = attacks::pawn_attacks_sq(self.history[self.game_ply].epsq(), them)
                                 & self.bitboard_of(us, PieceType::Pawn)
                                 & not_pinned;
@@ -1051,7 +1065,8 @@ impl Board {
                         b1 = self.attackers_from(checker_square, all, us) & not_pinned;
                         for sq in b1 {
                             if self.piece_type_at(sq) == PieceType::Pawn
-                                && sq.rank().relative(us) == Rank::Seven {
+                                && sq.rank().relative(us) == Rank::Seven
+                            {
                                 moves.push(Move::new(sq, checker_square, MoveFlags::PcQueen));
                             } else {
                                 moves.push(Move::new(sq, checker_square, MoveFlags::Capture));
@@ -1063,7 +1078,8 @@ impl Board {
                         b1 = self.attackers_from(checker_square, all, us) & not_pinned;
                         for sq in b1 {
                             if self.piece_type_at(sq) == PieceType::Pawn
-                                && sq.rank().relative(us) == Rank::Seven {
+                                && sq.rank().relative(us) == Rank::Seven
+                            {
                                 moves.push(Move::new(sq, checker_square, MoveFlags::PcQueen));
                             } else {
                                 moves.push(Move::new(sq, checker_square, MoveFlags::Capture));
@@ -1309,7 +1325,7 @@ impl Board {
                 Ok(half_move_counter) => {
                     self.history[self.game_ply].set_half_move_counter(half_move_counter);
                 }
-                Err(e) => {
+                Err(_e) => {
                     self.history[self.game_ply].set_half_move_counter(0);
                 }
             }
@@ -1366,18 +1382,22 @@ impl Board {
                 }
                 None => {
                     if self.piece_type_at(from_sq) == PieceType::Pawn
-                        && to_sq == self.history[self.game_ply].epsq() {
+                        && to_sq == self.history[self.game_ply].epsq()
+                    {
                         m = Move::new(from_sq, to_sq, MoveFlags::EnPassant);
                     } else if self.piece_type_at(from_sq) == PieceType::Pawn
-                        && i8::abs(from_sq as i8 - to_sq as i8) == 16 {
+                        && i8::abs(from_sq as i8 - to_sq as i8) == 16
+                    {
                         m = Move::new(from_sq, to_sq, MoveFlags::DoublePush);
                     } else if self.piece_type_at(from_sq) == PieceType::King
                         && from_sq.file() == File::E
-                        && to_sq.file() == File::G {
+                        && to_sq.file() == File::G
+                    {
                         m = Move::new(from_sq, to_sq, MoveFlags::OO);
                     } else if self.piece_type_at(from_sq) == PieceType::King
                         && from_sq.file() == File::E
-                        && to_sq.file() == File::C {
+                        && to_sq.file() == File::C
+                    {
                         m = Move::new(from_sq, to_sq, MoveFlags::OOO);
                     } else {
                         m = Move::new(from_sq, to_sq, MoveFlags::Quiet);
@@ -1407,8 +1427,7 @@ impl Board {
                     }
                     fen.push_str(&*pc.uci().to_string());
                     count = 0;
-                }
-                else {
+                } else {
                     count += 1;
                 }
                 if (sq_count + 1) % 8 == 0 {
@@ -1427,8 +1446,7 @@ impl Board {
 
         if self.color_to_play == Color::White {
             fen.push_str(" w");
-        }
-        else {
+        } else {
             fen.push_str(" b");
         }
 
@@ -1449,8 +1467,7 @@ impl Board {
 
         if rights == "" {
             fen.push_str(" -");
-        }
-        else {
+        } else {
             fen.push_str(" ");
             fen.push_str(&*rights);
         }
@@ -1458,8 +1475,7 @@ impl Board {
         if self.history[self.game_ply].epsq() != SQ::None {
             fen.push_str(" ");
             fen.push_str(&*self.history[self.game_ply].epsq().to_string());
-        }
-        else {
+        } else {
             fen.push_str(" -");
         }
 
@@ -1468,7 +1484,6 @@ impl Board {
 
         fen.push_str(" ");
         fen.push_str(&*(self.game_ply / 2 + 1).to_string());
-
 
         fen
     }

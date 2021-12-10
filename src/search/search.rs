@@ -7,7 +7,6 @@ use crate::evaluation::score::*;
 use crate::types::board::*;
 use crate::types::moov::*;
 use std::cmp::{max, min};
-use std::thread;
 
 pub type Depth = i8;
 pub type Ply = usize;
@@ -22,22 +21,23 @@ pub struct Search<'a> {
 
 impl<'a> Search<'a> {
     pub fn new(timer: Timer, tt: &'a mut TT) -> Self {
-        Search { stop: false,
-                 sel_depth: 0,
-                 timer: timer,
-                 tt: tt,
-                 stats: Statistics::new() }
+        Search {
+            stop: false,
+            sel_depth: 0,
+            timer: timer,
+            tt: tt,
+            stats: Statistics::new(),
+        }
     }
 
     pub fn go(&mut self, board: &mut Board) -> (Move, Value) {
-
         ///////////////////////////////////////////////////////////////////
         // Starts iterative deepening.
         ///////////////////////////////////////////////////////////////////
         let mut alpha = -Score::INF;
         let mut beta = Score::INF;
         let mut depth = 1;
-        let mut final_move = Move::NULL;
+        let mut final_move = None;
         let mut final_score = 0;
         let mut last_score = 0;
 
@@ -51,10 +51,12 @@ impl<'a> Search<'a> {
             return (move_sorter[0], 0);
         }
 
-
-        while !self.stop && self.timer.start_check(depth) && !Score::is_checkmate(final_score) && depth < Depth::MAX {
+        while !self.stop
+            && self.timer.start_check(depth)
+            && !Score::is_checkmate(final_score)
+            && depth < Depth::MAX
+        {
             (final_move, final_score) = self.search_root(board, depth, alpha, beta);
-
 
             ///////////////////////////////////////////////////////////////////
             // Update the clock if the score is changing
@@ -80,11 +82,19 @@ impl<'a> Search<'a> {
                 self.stats = Statistics::new();
             }
         }
-        (final_move, final_score)
+        if final_move.is_none() {
+            return (move_sorter[0], 0);
+        }
+        (final_move.unwrap(), final_score)
     }
 
-    fn search_root(&mut self, board: &mut Board, mut depth: Depth, mut alpha: Value, beta: Value) -> (Move, Value) {
-
+    fn search_root(
+        &mut self,
+        board: &mut Board,
+        mut depth: Depth,
+        mut alpha: Value,
+        beta: Value,
+    ) -> (Option<Move>, Value) {
         ///////////////////////////////////////////////////////////////////
         // Check extension.
         ///////////////////////////////////////////////////////////////////
@@ -106,13 +116,14 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         let ply: Ply = 0;
         let mut value: Value = -Score::INF;
-        let mut best_move: Move = Move::NULL;
+        let mut best_move = None;
         let mut idx = 0;
         let mut move_sorter = MoveSorter::new(board, ply, &hash_move);
         while let Some(m) = move_sorter.next() {
-
             board.push(m);
-            if idx == 0 || -self.search(board, depth - 1, ply + 1, -alpha - 1, -alpha, true, false) > alpha {
+            if idx == 0
+                || -self.search(board, depth - 1, ply + 1, -alpha - 1, -alpha, true, false) > alpha
+            {
                 value = -self.search(board, depth - 1, ply + 1, -beta, -alpha, true, true);
             }
             board.pop();
@@ -123,28 +134,40 @@ impl<'a> Search<'a> {
             }
 
             if value > alpha {
-                best_move = m;
+                best_move = Some(m);
                 if value >= beta {
-                    self.tt.insert(board.hash(), depth, beta, Some(best_move), TTFlag::Lower);
+                    self.tt
+                        .insert(board.hash(), depth, beta, best_move, TTFlag::Lower);
                     return (best_move, beta);
                 }
                 alpha = value;
-                self.tt.insert(board.hash(), depth, alpha, Some(best_move), TTFlag::Upper);
+                self.tt
+                    .insert(board.hash(), depth, alpha, best_move, TTFlag::Upper);
             }
             idx += 1;
         }
 
-        if best_move == Move::NULL {
-            best_move = move_sorter[0];
+        if best_move.is_none() {
+            best_move = Some(move_sorter[0]);
         }
 
         if !self.stop {
-            self.tt.insert(board.hash(), depth, alpha, Some(best_move), TTFlag::Exact);
+            self.tt
+                .insert(board.hash(), depth, alpha, best_move, TTFlag::Exact);
         }
         (best_move, alpha)
     }
 
-    fn search(&mut self, board: &mut Board, mut depth: Depth, ply: Ply, mut alpha: Value, mut beta: Value, can_apply_null: bool, is_pv: bool) -> Value {
+    fn search(
+        &mut self,
+        board: &mut Board,
+        mut depth: Depth,
+        ply: Ply,
+        mut alpha: Value,
+        mut beta: Value,
+        can_apply_null: bool,
+        is_pv: bool,
+    ) -> Value {
         if self.stop || self.timer.stop_check() {
             self.stop = true;
             return 0;
@@ -244,7 +267,6 @@ impl<'a> Search<'a> {
 
         let mut move_sorter = MoveSorter::new(board, ply, &hash_move);
         while let Some(m) = move_sorter.next() {
-
             ///////////////////////////////////////////////////////////////////
             // Make move and deepen search via principal variation search.
             ///////////////////////////////////////////////////////////////////
@@ -253,7 +275,6 @@ impl<'a> Search<'a> {
             if idx == 0 {
                 value = -self.search(board, depth - 1, ply + 1, -beta, -alpha, true, is_pv);
             } else {
-
                 ///////////////////////////////////////////////////////////////////
                 // Late move reductions.
                 ///////////////////////////////////////////////////////////////////
@@ -262,9 +283,25 @@ impl<'a> Search<'a> {
                     reduced_depth -= Self::late_move_reduction(depth, idx);
                 }
                 loop {
-                    value = -self.search(board, reduced_depth - 1, ply + 1, -alpha - 1, -alpha, true, false);
+                    value = -self.search(
+                        board,
+                        reduced_depth - 1,
+                        ply + 1,
+                        -alpha - 1,
+                        -alpha,
+                        true,
+                        false,
+                    );
                     if value > alpha {
-                        value = -self.search(board, reduced_depth - 1, ply + 1, -beta, -alpha, true, true);
+                        value = -self.search(
+                            board,
+                            reduced_depth - 1,
+                            ply + 1,
+                            -beta,
+                            -alpha,
+                            true,
+                            true,
+                        );
                     }
 
                     ///////////////////////////////////////////////////////////////////
@@ -318,7 +355,8 @@ impl<'a> Search<'a> {
         }
 
         if !self.stop {
-            self.tt.insert(board.hash(), depth, alpha, best_move, tt_flag);
+            self.tt
+                .insert(board.hash(), depth, alpha, best_move, tt_flag);
         }
         alpha
     }
@@ -348,10 +386,7 @@ impl<'a> Search<'a> {
         let mut move_sorter = MoveSorter::new_q(board, ply, &hash_move);
         while let Some(m) = move_sorter.next() {
             board.push(m);
-            value = -self.q_search(board,
-                                   ply + 1,
-                                   -beta,
-                                   -alpha);
+            value = -self.q_search(board, ply + 1, -beta, -alpha);
             board.pop();
 
             if self.stop {
@@ -370,19 +405,31 @@ impl<'a> Search<'a> {
     }
 
     #[inline(always)]
-    fn can_apply_null(board: &Board, depth: Depth, beta: Value, in_check: bool, can_apply_null: bool) -> bool {
-        can_apply_null && !in_check && depth >= Self::NULL_MIN_DEPTH && board.has_non_pawn_material() && eval(board) >= beta
+    fn can_apply_null(
+        board: &Board,
+        depth: Depth,
+        beta: Value,
+        in_check: bool,
+        can_apply_null: bool,
+    ) -> bool {
+        can_apply_null
+            && !in_check
+            && depth >= Self::NULL_MIN_DEPTH
+            && board.has_non_pawn_material()
+            && eval(board) >= beta
     }
 
     #[inline(always)]
     fn can_apply_lmr(m: &Move, depth: Depth, move_index: usize) -> bool {
-        depth >= Self::LMR_MIN_DEPTH && move_index >= Self::LMR_MOVE_WO_REDUCTION && m.flags() == MoveFlags::Quiet
+        depth >= Self::LMR_MIN_DEPTH
+            && move_index >= Self::LMR_MOVE_WO_REDUCTION
+            && m.flags() == MoveFlags::Quiet
     }
 
     #[inline(always)]
     fn null_reduction(depth: Depth) -> Depth {
         // Idea of dividing in null move depth taken from Cosette
-        Self::NULL_MIN_DEPTH_REDUCTION + (depth - Self::NULL_MIN_DEPTH)/Self::NULL_DEPTH_DIVIDER
+        Self::NULL_MIN_DEPTH_REDUCTION + (depth - Self::NULL_MIN_DEPTH) / Self::NULL_DEPTH_DIVIDER
     }
 
     #[inline(always)]
@@ -400,7 +447,7 @@ impl<'a> Search<'a> {
         match tt_entry {
             Some(tt_entry) => {
                 hash_move = tt_entry.best_move();
-                if hash_move == None {
+                if hash_move.is_none() {
                     return "".to_owned();
                 }
             }
@@ -415,9 +462,12 @@ impl<'a> Search<'a> {
         pv
     }
 
-    fn print_info(&self, board: &mut Board, depth: Depth, m: Move, score: Value) {
+    fn print_info(&self, board: &mut Board, depth: Depth, m: Option<Move>, score: Value) {
+        if m.is_none() {
+            return;
+        }
         println!("info currmove {m} depth {depth} seldepth {sel_depth} time {time} score cp {score} nodes {nodes} nps {nps} pv {pv}",
-                 m = m.to_string(),
+                 m = m.unwrap().to_string(),
                  depth = depth,
                  sel_depth = self.sel_depth,
                  time = self.timer.elapsed(),
@@ -446,7 +496,9 @@ pub static mut LMR_TABLE: [[Depth; 64]; 64] = [[0; 64]; 64];
 fn init_lmr_table(lmr_table: &mut [[Depth; 64]; 64]) {
     for depth in 1..64 {
         for move_number in 1..64 {
-            lmr_table[depth][move_number] = (Search::LMR_BASE_REDUCTION + f32::ln(depth as f32) * f32::ln(move_number as f32) / Search::LMR_MOVE_DIVIDER) as Depth;
+            lmr_table[depth][move_number] = (Search::LMR_BASE_REDUCTION
+                + f32::ln(depth as f32) * f32::ln(move_number as f32) / Search::LMR_MOVE_DIVIDER)
+                as Depth;
         }
     }
 }

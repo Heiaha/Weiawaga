@@ -99,8 +99,6 @@ impl From<u8> for Diagonal {
 impl From<u8> for AntiDiagonal {
     #[inline(always)]
     fn from(n: u8) -> Self {
-        unsafe {
-            transmute::<u8, Self>(n)
-        }
+        unsafe { transmute::<u8, Self>(n) }
     }
 }
