@@ -91,18 +91,6 @@ impl Move {
         };
     }
 
-    pub fn promotion_type(&self) -> PieceType {
-        match self.flags() {
-            MoveFlags::PcBishop => PieceType::Bishop,
-            MoveFlags::PcKnight => PieceType::Knight,
-            MoveFlags::PcRook => PieceType::Rook,
-            MoveFlags::PcQueen => PieceType::Queen,
-            _ => {
-                panic!("Move isn't a promotion!")
-            }
-        }
-    }
-
     #[inline(always)]
     pub fn set_score(&mut self, score: SortScore) {
         self.score = score;
