@@ -12,7 +12,9 @@ use super::zobrist;
 use crate::evaluation::e_constants;
 use crate::evaluation::score::*;
 use std::cmp::min;
+use std::convert::TryFrom;
 use std::fmt;
+use std::iter::zip;
 
 #[derive(Copy, Clone)]
 pub struct Board {
@@ -164,7 +166,12 @@ impl Board {
         }
     }
 
-    pub fn all_pieces(&self, color: Color) -> BitBoard {
+    #[inline(always)]
+    pub fn all_pieces(&self) -> BitBoard {
+        self.all_pieces_color(Color::White) | self.all_pieces_color(Color::Black)
+    }
+
+    pub fn all_pieces_color(&self, color: Color) -> BitBoard {
         if color == Color::White {
             self.piece_bb[Piece::WhitePawn.index()]
                 | self.piece_bb[Piece::WhiteKnight.index()]
@@ -182,7 +189,7 @@ impl Board {
         }
     }
 
-    pub fn attackers_from(&self, sq: SQ, occ: BitBoard, color: Color) -> BitBoard {
+    pub fn attackers_from_color(&self, sq: SQ, occ: BitBoard, color: Color) -> BitBoard {
         if color == Color::White {
             (self.piece_bb[Piece::WhitePawn.index()] & attacks::pawn_attacks_sq(sq, Color::Black))
                 | (self.piece_bb[Piece::WhiteKnight.index()] & attacks::knight_attacks(sq))
@@ -198,6 +205,21 @@ impl Board {
                 | (self.piece_bb[Piece::BlackQueen.index()]
                     & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
         }
+    }
+
+    pub fn attackers_from_all(&self, sq: SQ, occ: BitBoard) -> BitBoard {
+        (self.piece_bb[Piece::WhitePawn.index()] & attacks::pawn_attacks_sq(sq, Color::Black))
+            | (self.piece_bb[Piece::WhiteKnight.index()] & attacks::knight_attacks(sq))
+            | (self.piece_bb[Piece::WhiteBishop.index()] & attacks::bishop_attacks(sq, occ))
+            | (self.piece_bb[Piece::WhiteRook.index()] & attacks::rook_attacks(sq, occ))
+            | (self.piece_bb[Piece::WhiteQueen.index()]
+                & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
+            | (self.piece_bb[Piece::BlackPawn.index()] & attacks::pawn_attacks_sq(sq, Color::White))
+            | (self.piece_bb[Piece::BlackKnight.index()] & attacks::knight_attacks(sq))
+            | (self.piece_bb[Piece::BlackBishop.index()] & attacks::bishop_attacks(sq, occ))
+            | (self.piece_bb[Piece::BlackRook.index()] & attacks::rook_attacks(sq, occ))
+            | (self.piece_bb[Piece::BlackQueen.index()]
+                & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
     }
 
     pub fn in_check(&self) -> bool {
@@ -217,7 +239,7 @@ impl Board {
             return true;
         }
 
-        let all = self.all_pieces(us) | self.all_pieces(them);
+        let all = self.all_pieces_color(us) | self.all_pieces_color(them);
         if attacks::rook_attacks(our_king, all) & self.orthogonal_sliders(them) != BitBoard::ZERO {
             return true;
         }
@@ -244,8 +266,8 @@ impl Board {
             | self.bitboard_of_piecetype(PieceType::Rook)
             | self.bitboard_of_piecetype(PieceType::Queen))
             == BitBoard::ZERO
-            && (!self.all_pieces(Color::White).is_several()
-                || !self.all_pieces(Color::Black).is_several())
+            && (!self.all_pieces_color(Color::White).is_several()
+                || !self.all_pieces_color(Color::Black).is_several())
             && (!(self.bitboard_of_piecetype(PieceType::Knight)
                 | self.bitboard_of_piecetype(PieceType::Bishop))
             .is_several()
@@ -504,8 +526,8 @@ impl Board {
         let us = self.color_to_play;
         let them = !self.color_to_play;
 
-        let us_bb = self.all_pieces(us);
-        let them_bb = self.all_pieces(them);
+        let us_bb = self.all_pieces_color(us);
+        let them_bb = self.all_pieces_color(them);
         let all = us_bb | them_bb;
 
         let our_king = self
@@ -641,7 +663,7 @@ impl Board {
                                 ));
                             }
                         }
-                        b1 = self.attackers_from(checker_square, all, us) & not_pinned;
+                        b1 = self.attackers_from_color(checker_square, all, us) & not_pinned;
                         for sq in b1 {
                             if self.piece_type_at(sq) == PieceType::Pawn
                                 && sq.rank().relative(us) == Rank::Seven
@@ -657,7 +679,7 @@ impl Board {
                         return;
                     }
                     PieceType::Knight => {
-                        b1 = self.attackers_from(checker_square, all, us) & not_pinned;
+                        b1 = self.attackers_from_color(checker_square, all, us) & not_pinned;
                         for sq in b1 {
                             if self.piece_type_at(sq) == PieceType::Pawn
                                 && sq.rank().relative(us) == Rank::Seven
@@ -970,8 +992,8 @@ impl Board {
         let us = self.color_to_play;
         let them = !self.color_to_play;
 
-        let us_bb = self.all_pieces(us);
-        let them_bb = self.all_pieces(them);
+        let us_bb = self.all_pieces_color(us);
+        let them_bb = self.all_pieces_color(them);
         let all = us_bb | them_bb;
 
         let our_king = self
@@ -1062,7 +1084,7 @@ impl Board {
                                 ));
                             }
                         }
-                        b1 = self.attackers_from(checker_square, all, us) & not_pinned;
+                        b1 = self.attackers_from_color(checker_square, all, us) & not_pinned;
                         for sq in b1 {
                             if self.piece_type_at(sq) == PieceType::Pawn
                                 && sq.rank().relative(us) == Rank::Seven
@@ -1075,7 +1097,7 @@ impl Board {
                         return;
                     }
                     PieceType::Knight => {
-                        b1 = self.attackers_from(checker_square, all, us) & not_pinned;
+                        b1 = self.attackers_from_color(checker_square, all, us) & not_pinned;
                         for sq in b1 {
                             if self.piece_type_at(sq) == PieceType::Pawn
                                 && sq.rank().relative(us) == Rank::Seven
@@ -1221,127 +1243,99 @@ impl Board {
         }
     }
 
-    pub fn set_fen(&mut self, fen: &str) {
+    // Set fen function from pabi
+    pub fn set_fen(&mut self, fen: &str) -> Result<Self, &str> {
+        let fen = fen.trim();
+        if !fen.is_ascii() || fen.lines().count() != 1 {
+            return Err("FEN should be a single ASCII line.".into());
+        }
         self.clear();
-        let det_split: Vec<&str> = fen.split_whitespace().collect();
-        let squares: Vec<&str> = det_split[0].split('/').collect();
-        let ranks = squares.as_slice();
+        let mut parts = fen.split_ascii_whitespace();
 
-        if det_split.len() > 5 {
-            let full_move_number = det_split[5].parse::<usize>().unwrap();
-            self.game_ply = (full_move_number - 1) * 2;
-            if self.color_to_play == Color::Black {
-                self.game_ply += 1;
-            }
+        let pieces_placement = parts.next().unwrap();
+        let color_to_play = parts.next().unwrap();
+        let castling_ability = parts.next().unwrap();
+        let en_passant_square = parts.next().unwrap();
+        let halfmove_clock = parts.next().unwrap_or("0").parse::<u16>().unwrap();
+        let fullmove_counter = parts.next().unwrap_or("1").parse::<usize>().unwrap();
+
+        if pieces_placement.split("/").count() != 8 {
+            return Err("Pieces Placement FEN should have 8 ranks.".into());
         }
 
-        for (i, rank) in ranks.iter().enumerate() {
-            let mut idx = (7 - i) * 8;
-
-            for ch in rank.chars() {
-                let dig = ch.to_digit(10);
-                if let Some(digit) = dig {
-                    idx += digit as usize;
-                } else {
-                    let sq = SQ::from(idx as u8);
-                    match ch {
-                        'P' => {
-                            self.set_piece_at(Piece::WhitePawn, sq);
-                        }
-                        'N' => {
-                            self.set_piece_at(Piece::WhiteKnight, sq);
-                        }
-                        'B' => {
-                            self.set_piece_at(Piece::WhiteBishop, sq);
-                        }
-                        'R' => {
-                            self.set_piece_at(Piece::WhiteRook, sq);
-                        }
-                        'Q' => {
-                            self.set_piece_at(Piece::WhiteQueen, sq);
-                        }
-                        'K' => {
-                            self.set_piece_at(Piece::WhiteKing, sq);
-                        }
-                        'p' => {
-                            self.set_piece_at(Piece::BlackPawn, sq);
-                        }
-                        'n' => {
-                            self.set_piece_at(Piece::BlackKnight, sq);
-                        }
-                        'b' => {
-                            self.set_piece_at(Piece::BlackBishop, sq);
-                        }
-                        'r' => {
-                            self.set_piece_at(Piece::BlackRook, sq);
-                        }
-                        'q' => {
-                            self.set_piece_at(Piece::BlackQueen, sq);
-                        }
-                        'k' => {
-                            self.set_piece_at(Piece::BlackKing, sq);
-                        }
-                        _ => {}
-                    }
-                    idx += 1;
-                }
-            }
-        }
-        self.color_to_play = if det_split[1] == "w" {
+        self.color_to_play = if color_to_play == "w" {
             Color::White
-        } else {
+        } else if color_to_play == "b" {
             Color::Black
+        } else {
+            return Err("Color to play must be either w or b");
         };
 
         if self.color_to_play == Color::Black {
             self.hash ^= zobrist::zobrist_color();
         }
-        if !det_split[2].contains('K') {
-            self.history[self.game_ply]
-                .set_entry(self.history[self.game_ply].entry() | BitBoard::WHITE_OO_MASK);
-        }
-        if !det_split[2].contains('Q') {
-            self.history[self.game_ply]
-                .set_entry(self.history[self.game_ply].entry() | BitBoard::WHITE_OOO_MASK);
-        }
-        if !det_split[2].contains('k') {
-            self.history[self.game_ply]
-                .set_entry(self.history[self.game_ply].entry() | BitBoard::BLACK_OO_MASK);
-        }
-        if !det_split[2].contains('q') {
-            self.history[self.game_ply]
-                .set_entry(self.history[self.game_ply].entry() | BitBoard::BLACK_OOO_MASK);
-        }
 
-        let s = det_split[3].to_ascii_lowercase();
-        if s != "-" {
-            let sq = SQ::from(s.trim());
-            self.history[self.game_ply].set_epsq(sq);
-            self.hash ^= zobrist::zobrist_ep(sq.file());
-        }
+        self.game_ply = (fullmove_counter - 1) * 2;
 
-        if det_split.len() > 4 {
-            match det_split[4].parse::<u16>() {
-                Ok(half_move_counter) => {
-                    self.history[self.game_ply].set_half_move_counter(half_move_counter);
-                }
-                Err(_e) => {
-                    self.history[self.game_ply].set_half_move_counter(0);
+        let ranks = pieces_placement.split("/");
+        for (rank_idx, rank_fen) in ranks.enumerate() {
+            let mut idx = (7 - rank_idx) * 8;
+
+            for ch in rank_fen.chars() {
+                let digit = ch.to_digit(10);
+                if let Some(digit) = digit {
+                    idx += digit as usize;
+                } else {
+                    let sq = SQ::from(idx as u8);
+                    match Piece::try_from(ch) {
+                        Ok(piece) => self.set_piece_at(piece, sq),
+                        Err(_e) => return Err("FEN has incorrect piece symbol."),
+                    }
+
+                    idx += 1;
                 }
             }
         }
 
-        self.history[self.game_ply].set_material_hash(self.material_hash);
+        for (symbol, mask) in zip(
+            "KQkq".chars(),
+            [
+                BitBoard::WHITE_OO_MASK,
+                BitBoard::WHITE_OOO_MASK,
+                BitBoard::BLACK_OO_MASK,
+                BitBoard::BLACK_OOO_MASK,
+            ],
+        ) {
+            if !castling_ability.contains(symbol) {
+                self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() | mask);
+            }
+        }
+
+        if en_passant_square != "-" {
+            if SQ_DISPLAY.contains(&en_passant_square) {
+                let sq = SQ::from(en_passant_square);
+                self.history[self.game_ply].set_epsq(sq);
+                self.hash ^= zobrist::zobrist_ep(sq.file());
+            } else {
+                return Err("En Passant square not valid");
+            }
+        }
+
+        self.history[self.game_ply].set_half_move_counter(halfmove_clock);
+        Ok(*self)
     }
 
-    pub fn push_str(&mut self, move_str: String) {
+    pub fn push_str(&mut self, move_str: String) -> Result<Move, &'static str> {
         let from_sq = SQ::from(&move_str[..2]);
         let to_sq = SQ::from(&move_str[2..4]);
 
         let promo: Option<PieceType>;
 
         if move_str.len() > 4 {
-            promo = Some(Piece::from(move_str.chars().nth(4).unwrap()).type_of());
+            promo = match Piece::try_from(move_str.chars().nth(4).unwrap()) {
+                Ok(piece) => Some(piece.type_of()),
+                Err(e) => return Err(e),
+            };
         } else {
             promo = None;
         }
@@ -1407,85 +1401,75 @@ impl Board {
             }
         }
         self.push(m);
+        Ok(m)
     }
 
     pub fn fen(&self) -> String {
-        let mut count = 0;
-        let mut rank_counter = 1;
-        let mut sq_count = 0;
-        let mut fen = "".to_owned();
-
-        for rank_i in (0..=7).rev() {
-            for file_i in 0..=7 {
-                let rank = Rank::from(rank_i as u8);
-                let file = File::from(file_i as u8);
+        let mut board_string = String::new();
+        for rank_idx in (0..=7).rev() {
+            let rank = Rank::from(rank_idx);
+            let mut empty_squares = 0;
+            for file_idx in 0..=7 {
+                let file = File::from(file_idx);
                 let sq = SQ::encode(rank, file);
                 let pc = self.board[sq.index()];
                 if pc != Piece::None {
-                    if count > 0 {
-                        fen.push_str(&*count.to_string());
+                    if empty_squares != 0 {
+                        board_string.push_str(format!("{}", empty_squares).as_str());
+                        empty_squares = 0;
                     }
-                    fen.push_str(&*pc.uci().to_string());
-                    count = 0;
+                    board_string.push(pc.uci());
                 } else {
-                    count += 1;
+                    empty_squares += 1;
                 }
-                if (sq_count + 1) % 8 == 0 {
-                    if count > 0 {
-                        fen.push_str(&*count.to_string());
-                        count = 0;
-                    }
-                    if rank_counter < 8 {
-                        fen.push_str("/");
-                    }
-                    rank_counter += 1;
-                }
-                sq_count += 1;
+            }
+            if empty_squares != 0 {
+                board_string.push_str(format!("{}", empty_squares).as_str());
+            }
+            if rank != Rank::One {
+                board_string.push('/');
             }
         }
 
-        if self.color_to_play == Color::White {
-            fen.push_str(" w");
+        let color_to_play = if self.color_to_play == Color::White {
+            "w"
         } else {
-            fen.push_str(" b");
+            "b"
+        };
+
+        let mut castling_rights = String::new();
+        for (symbol, mask) in zip(
+            "KQkq".chars(),
+            [
+                BitBoard::WHITE_OO_MASK,
+                BitBoard::WHITE_OOO_MASK,
+                BitBoard::BLACK_OO_MASK,
+                BitBoard::BLACK_OOO_MASK,
+            ],
+        ) {
+            if mask & self.history[self.game_ply].entry() == BitBoard::ZERO {
+                castling_rights.push(symbol);
+            }
+        }
+        if castling_rights == "" {
+            castling_rights = "-".to_string();
         }
 
-        let mut rights = "".to_owned();
-
-        if BitBoard::WHITE_OO_MASK & self.history[self.game_ply].entry() == BitBoard::ZERO {
-            rights.push_str("K");
-        }
-        if BitBoard::WHITE_OOO_MASK & self.history[self.game_ply].entry() == BitBoard::ZERO {
-            rights.push_str("Q");
-        }
-        if BitBoard::BLACK_OO_MASK & self.history[self.game_ply].entry() == BitBoard::ZERO {
-            rights.push_str("k");
-        }
-        if BitBoard::BLACK_OOO_MASK & self.history[self.game_ply].entry() == BitBoard::ZERO {
-            rights.push_str("q");
-        }
-
-        if rights == "" {
-            fen.push_str(" -");
+        let epsq = if self.history[self.game_ply].epsq() != SQ::None {
+            self.history[self.game_ply].epsq().to_string()
         } else {
-            fen.push_str(" ");
-            fen.push_str(&*rights);
-        }
+            "-".to_string()
+        };
 
-        if self.history[self.game_ply].epsq() != SQ::None {
-            fen.push_str(" ");
-            fen.push_str(&*self.history[self.game_ply].epsq().to_string());
-        } else {
-            fen.push_str(" -");
-        }
-
-        fen.push_str(" ");
-        fen.push_str(&*self.history[self.game_ply].half_move_counter().to_string());
-
-        fen.push_str(" ");
-        fen.push_str(&*(self.game_ply / 2 + 1).to_string());
-
-        fen
+        format!(
+            "{} {} {} {} {} {}",
+            board_string,
+            color_to_play,
+            castling_rights,
+            epsq,
+            self.history[self.game_ply].half_move_counter(),
+            self.game_ply / 2 + 1,
+        )
     }
 
     #[inline(always)]
@@ -1532,8 +1516,13 @@ impl Board {
 impl From<&str> for Board {
     fn from(fen: &str) -> Self {
         let mut board = Self::new();
-        board.set_fen(fen);
-        board
+        return match board.set_fen(fen) {
+            Ok(board) => board,
+            Err(e) => {
+                println!("{}", e);
+                Board::new()
+            }
+        };
     }
 }
 

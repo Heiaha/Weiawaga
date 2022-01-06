@@ -25,7 +25,7 @@ impl<'a> Evaluator<'a> {
             our_king: board.bitboard_of(color, PieceType::King).lsb(),
             our_pawns: board.bitboard_of(color, PieceType::Pawn),
             their_pawns: board.bitboard_of(!color, PieceType::Pawn),
-            all_pieces: board.all_pieces(Color::White) | board.all_pieces(Color::Black),
+            all_pieces: board.all_pieces(),
         }
     }
 

@@ -83,9 +83,7 @@ impl Timer {
             TimeControl::FixedMillis(millis) => self.elapsed() <= millis,
             TimeControl::FixedDepth(stop_depth) => depth <= stop_depth,
             TimeControl::FixedNodes(_) => true,
-            TimeControl::Variable { .. } => {
-                self.elapsed() <= self.time_target / 2
-            }
+            TimeControl::Variable { .. } => self.elapsed() <= self.time_target / 2,
         }
     }
 

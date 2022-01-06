@@ -1,4 +1,4 @@
-use super::move_sorter::*;
+use super::move_sorter;
 use super::statistics::*;
 use super::timer::*;
 use super::tt::*;
@@ -6,6 +6,7 @@ use crate::evaluation::eval::*;
 use crate::evaluation::score::*;
 use crate::types::board::*;
 use crate::types::moov::*;
+use crate::types::move_list::MoveList;
 use std::cmp::{max, min};
 
 pub type Depth = i8;
@@ -41,14 +42,14 @@ impl<'a> Search<'a> {
         let mut final_score = 0;
         let mut last_score = 0;
 
-        let move_sorter = MoveSorter::new(board, 0, &None);
+        let mut moves = MoveList::from(board);
 
         ///////////////////////////////////////////////////////////////////
         // If there's only one legal move, just play
         // it instead of searching.
         ///////////////////////////////////////////////////////////////////
-        if move_sorter.len() == 1 {
-            return (move_sorter[0], 0);
+        if moves.len() == 1 {
+            return (moves[0], 0);
         }
 
         while !self.stop
@@ -83,7 +84,7 @@ impl<'a> Search<'a> {
             }
         }
         if final_move.is_none() {
-            return (move_sorter[0], 0);
+            return (moves[0], 0);
         }
         (final_move.unwrap(), final_score)
     }
@@ -118,8 +119,10 @@ impl<'a> Search<'a> {
         let mut value: Value = -Score::INF;
         let mut best_move = None;
         let mut idx = 0;
-        let mut move_sorter = MoveSorter::new(board, ply, &hash_move);
-        while let Some(m) = move_sorter.next() {
+        let mut moves = MoveList::from(board);
+        move_sorter::score_moves(&mut moves, board, ply, &hash_move);
+
+        while let Some(m) = moves.next_best() {
             board.push(m);
             if idx == 0
                 || -self.search(board, depth - 1, ply + 1, -alpha - 1, -alpha, true, false) > alpha
@@ -148,7 +151,7 @@ impl<'a> Search<'a> {
         }
 
         if best_move.is_none() {
-            best_move = Some(move_sorter[0]);
+            best_move = Some(moves[0]);
         }
 
         if !self.stop {
@@ -265,8 +268,10 @@ impl<'a> Search<'a> {
         let mut best_move: Option<Move> = None;
         let mut idx = 0;
 
-        let mut move_sorter = MoveSorter::new(board, ply, &hash_move);
-        while let Some(m) = move_sorter.next() {
+        let mut moves = MoveList::from(board);
+        move_sorter::score_moves(&mut moves, board, ply, &hash_move);
+
+        while let Some(m) = moves.next_best() {
             ///////////////////////////////////////////////////////////////////
             // Make move and deepen search via principal variation search.
             ///////////////////////////////////////////////////////////////////
@@ -328,9 +333,9 @@ impl<'a> Search<'a> {
             if value > alpha {
                 best_move = Some(m);
                 if value >= beta {
-                    if m.flags() == MoveFlags::Quiet {
-                        MoveSorter::add_killer(board, m, ply);
-                        MoveSorter::add_history(m, depth);
+                    if m.is_quiet() {
+                        move_sorter::add_killer(board, m, ply);
+                        move_sorter::add_history(m, depth);
                     }
                     self.stats.beta_cutoffs += 1;
                     tt_flag = TTFlag::Lower;
@@ -346,7 +351,7 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         // Checkmate and stalemate check.
         ///////////////////////////////////////////////////////////////////
-        if move_sorter.len() == 0 {
+        if moves.len() == 0 {
             if in_check {
                 alpha = -mate_value;
             } else {
@@ -383,8 +388,10 @@ impl<'a> Search<'a> {
             hash_move = tt_entry.best_move();
         }
 
-        let mut move_sorter = MoveSorter::new_q(board, ply, &hash_move);
-        while let Some(m) = move_sorter.next() {
+        let mut moves = MoveList::from_q(board);
+        move_sorter::score_moves(&mut moves, board, ply, &hash_move);
+
+        while let Some(m) = moves.next_best() {
             board.push(m);
             value = -self.q_search(board, ply + 1, -beta, -alpha);
             board.pop();
@@ -421,9 +428,7 @@ impl<'a> Search<'a> {
 
     #[inline(always)]
     fn can_apply_lmr(m: &Move, depth: Depth, move_index: usize) -> bool {
-        depth >= Self::LMR_MIN_DEPTH
-            && move_index >= Self::LMR_MOVE_WO_REDUCTION
-            && m.flags() == MoveFlags::Quiet
+        depth >= Self::LMR_MIN_DEPTH && move_index >= Self::LMR_MOVE_WO_REDUCTION && m.is_quiet()
     }
 
     #[inline(always)]

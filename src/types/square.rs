@@ -52,7 +52,6 @@ pub const SQ_DISPLAY_ORDER: [u8; N_SQUARES] = [
     8,  9,  10, 11, 12, 13, 14, 15,
     0,  1,   2,  3,  4,  5,  6,  7];
 
-
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
 #[rustfmt::skip]
 pub enum SQ {
@@ -136,7 +135,11 @@ impl SQ {
 
     #[inline(always)]
     pub fn relative(self, color: Color) -> Self {
-        if color == Color::White { self } else { self.square_mirror() }
+        if color == Color::White {
+            self
+        } else {
+            self.square_mirror()
+        }
     }
 }
 

@@ -1,206 +1,155 @@
 use super::search::*;
+use super::see::*;
 use crate::types::board::*;
 use crate::types::color::*;
 use crate::types::moov::*;
 use crate::types::move_list::*;
-use crate::types::piece::*;
 use crate::types::square::*;
-use std::cmp::min;
-use std::ops::{Index, IndexMut};
+use std::ops::IndexMut;
 
-pub type SortScore = u16;
+pub type SortScore = i16;
 
-static mut MVV_LVA_SCORES: [[SortScore; 6]; 6] = [[0; 6]; 6];
 const N_KILLER: usize = 3;
-const HISTORY_MAX: SortScore = SortScore::MAX / 2;
 
 static mut KILLER_MOVES: [[[Option<Move>; N_KILLER]; 256]; N_COLORS] =
     [[[None; N_KILLER]; 256]; N_COLORS];
 static mut HISTORY_SCORES: [[SortScore; N_SQUARES]; N_SQUARES] = [[0; N_SQUARES]; N_SQUARES];
 
-pub struct MoveSorter(MoveList);
+const HASH_MOVE_SCORE: SortScore = 25000;
+const WINNING_CAPTURES_OFFSET: SortScore = 10;
+const QUEEN_PROMOTION_SCORE: SortScore = 8;
+const ROOK_PROMOTION_SCORE: SortScore = 7;
+const BISHOP_PROMOTION_SCORE: SortScore = 6;
+const KNIGHT_PROMOTION_SCORE: SortScore = 5;
+const KILLER_MOVE_SCORE: SortScore = 2;
+const CASTLING_SCORE: SortScore = 1;
+const HISTORY_MOVE_OFFSET: SortScore = -30000;
+const LOSING_CAPTURES_OFFSET: SortScore = -30001;
 
-impl MoveSorter {
-    pub fn new(board: &mut Board, ply: Ply, hash_move: &Option<Move>) -> MoveSorter {
-        let mut moves = MoveList::new();
-        board.generate_legal_moves(&mut moves);
-        MoveSorter::score_moves(&mut moves, board, ply, hash_move);
-        MoveSorter(moves)
-    }
+pub fn score_moves(moves: &mut MoveList, board: &Board, ply: Ply, hash_move: &Option<Move>) {
+    let mut m: &mut Move;
+    let all_pieces = board.all_pieces();
+    for idx in 0..moves.len() {
+        m = &mut moves[idx];
 
-    pub fn new_q(board: &mut Board, ply: Ply, hash_move: &Option<Move>) -> MoveSorter {
-        let mut moves = MoveList::new();
-        board.generate_legal_q_moves(&mut moves);
-        MoveSorter::score_moves(&mut moves, board, ply, hash_move);
-        MoveSorter(moves)
-    }
+        if let Some(hash_move) = hash_move {
+            if m == hash_move {
+                m.add_to_score(HASH_MOVE_SCORE);
+                continue;
+            }
+        }
 
-    #[inline(always)]
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    fn score_moves(moves: &mut MoveList, board: &Board, ply: Ply, hash_move: &Option<Move>) {
-        let mut m: &mut Move;
-        for idx in 0..moves.len() {
-            m = &mut moves[idx];
-
-            if let Some(hash_move) = hash_move {
-                if m == hash_move {
-                    m.add_to_score(Self::HASH_MOVE_SCORE);
-                }
+        if m.is_quiet() {
+            if is_killer(board, m, ply) {
+                m.add_to_score(KILLER_MOVE_SCORE);
+                continue;
             }
 
-            if Self::is_killer(board, m, ply) {
-                m.add_to_score(Self::KILLER_MOVE_SCORE);
+            if m.is_castling() {
+                m.add_to_score(CASTLING_SCORE);
+                continue;
             }
 
+            m.add_to_score(HISTORY_MOVE_OFFSET + history_score(m));
+            continue;
+        }
+
+        if m.is_capture() {
+            if m.flags() == MoveFlags::EnPassant {
+                m.add_to_score(WINNING_CAPTURES_OFFSET);
+                continue;
+            }
+
+            let capture_value = see(board, m, all_pieces);
+
+            if capture_value >= 0 {
+                m.add_to_score(capture_value + WINNING_CAPTURES_OFFSET);
+            } else {
+                m.add_to_score(capture_value + LOSING_CAPTURES_OFFSET);
+            }
+        }
+
+        if m.is_promotion() {
             match m.flags() {
-                MoveFlags::PcBishop
-                | MoveFlags::PcKnight
-                | MoveFlags::PcRook
-                | MoveFlags::PcQueen => {
-                    m.add_to_score(Self::PROMOTION_SCORE);
-                    m.add_to_score(Self::CAPTURE_SCORE);
-                    m.add_to_score(Self::mvv_lva_score(board, m));
+                MoveFlags::PcBishop | MoveFlags::PrBishop => {
+                    m.add_to_score(BISHOP_PROMOTION_SCORE);
                 }
-                MoveFlags::PrBishop
-                | MoveFlags::PrKnight
-                | MoveFlags::PrRook
-                | MoveFlags::PrQueen => {
-                    m.add_to_score(Self::PROMOTION_SCORE);
+                MoveFlags::PcKnight | MoveFlags::PrKnight => {
+                    m.add_to_score(KNIGHT_PROMOTION_SCORE);
                 }
-                MoveFlags::Capture => {
-                    m.add_to_score(Self::CAPTURE_SCORE);
-                    m.add_to_score(Self::mvv_lva_score(board, m));
+                MoveFlags::PcRook | MoveFlags::PrRook => {
+                    m.add_to_score(ROOK_PROMOTION_SCORE);
                 }
-                _ => m.add_to_score(min(Self::KILLER_MOVE_SCORE, Self::history_score(m))),
-            }
-        }
-    }
-
-    pub fn add_killer(board: &Board, m: Move, ply: Ply) {
-        let color = board.color_to_play() as usize;
-        unsafe {
-            KILLER_MOVES[color][ply].rotate_right(1);
-            KILLER_MOVES[color][ply][0] = Some(m);
-        }
-    }
-
-    pub fn add_history(m: Move, depth: Depth) {
-        debug_assert!(depth >= 0, "Depth is less than 0 in the history heuristic!");
-
-        let depth = depth as SortScore;
-        let from = m.from_sq().index();
-        let to = m.to_sq().index();
-        unsafe {
-            HISTORY_SCORES[from][to] += depth * depth;
-
-            if HISTORY_SCORES[from][to] > HISTORY_MAX {
-                for sq1 in SQ::A1..=SQ::H8 {
-                    for sq2 in SQ::A1..=SQ::H8 {
-                        HISTORY_SCORES[sq1.index()][sq2.index()] >>= 1; // Divide by two
-                    }
+                MoveFlags::PcQueen | MoveFlags::PrQueen => {
+                    m.add_to_score(QUEEN_PROMOTION_SCORE);
                 }
-            }
-        }
-    }
-
-    fn is_killer(board: &Board, m: &Move, ply: usize) -> bool {
-        let color = board.color_to_play().index();
-        unsafe {
-            for i in 0..KILLER_MOVES[color][ply].len() {
-                if Some(*m) == KILLER_MOVES[color][ply][i] {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    #[inline(always)]
-    fn history_score(m: &Move) -> SortScore {
-        unsafe { HISTORY_SCORES[m.from_sq().index()][m.to_sq().index()] }
-    }
-
-    #[inline(always)]
-    fn mvv_lva_score(board: &Board, m: &Move) -> SortScore {
-        unsafe {
-            MVV_LVA_SCORES[board.piece_type_at(m.to_sq()).index()]
-                [board.piece_type_at(m.from_sq()).index()]
-        }
-    }
-
-    pub fn clear_history() {
-        for sq1 in SQ::A1..=SQ::H8 {
-            for sq2 in SQ::A1..=SQ::H8 {
-                unsafe {
-                    HISTORY_SCORES[sq1.index()][sq2.index()] = 0;
-                }
-            }
-        }
-    }
-
-    pub fn clear_killers() {
-        unsafe {
-            for ply in 0..KILLER_MOVES[0].len() {
-                for killer_idx in 0..KILLER_MOVES[0][0].len() {
-                    KILLER_MOVES[Color::White.index()][ply][killer_idx] = None;
-                    KILLER_MOVES[Color::Black.index()][ply][killer_idx] = None;
-                }
+                _ => {}
             }
         }
     }
 }
 
-impl Iterator for MoveSorter {
-    type Item = Move;
-
-    #[inline(always)]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next_best()
-    }
-}
-
-impl Index<usize> for MoveSorter {
-    type Output = Move;
-
-    #[inline(always)]
-    fn index(&self, i: usize) -> &Self::Output {
-        &self.0[i]
-    }
-}
-
-impl IndexMut<usize> for MoveSorter {
-    #[inline(always)]
-    fn index_mut(&mut self, i: usize) -> &mut Self::Output {
-        &mut self.0[i]
-    }
-}
-
-impl MoveSorter {
-    const HASH_MOVE_SCORE: SortScore = 10000;
-    const PROMOTION_SCORE: SortScore = 5000;
-    const CAPTURE_SCORE: SortScore = 200;
-    const KILLER_MOVE_SCORE: SortScore = 90;
-}
-
-//////////////////////////////////////////////
-// Init
-//////////////////////////////////////////////
-
-fn init_mvv_lva(mvv_lva_scores: &mut [[SortScore; 6]; 6]) {
-    let victim_score: [SortScore; 6] = [100, 200, 300, 400, 500, 600];
-    for attacker in PieceType::Pawn..=PieceType::King {
-        for victim in PieceType::Pawn..=PieceType::King {
-            mvv_lva_scores[victim.index()][attacker.index()] =
-                victim_score[victim.index()] + 6 - (victim_score[attacker.index()] / 100);
-        }
-    }
-}
-
-pub fn init_move_orderer() {
+pub fn add_killer(board: &Board, m: Move, ply: Ply) {
+    let color = board.color_to_play() as usize;
     unsafe {
-        init_mvv_lva(&mut MVV_LVA_SCORES);
+        KILLER_MOVES[color][ply].rotate_right(1);
+        KILLER_MOVES[color][ply][0] = Some(m);
+    }
+}
+
+pub fn add_history(m: Move, depth: Depth) {
+    debug_assert!(depth >= 0, "Depth is less than 0 in the history heuristic!");
+
+    let depth = depth as SortScore;
+    let from = m.from_sq().index();
+    let to = m.to_sq().index();
+    unsafe {
+        HISTORY_SCORES[from][to] += depth * depth;
+
+        if HISTORY_SCORES[from][to] >= -HISTORY_MOVE_OFFSET {
+            for sq1 in SQ::A1..=SQ::H8 {
+                for sq2 in SQ::A1..=SQ::H8 {
+                    HISTORY_SCORES[sq1.index()][sq2.index()] >>= 1; // Divide by two
+                }
+            }
+        }
+    }
+}
+
+fn is_killer(board: &Board, m: &Move, ply: usize) -> bool {
+    let color = board.color_to_play().index();
+    unsafe {
+        for i in 0..KILLER_MOVES[color][ply].len() {
+            if Some(*m) == KILLER_MOVES[color][ply][i] {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+#[inline(always)]
+fn history_score(m: &Move) -> SortScore {
+    unsafe { HISTORY_SCORES[m.from_sq().index()][m.to_sq().index()] }
+}
+
+pub fn clear_history() {
+    for sq1 in SQ::A1..=SQ::H8 {
+        for sq2 in SQ::A1..=SQ::H8 {
+            unsafe {
+                HISTORY_SCORES[sq1.index()][sq2.index()] = 0;
+            }
+        }
+    }
+}
+
+pub fn clear_killers() {
+    unsafe {
+        for ply in 0..KILLER_MOVES[0].len() {
+            for killer_idx in 0..KILLER_MOVES[0][0].len() {
+                KILLER_MOVES[Color::White.index()][ply][killer_idx] = None;
+                KILLER_MOVES[Color::Black.index()][ply][killer_idx] = None;
+            }
+        }
     }
 }

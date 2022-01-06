@@ -31,7 +31,7 @@ https://lichess.org/@/Weiawaga
     - [Rooks on open file](https://www.chessprogramming.org/Rook_on_Open_File)
 - Move ordering
     - [Hash move](https://www.chessprogramming.org/Hash_Move)
-    - [MVV/LVA](https://www.chessprogramming.org/MVV-LVA)
+    - [Static Exchange Evaluation](https://www.chessprogramming.org/Static_Exchange_Evaluation)
     - [Killer heuristic](https://www.chessprogramming.org/Killer_Heuristic)
     - [History heuristic](https://www.chessprogramming.org/History_Heuristic)
 - Other

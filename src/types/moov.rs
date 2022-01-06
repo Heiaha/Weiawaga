@@ -1,5 +1,6 @@
 use super::square::*;
 use crate::search::move_sorter::*;
+use crate::types::piece::PieceType;
 use std::mem::transmute;
 
 pub type MoveInt = u16;
@@ -68,13 +69,38 @@ impl Move {
     }
 
     #[inline(always)]
+    pub fn is_quiet(&self) -> bool {
+        ((self.m >> 12) & 0b1100) == 0
+    }
+
+    #[inline(always)]
     pub fn is_capture(&self) -> bool {
-        ((self.m >> 12) & MoveFlags::Capture as MoveInt) != 0
+        ((self.m >> 12) & 0b0100) != 0
     }
 
     #[inline(always)]
     pub fn is_promotion(&self) -> bool {
-        ((self.m >> 12) & MoveFlags::PrKnight as MoveInt) != 0
+        ((self.m >> 12) & 0b1000) != 0
+    }
+
+    #[inline(always)]
+    pub fn is_castling(&self) -> bool {
+        return match self.flags() {
+            MoveFlags::OO | MoveFlags::OOO => true,
+            _ => false,
+        };
+    }
+
+    pub fn promotion_type(&self) -> PieceType {
+        match self.flags() {
+            MoveFlags::PcBishop => PieceType::Bishop,
+            MoveFlags::PcKnight => PieceType::Knight,
+            MoveFlags::PcRook => PieceType::Rook,
+            MoveFlags::PcQueen => PieceType::Queen,
+            _ => {
+                panic!("Move isn't a promotion!")
+            }
+        }
     }
 
     #[inline(always)]

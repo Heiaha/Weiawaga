@@ -1,4 +1,5 @@
 use super::color::*;
+use std::convert::TryFrom;
 use std::iter::Step;
 use std::mem::transmute;
 
@@ -116,9 +117,16 @@ impl Step for PieceType {
     }
 }
 
-impl From<char> for Piece {
-    fn from(k: char) -> Self {
-        Self::from(Self::PIECE_STR.chars().position(|c| c == k).unwrap() as u8)
+impl TryFrom<char> for Piece {
+    type Error = &'static str;
+
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        if Self::PIECE_STR.contains(value) {
+            return Ok(Self::from(
+                Self::PIECE_STR.chars().position(|c| c == value).unwrap() as u8,
+            ));
+        }
+        Err("Piece symbols should be one of \"KQRBNPkqrbnp\"")
     }
 }
 

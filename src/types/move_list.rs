@@ -1,4 +1,5 @@
 use super::bitboard::*;
+use super::board::*;
 use super::moov::*;
 use super::square::*;
 use crate::search::move_sorter::*;
@@ -24,6 +25,18 @@ impl MoveList {
             idx: 0,
             len: 0,
         }
+    }
+
+    pub fn from(board: &mut Board) -> Self {
+        let mut moves = Self::new();
+        board.generate_legal_moves(&mut moves);
+        moves
+    }
+
+    pub fn from_q(board: &mut Board) -> Self {
+        let mut moves = Self::new();
+        board.generate_legal_q_moves(&mut moves);
+        moves
     }
 
     pub fn len(&self) -> usize {

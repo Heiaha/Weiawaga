@@ -1,5 +1,5 @@
 use crate::perft::perft::*;
-use crate::search::move_sorter::*;
+use crate::search::move_sorter;
 use crate::search::search::*;
 use crate::search::timer::*;
 use crate::search::tt::*;
@@ -51,8 +51,8 @@ impl UCICommand {
                     let (best_move, best_score) = search.go(&mut board);
                     println!("info score cp {}", best_score);
                     println!("bestmove {}", best_move.to_string());
-                    MoveSorter::clear_history();
-                    MoveSorter::clear_killers();
+                    move_sorter::clear_history();
+                    move_sorter::clear_killers();
                     tt.clear();
                     abort.store(false, Ordering::SeqCst);
                 }
@@ -93,9 +93,7 @@ impl UCICommand {
             let cmd = UCICommand::from(&*line.unwrap());
             match cmd {
                 UCICommand::Quit => return,
-                UCICommand::Stop => {
-                    abort.store(true, Ordering::SeqCst);
-                }
+                UCICommand::Stop => abort.store(true, Ordering::SeqCst),
                 UCICommand::UCI => {
                     println!("id name Weiawaga");
                     println!("id author Malarksist");
@@ -105,9 +103,7 @@ impl UCICommand {
                     );
                     println!("uciok");
                 }
-                cmd => {
-                    main_tx.send(cmd).unwrap();
-                }
+                cmd => main_tx.send(cmd).unwrap(),
             }
         }
     }
@@ -158,8 +154,8 @@ impl From<&str> for UCICommand {
 
             let mut moves = Vec::new();
             if line.contains("moves") {
-                if let Some(moves_) = line.split_terminator("moves ").nth(1) {
-                    for mov in moves_.split_whitespace() {
+                if let Some(moves_str) = line.split_terminator("moves ").nth(1) {
+                    for mov in moves_str.split_whitespace() {
                         moves.push(String::from(mov));
                     }
                 }
