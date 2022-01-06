@@ -640,17 +640,19 @@ impl Board {
             }
             1 => {
                 let checker_square = self.checkers.lsb();
-                match self.piece_at(checker_square).type_of() {
-                    PieceType::Pawn => {
+                let pt = self.piece_at(checker_square).type_of();
+                match pt {
+                    PieceType::Pawn | PieceType::Knight => {
                         ///////////////////////////////////////////////////////////////////
                         // If the checkers is a pawn, we have to look out for ep moves
                         // that can capture it.
                         ///////////////////////////////////////////////////////////////////
-                        if self.checkers
-                            == self.history[self.game_ply]
-                                .epsq()
-                                .bb()
-                                .shift(Direction::South.relative(us), 1)
+                        if pt == PieceType::Pawn
+                            && self.checkers
+                                == self.history[self.game_ply]
+                                    .epsq()
+                                    .bb()
+                                    .shift(Direction::South.relative(us), 1)
                         {
                             b1 = attacks::pawn_attacks_sq(self.history[self.game_ply].epsq(), them)
                                 & self.bitboard_of(us, PieceType::Pawn)
@@ -663,22 +665,6 @@ impl Board {
                                 ));
                             }
                         }
-                        b1 = self.attackers_from_color(checker_square, all, us) & not_pinned;
-                        for sq in b1 {
-                            if self.piece_type_at(sq) == PieceType::Pawn
-                                && sq.rank().relative(us) == Rank::Seven
-                            {
-                                moves.push(Move::new(sq, checker_square, MoveFlags::PcQueen));
-                                moves.push(Move::new(sq, checker_square, MoveFlags::PcRook));
-                                moves.push(Move::new(sq, checker_square, MoveFlags::PcKnight));
-                                moves.push(Move::new(sq, checker_square, MoveFlags::PcBishop));
-                            } else {
-                                moves.push(Move::new(sq, checker_square, MoveFlags::Capture));
-                            }
-                        }
-                        return;
-                    }
-                    PieceType::Knight => {
                         b1 = self.attackers_from_color(checker_square, all, us) & not_pinned;
                         for sq in b1 {
                             if self.piece_type_at(sq) == PieceType::Pawn
@@ -1063,15 +1049,20 @@ impl Board {
                 return;
             }
             1 => {
-                moves.make_q(our_king, king_attacks & !them_bb);
                 let checker_square = self.checkers.lsb();
-                match self.piece_at(checker_square).type_of() {
-                    PieceType::Pawn => {
-                        if self.checkers
-                            == self.history[self.game_ply]
-                                .epsq()
-                                .bb()
-                                .shift(Direction::South.relative(us), 1)
+                let pt = self.piece_at(checker_square).type_of();
+                match pt {
+                    PieceType::Pawn | PieceType::Knight => {
+                        ///////////////////////////////////////////////////////////////////
+                        // If the checkers is a pawn, we have to look out for ep moves
+                        // that can capture it.
+                        ///////////////////////////////////////////////////////////////////
+                        if pt == PieceType::Pawn
+                            && self.checkers
+                                == self.history[self.game_ply]
+                                    .epsq()
+                                    .bb()
+                                    .shift(Direction::South.relative(us), 1)
                         {
                             b1 = attacks::pawn_attacks_sq(self.history[self.game_ply].epsq(), them)
                                 & self.bitboard_of(us, PieceType::Pawn)
@@ -1096,20 +1087,11 @@ impl Board {
                         }
                         return;
                     }
-                    PieceType::Knight => {
-                        b1 = self.attackers_from_color(checker_square, all, us) & not_pinned;
-                        for sq in b1 {
-                            if self.piece_type_at(sq) == PieceType::Pawn
-                                && sq.rank().relative(us) == Rank::Seven
-                            {
-                                moves.push(Move::new(sq, checker_square, MoveFlags::PcQueen));
-                            } else {
-                                moves.push(Move::new(sq, checker_square, MoveFlags::Capture));
-                            }
-                        }
-                        return;
-                    }
                     _ => {
+                        ///////////////////////////////////////////////////////////////////
+                        // We have to either capture the piece or block it, since it must be
+                        // a slider.
+                        ///////////////////////////////////////////////////////////////////
                         capture_mask = self.checkers;
                         quiet_mask = BitBoard::between(our_king, checker_square);
                     }
@@ -1289,7 +1271,7 @@ impl Board {
                     let sq = SQ::from(idx as u8);
                     match Piece::try_from(ch) {
                         Ok(piece) => self.set_piece_at(piece, sq),
-                        Err(_e) => return Err("FEN has incorrect piece symbol."),
+                        Err(e) => return Err("FEN has incorrect piece symbol."),
                     }
 
                     idx += 1;
