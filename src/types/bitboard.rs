@@ -356,6 +356,7 @@ impl fmt::Display for BitBoard {
 //////////////////////////////////////////////
 
 impl BitBoard {
+    pub const ALL: Self = B!(0xffffffffffffffff);
     pub const ZERO: Self = B!(0);
     pub const ONE: Self = B!(1);
     pub const TWO: Self = B!(2);
@@ -382,8 +383,8 @@ static mut BETWEEN_BB: [[BitBoard; N_SQUARES]; N_SQUARES] = [[B!(0); N_SQUARES];
 static mut LINES_BB: [[BitBoard; N_SQUARES]; N_SQUARES] = [[B!(0); N_SQUARES]; N_SQUARES];
 
 fn init_between(between_bb: &mut [[BitBoard; N_SQUARES]; N_SQUARES]) {
-    for sq1 in SQ::A1..=SQ::H8 {
-        for sq2 in SQ::A1..=SQ::H8 {
+    for sq1 in BitBoard::ALL {
+        for sq2 in BitBoard::ALL {
             let sqs = sq1.bb() | sq2.bb();
             if sq1.file() == sq2.file() || sq1.rank() == sq2.rank() {
                 between_bb[sq1.index()][sq2.index()] = attacks::rook_attacks_for_init(sq1, sqs)
@@ -397,8 +398,8 @@ fn init_between(between_bb: &mut [[BitBoard; N_SQUARES]; N_SQUARES]) {
 }
 
 fn init_lines(lines_bb: &mut [[BitBoard; N_SQUARES]; N_SQUARES]) {
-    for sq1 in SQ::A1..=SQ::H8 {
-        for sq2 in SQ::A1..=SQ::H8 {
+    for sq1 in BitBoard::ALL {
+        for sq2 in BitBoard::ALL {
             if sq1.file() == sq2.file() || sq1.rank() == sq2.rank() {
                 lines_bb[sq1.index()][sq2.index()] =
                     attacks::rook_attacks_for_init(sq1, BitBoard::ZERO)

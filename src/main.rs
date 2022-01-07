@@ -1,6 +1,3 @@
-#![feature(step_trait)]
-#![feature(destructuring_assignment)]
-
 #[macro_use]
 mod types;
 mod evaluation;

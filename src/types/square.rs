@@ -3,7 +3,6 @@ use super::color::*;
 use super::diagonal::*;
 use super::file::*;
 use super::rank::*;
-use std::iter::Step;
 use std::mem::transmute;
 use std::ops::*;
 
@@ -196,29 +195,6 @@ impl Sub<Direction> for SQ {
     #[inline(always)]
     fn sub(self, dir: Direction) -> Self {
         Self::from((self as u8).wrapping_sub(dir as u8))
-    }
-}
-
-impl Step for SQ {
-    fn steps_between(start: &Self, end: &Self) -> Option<usize> {
-        if *start > SQ::H8 || *end > SQ::H8 {
-            return None;
-        }
-        Some(*end as usize - *start as usize)
-    }
-
-    fn forward_checked(start: Self, count: usize) -> Option<Self> {
-        if start as usize + count > SQ::H8 as usize {
-            return None;
-        }
-        Some(Self::from(start as u8 + count as u8))
-    }
-
-    fn backward_checked(start: Self, count: usize) -> Option<Self> {
-        if start as usize - count > SQ::H8 as usize {
-            return None;
-        }
-        Some(Self::from(start as u8 - count as u8))
     }
 }
 

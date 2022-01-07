@@ -57,8 +57,13 @@ impl<'a> Search<'a> {
             && !Score::is_checkmate(final_score)
             && depth < Depth::MAX
         {
-            (final_move, final_score) = self.search_root(board, depth, alpha, beta);
+            let (m, score) = self.search_root(board, depth, alpha, beta);
 
+            // Use temporary variables m and score until destructuring assignment is made stable
+            // and we can just assign to them directly from search_root.
+            // https://github.com/rust-lang/rust/issues/71126
+            final_move = m;
+            final_score = score;
             ///////////////////////////////////////////////////////////////////
             // Update the clock if the score is changing
             // by a lot.
@@ -392,6 +397,15 @@ impl<'a> Search<'a> {
         move_sorter::score_moves(&mut moves, board, ply, &hash_move);
 
         while let Some(m) = moves.next_best() {
+            ///////////////////////////////////////////////////////////////////
+            // Effectively a SEE check. Bad captures will have a score < 0
+            // given by the SEE + the bad capture offset,
+            // and here we skip bad captures.
+            ///////////////////////////////////////////////////////////////////
+            if m.score() < 0 {
+                break;
+            }
+
             board.push(m);
             value = -self.q_search(board, ply + 1, -beta, -alpha);
             board.pop();

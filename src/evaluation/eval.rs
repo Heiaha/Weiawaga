@@ -154,7 +154,7 @@ impl<'a> Evaluator<'a> {
     fn p_sq_eval(&self) -> Score {
         let mut score = Score::ZERO;
 
-        for pt in PieceType::Pawn..=PieceType::King {
+        for pt in PieceType::iter(PieceType::Pawn, PieceType::King) {
             let bb = self.board.bitboard_of(self.color, pt);
             for sq in bb {
                 score += piecetype_sq_value(pt, sq.relative(self.color));
@@ -165,7 +165,7 @@ impl<'a> Evaluator<'a> {
 
     fn material_eval(&self) -> Score {
         let mut score = Score::ZERO;
-        for pt in PieceType::Pawn..=PieceType::Queen {
+        for pt in PieceType::iter(PieceType::Pawn, PieceType::Queen) {
             let bb = self.board.bitboard_of(self.color, pt);
             score += piece_type_value(pt) * bb.pop_count();
         }

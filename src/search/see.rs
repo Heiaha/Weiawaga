@@ -27,7 +27,7 @@ pub fn see(board: &Board, m: &Move, all_pieces: BitBoard) -> SortScore {
     'depth_loop: for depth in 1..gains.len() {
         gains[depth] = last_piece_pts - gains[depth - 1];
         defenders = board.all_pieces_color(color) & blockers;
-        for pt in PieceType::Pawn..=PieceType::King {
+        for pt in PieceType::iter(PieceType::Pawn, PieceType::King) {
             last_piece_pts = SEE_PIECE_TYPE[pt.index()];
             piece_bb = if pt == PieceType::Pawn {
                 attacks::pawn_attacks_sq(to_sq, !color)

@@ -96,7 +96,7 @@ pub static mut BISHOP_MAGICS: Magics = Magics {
 //////////////////////////////////////////////
 
 fn initialize_rook_magics(magics: &mut Magics) {
-    for sq in SQ::A1..=SQ::H8 {
+    for sq in BitBoard::ALL {
         let edges = ((Rank::One.bb() | Rank::Eight.bb()) & !sq.rank().bb())
             | ((File::A.bb() | File::H.bb()) & !sq.file().bb());
 
@@ -123,7 +123,7 @@ fn initialize_rook_magics(magics: &mut Magics) {
 }
 
 fn initialize_bishop_magics(magics: &mut Magics) {
-    for sq in SQ::A1..=SQ::H8 {
+    for sq in BitBoard::ALL {
         let edges = ((Rank::One.bb() | Rank::Eight.bb()) & !sq.rank().bb())
             | ((File::A.bb() | File::H.bb()) & !sq.file().bb());
 

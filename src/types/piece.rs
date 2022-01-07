@@ -1,36 +1,26 @@
 use super::color::*;
 use std::convert::TryFrom;
-use std::iter::Step;
 use std::mem::transmute;
+use std::slice::Iter;
 
 pub const N_PIECES: usize = 15;
 pub const N_PIECE_TYPES: usize = 6;
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Debug)]
 pub enum Piece {
-    WhitePawn = 0,
-    WhiteKnight = 1,
-    WhiteBishop = 2,
-    WhiteRook = 3,
-    WhiteQueen = 4,
-    WhiteKing = 5,
-    BlackPawn = 8,
-    BlackKnight = 9,
-    BlackBishop = 10,
-    BlackRook = 11,
-    BlackQueen = 12,
-    BlackKing = 13,
-    None = 14,
-}
-
-#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Debug)]
-pub enum PieceType {
-    Pawn,
-    Knight,
-    Bishop,
-    Rook,
-    Queen,
-    King,
+    WhitePawn = 0b0000,
+    WhiteKnight = 0b0001,
+    WhiteBishop = 0b0010,
+    WhiteRook = 0b0011,
+    WhiteQueen = 0b0100,
+    WhiteKing = 0b0101,
+    BlackPawn = 0b1000,
+    BlackKnight = 0b1001,
+    BlackBishop = 0b1010,
+    BlackRook = 0b1011,
+    BlackQueen = 0b1100,
+    BlackKing = 0b1101,
+    None = 0b1110,
 }
 
 impl Piece {
@@ -66,12 +56,16 @@ impl Piece {
     pub fn symbol(self) -> char {
         Self::PIECE_STR.chars().nth(self.index()).unwrap()
     }
-}
 
-impl PieceType {
+    // Use this iterator pattern for Piece, PieceType, and Bitboard iterator for SQ
+    // until we can return to Step implementation once it's stabilized.
+    // https://github.com/rust-lang/rust/issues/42168
     #[inline(always)]
-    pub fn index(self) -> usize {
-        self as usize
+    pub fn iter(start: Self, end: Self) -> impl Iterator<Item = Self> {
+        Self::ALL[start.index()..=end.index()]
+            .iter()
+            .copied()
+            .filter(|x| *x != Self::None)
     }
 }
 
@@ -79,41 +73,6 @@ impl From<u8> for Piece {
     #[inline(always)]
     fn from(n: u8) -> Self {
         unsafe { transmute::<u8, Self>(n) }
-    }
-}
-
-impl From<u8> for PieceType {
-    #[inline(always)]
-    fn from(n: u8) -> Self {
-        unsafe { transmute::<u8, Self>(n) }
-    }
-}
-
-impl Step for Piece {
-    fn steps_between(start: &Self, end: &Self) -> Option<usize> {
-        Some(*end as usize - *start as usize)
-    }
-
-    fn forward_checked(start: Self, count: usize) -> Option<Self> {
-        Some(Self::from(start as u8 + count as u8))
-    }
-
-    fn backward_checked(start: Self, count: usize) -> Option<Self> {
-        Some(Self::from(start as u8 - count as u8))
-    }
-}
-
-impl Step for PieceType {
-    fn steps_between(start: &Self, end: &Self) -> Option<usize> {
-        Some(*end as usize - *start as usize)
-    }
-
-    fn forward_checked(start: Self, count: usize) -> Option<Self> {
-        Some(Self::from(start as u8 + count as u8))
-    }
-
-    fn backward_checked(start: Self, count: usize) -> Option<Self> {
-        Some(Self::from(start as u8 - count as u8))
     }
 }
 
@@ -133,4 +92,64 @@ impl TryFrom<char> for Piece {
 impl Piece {
     const PIECE_STR: &'static str = "PNBRQK  pnbrqk ";
     const SYMBOL_STR: &'static str = "♙♘♗♖♕♔  ♟♞♝♜♛♚";
+    const ALL: [Self; 14] = [
+        Self::WhitePawn,
+        Self::WhiteKnight,
+        Self::WhiteBishop,
+        Self::WhiteRook,
+        Self::WhiteQueen,
+        Self::WhiteKing,
+        Self::None,
+        Self::None,
+        Self::BlackPawn,
+        Self::BlackKnight,
+        Self::BlackBishop,
+        Self::BlackRook,
+        Self::BlackQueen,
+        Self::BlackKing,
+    ];
+}
+
+impl PieceType {
+    const ALL: [Self; 6] = [
+        Self::Pawn,
+        Self::Knight,
+        Self::Bishop,
+        Self::Rook,
+        Self::Queen,
+        Self::King,
+    ];
+}
+
+
+
+
+
+#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Debug)]
+pub enum PieceType {
+    Pawn,
+    Knight,
+    Bishop,
+    Rook,
+    Queen,
+    King,
+}
+
+impl PieceType {
+    #[inline(always)]
+    pub fn index(self) -> usize {
+        self as usize
+    }
+
+    #[inline(always)]
+    pub fn iter(start: Self, end: Self) -> impl Iterator<Item = Self> {
+        Self::ALL[start.index()..=end.index()].iter().copied()
+    }
+}
+
+impl From<u8> for PieceType {
+    #[inline(always)]
+    fn from(n: u8) -> Self {
+        unsafe { transmute::<u8, Self>(n) }
+    }
 }

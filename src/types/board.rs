@@ -14,7 +14,6 @@ use crate::evaluation::score::*;
 use std::cmp::min;
 use std::convert::TryFrom;
 use std::fmt;
-use std::iter::zip;
 
 #[derive(Copy, Clone)]
 pub struct Board {
@@ -71,11 +70,11 @@ impl Board {
         self.checkers = BitBoard::ZERO;
         self.pinned = BitBoard::ZERO;
 
-        for pc in Piece::WhitePawn..=Piece::BlackKing {
+        for pc in Piece::iter(Piece::WhitePawn, Piece::BlackKing) {
             self.piece_bb[pc.index()] = BitBoard::ZERO;
         }
 
-        for sq in SQ::A1..=SQ::H8 {
+        for sq in BitBoard::ALL {
             self.board[sq.index()] = Piece::None;
         }
     }
@@ -299,8 +298,8 @@ impl Board {
     }
 
     pub fn has_non_pawn_material(&self) -> bool {
-        for pc in PieceType::Knight..=PieceType::Queen {
-            if self.bitboard_of(self.color_to_play, pc) != BitBoard::ZERO {
+        for pt in PieceType::iter(PieceType::Knight, PieceType::Queen) {
+            if self.bitboard_of(self.color_to_play, pt) != BitBoard::ZERO {
                 return true;
             }
         }
@@ -704,9 +703,9 @@ impl Board {
                     for sq in b1 {
                         ///////////////////////////////////////////////////////////////////
                         // From surge:
-                        //This piece of evil bit-fiddling magic prevents the infamous 'pseudo-pinned' e.p. case,
-                        //where the pawn is not directly pinned, but on moving the pawn and capturing the enemy pawn
-                        //e.p., a rook or queen attack to the king is revealed
+                        // This piece of evil bit-fiddling magic prevents the infamous 'pseudo-pinned' e.p. case,
+                        // where the pawn is not directly pinned, but on moving the pawn and capturing the enemy pawn
+                        // e.p., a rook or queen attack to the king is revealed
                         //
                         //
                         // nbqkbnr
@@ -1229,7 +1228,7 @@ impl Board {
     pub fn set_fen(&mut self, fen: &str) -> Result<Self, &str> {
         let fen = fen.trim();
         if !fen.is_ascii() || fen.lines().count() != 1 {
-            return Err("FEN should be a single ASCII line.".into());
+            return Err("FEN should be a single ASCII line.");
         }
         self.clear();
         let mut parts = fen.split_ascii_whitespace();
@@ -1242,7 +1241,7 @@ impl Board {
         let fullmove_counter = parts.next().unwrap_or("1").parse::<usize>().unwrap();
 
         if pieces_placement.split("/").count() != 8 {
-            return Err("Pieces Placement FEN should have 8 ranks.".into());
+            return Err("Pieces Placement FEN should have 8 ranks.");
         }
 
         self.color_to_play = if color_to_play == "w" {
@@ -1279,15 +1278,12 @@ impl Board {
             }
         }
 
-        for (symbol, mask) in zip(
-            "KQkq".chars(),
-            [
-                BitBoard::WHITE_OO_MASK,
-                BitBoard::WHITE_OOO_MASK,
-                BitBoard::BLACK_OO_MASK,
-                BitBoard::BLACK_OOO_MASK,
-            ],
-        ) {
+        for (symbol, mask) in "KQkq".chars().zip([
+            BitBoard::WHITE_OO_MASK,
+            BitBoard::WHITE_OOO_MASK,
+            BitBoard::BLACK_OO_MASK,
+            BitBoard::BLACK_OOO_MASK,
+        ]) {
             if !castling_ability.contains(symbol) {
                 self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() | mask);
             }
@@ -1420,15 +1416,12 @@ impl Board {
         };
 
         let mut castling_rights = String::new();
-        for (symbol, mask) in zip(
-            "KQkq".chars(),
-            [
-                BitBoard::WHITE_OO_MASK,
-                BitBoard::WHITE_OOO_MASK,
-                BitBoard::BLACK_OO_MASK,
-                BitBoard::BLACK_OOO_MASK,
-            ],
-        ) {
+        for (symbol, mask) in "KQkq".chars().zip([
+            BitBoard::WHITE_OO_MASK,
+            BitBoard::WHITE_OOO_MASK,
+            BitBoard::BLACK_OO_MASK,
+            BitBoard::BLACK_OOO_MASK,
+        ]) {
             if mask & self.history[self.game_ply].entry() == BitBoard::ZERO {
                 castling_rights.push(symbol);
             }

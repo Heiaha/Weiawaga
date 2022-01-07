@@ -1,5 +1,6 @@
 use super::search::*;
 use super::see::*;
+use crate::types::bitboard::BitBoard;
 use crate::types::board::*;
 use crate::types::color::*;
 use crate::types::moov::*;
@@ -107,8 +108,8 @@ pub fn add_history(m: Move, depth: Depth) {
         HISTORY_SCORES[from][to] += depth * depth;
 
         if HISTORY_SCORES[from][to] >= -HISTORY_MOVE_OFFSET {
-            for sq1 in SQ::A1..=SQ::H8 {
-                for sq2 in SQ::A1..=SQ::H8 {
+            for sq1 in BitBoard::ALL {
+                for sq2 in BitBoard::ALL {
                     HISTORY_SCORES[sq1.index()][sq2.index()] >>= 1; // Divide by two
                 }
             }
@@ -134,8 +135,8 @@ fn history_score(m: &Move) -> SortScore {
 }
 
 pub fn clear_history() {
-    for sq1 in SQ::A1..=SQ::H8 {
-        for sq2 in SQ::A1..=SQ::H8 {
+    for sq1 in BitBoard::ALL {
+        for sq2 in BitBoard::ALL {
             unsafe {
                 HISTORY_SCORES[sq1.index()][sq2.index()] = 0;
             }

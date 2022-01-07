@@ -85,10 +85,7 @@ impl Move {
 
     #[inline(always)]
     pub fn is_castling(&self) -> bool {
-        return match self.flags() {
-            MoveFlags::OO | MoveFlags::OOO => true,
-            _ => false,
-        };
+        matches!(self.flags(), MoveFlags::OO | MoveFlags::OOO)
     }
 
     #[inline(always)]

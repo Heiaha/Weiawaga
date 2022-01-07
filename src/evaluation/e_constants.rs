@@ -163,7 +163,7 @@ pub fn pawns_shield_mask(color: Color, sq: SQ) -> BitBoard {
 }
 
 fn init_pawn_shields(pawn_shields: &mut [[BitBoard; N_SQUARES]; N_COLORS]) {
-    for sq in SQ::A1..=SQ::H8 {
+    for sq in BitBoard::ALL {
         pawn_shields[Color::White.index()][sq.index()] = sq.bb().shift(Direction::North, 1)
             | sq.bb().shift(Direction::NorthEast, 1)
             | sq.bb().shift(Direction::NorthWest, 1);
@@ -178,10 +178,10 @@ fn init_piece_values(
     piece_tables: &mut [[Score; N_SQUARES]; N_PIECES],
 ) {
     unsafe {
-        for pc in Piece::WhitePawn..=Piece::WhiteKing {
+        for pc in Piece::iter(Piece::WhitePawn, Piece::WhiteKing) {
             piece_values[pc.index()] = PIECE_TYPE_VALUES[pc.type_of().index()];
             piece_values[pc.flip().index()] = -PIECE_TYPE_VALUES[pc.type_of().index()];
-            for sq in SQ::A1..=SQ::H8 {
+            for sq in BitBoard::ALL {
                 piece_tables[pc.index()][sq.index()] = PIECE_TYPE_TABLES[pc.index()][sq.index()];
                 piece_tables[pc.flip().index()][sq.index()] =
                     -PIECE_TYPE_TABLES[pc.index()][sq.square_mirror().index()];
