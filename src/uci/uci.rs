@@ -1,5 +1,4 @@
 use crate::perft::perft::*;
-use crate::search::move_sorter;
 use crate::search::search::*;
 use crate::search::timer::*;
 use crate::search::tt::*;
@@ -57,9 +56,6 @@ impl UCICommand {
                     let (best_move, best_score) = search.go(&mut board);
                     println!("info score cp {}", best_score);
                     println!("bestmove {}", best_move.to_string());
-                    move_sorter::clear_history();
-                    move_sorter::clear_killers();
-                    tt.clear();
                     abort.store(false, Ordering::SeqCst);
                 }
                 UCICommand::Perft(depth) => {

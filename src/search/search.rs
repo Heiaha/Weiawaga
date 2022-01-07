@@ -510,6 +510,14 @@ impl<'a> Search<'a> {
     const LMR_MOVE_DIVIDER: f32 = 2.25;
 }
 
+impl<'a> Drop for Search<'a> {
+    fn drop(&mut self) {
+        move_sorter::clear_history();
+        move_sorter::clear_killers();
+        self.tt.clear();
+    }
+}
+
 pub static mut LMR_TABLE: [[Depth; 64]; 64] = [[0; 64]; 64];
 
 fn init_lmr_table(lmr_table: &mut [[Depth; 64]; 64]) {
