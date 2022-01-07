@@ -120,10 +120,6 @@ impl PieceType {
     ];
 }
 
-
-
-
-
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Debug)]
 pub enum PieceType {
     Pawn,

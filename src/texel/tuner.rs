@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use crate::evaluation::e_constants::*;
 use crate::evaluation::eval::*;
 use crate::evaluation::score::Value;

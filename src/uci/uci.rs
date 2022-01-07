@@ -4,10 +4,70 @@ use crate::search::timer::*;
 use crate::search::tt::*;
 use crate::texel::tuner::*;
 use crate::types::board::*;
+use std::collections::HashMap;
 use std::io::BufRead;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::{io, sync, thread};
+
+enum Option {
+    Str { default: String },
+    Spin { default: i32, min: i32, max: i32 },
+    Check { default: bool },
+    Combo { default: String },
+    Button,
+}
+
+impl Option {
+    fn string(default: &'static str) -> Self {
+        Self::Str {
+            default: String::from(default),
+        }
+    }
+
+    fn spin(default: i32, min: i32, max: i32) -> Self {
+        Self::Spin {
+            default: default,
+            min: min,
+            max: max,
+        }
+    }
+    fn check(default: bool) -> Self {
+        Self::Check { default: default }
+    }
+
+    fn combo(default: &'static str) -> Self {
+        Self::Combo {
+            default: String::from(default),
+        }
+    }
+}
+
+fn get_options() -> HashMap<String, Option> {
+    let mut opts = HashMap::new();
+    opts.insert(String::from("Hash"), Option::spin(16, 1, 128 * 1024));
+    opts
+}
+
+fn print_options() {
+    // printing scheme from Rustfish
+    let opts = get_options();
+    for (name, opt) in opts.iter() {
+        println!(
+            "option name {} type {}",
+            name,
+            match opt {
+                Option::Str { default, .. } => format!("string default {}", default),
+                Option::Spin {
+                    default, min, max, ..
+                } => format!("spin default {} min {} max {}", default, min, max),
+                Option::Check { default, .. } => format!("check default {}", default),
+                Option::Button => format!("button"),
+                Option::Combo { default, .. } => format!("combo default {}", default),
+            }
+        );
+    }
+}
 
 pub enum UCICommand {
     Unknown(String),
@@ -27,9 +87,16 @@ impl UCICommand {
     fn thread_loop(rec: sync::mpsc::Receiver<UCICommand>, abort: Arc<AtomicBool>) {
         // global board
         let mut board = Board::new();
+        let options = get_options();
 
         // global transposition table
-        let mut tt: TT = TT::new(Self::HASH_DEFAULT);
+        let mut tt: TT = TT::new(
+            if let Option::Spin { default, .. } = options["Hash"] {
+                default as u64
+            } else {
+                0
+            },
+        );
         for cmd in rec {
             match cmd {
                 UCICommand::IsReady => {
@@ -99,10 +166,7 @@ impl UCICommand {
                 UCICommand::UCI => {
                     println!("id name Weiawaga");
                     println!("id author Malarksist");
-                    println!(
-                        "option name Hash type spin default {default}",
-                        default = Self::HASH_DEFAULT
-                    );
+                    print_options();
                     println!("uciok");
                 }
                 cmd => main_tx.send(cmd).unwrap(),

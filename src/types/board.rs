@@ -38,7 +38,9 @@ pub struct Board {
 impl Board {
     pub fn new() -> Self {
         let mut board = Self::clean();
-        board.set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
+        board
+            .set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+            .unwrap();
         board
     }
 
@@ -1426,7 +1428,7 @@ impl Board {
                 castling_rights.push(symbol);
             }
         }
-        if castling_rights == "" {
+        if castling_rights.is_empty() {
             castling_rights = "-".to_string();
         }
 
