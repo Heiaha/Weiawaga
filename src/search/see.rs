@@ -2,7 +2,6 @@ use super::move_sorter::*;
 use crate::types::attacks;
 use crate::types::bitboard::*;
 use crate::types::board::*;
-use crate::types::color::*;
 use crate::types::moov::*;
 use crate::types::piece::*;
 use std::cmp::max;

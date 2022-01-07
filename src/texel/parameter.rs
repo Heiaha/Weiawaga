@@ -52,7 +52,7 @@ impl<'a> Parameter<'a> {
         }
         output += "\n";
         println!("{}", output);
-        file.write_all(output.as_bytes());
+        file.write_all(output.as_bytes()).unwrap();
     }
 }
 

@@ -6,7 +6,6 @@ use crate::types::color::*;
 use crate::types::moov::*;
 use crate::types::move_list::*;
 use crate::types::square::*;
-use std::ops::IndexMut;
 
 pub type SortScore = i16;
 

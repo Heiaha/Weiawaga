@@ -42,7 +42,7 @@ impl<'a> Search<'a> {
         let mut final_score = 0;
         let mut last_score = 0;
 
-        let mut moves = MoveList::from(board);
+        let moves = MoveList::from(board);
 
         ///////////////////////////////////////////////////////////////////
         // If there's only one legal move, just play

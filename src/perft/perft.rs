@@ -4,7 +4,7 @@ use crate::types::move_list::*;
 use std::time::Instant;
 
 pub fn perft(board: &mut Board, depth: Depth) -> usize {
-    let mut moves: MoveList = MoveList::from(board);
+    let moves: MoveList = MoveList::from(board);
 
     if depth == 1 {
         return moves.len();
@@ -21,7 +21,7 @@ pub fn perft(board: &mut Board, depth: Depth) -> usize {
 }
 
 pub fn print_perft(board: &mut Board, depth: Depth) -> usize {
-    let mut moves: MoveList = MoveList::from(board);
+    let moves: MoveList = MoveList::from(board);
 
     let mut nodes: usize = 0;
     let now = Instant::now();

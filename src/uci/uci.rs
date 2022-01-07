@@ -42,7 +42,13 @@ impl UCICommand {
                 UCICommand::Position(new_board, moves) => {
                     board = new_board;
                     for m in moves {
-                        board.push_str(m);
+                        match board.push_str(m) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                board = new_board;
+                                println!("{}", e);
+                            }
+                        }
                     }
                 }
                 UCICommand::Go(time_control) => {

@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use crate::evaluation::e_constants::*;
 use crate::evaluation::eval::*;
 use crate::evaluation::score::Value;
@@ -39,8 +40,11 @@ impl<'a> Tuner<'a> {
                 panic!("Line doesn't contain a result!");
             };
             results.push(result);
-            let board = Board::from(&*line);
-            boards.push(board);
+            let board = Board::try_from(&*line);
+            match board {
+                Ok(board) => boards.push(board),
+                Err(e) => panic!("{}", e),
+            }
         }
 
         let mut parameters: Vec<Parameter> = Vec::new();

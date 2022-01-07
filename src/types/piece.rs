@@ -1,7 +1,6 @@
 use super::color::*;
 use std::convert::TryFrom;
 use std::mem::transmute;
-use std::slice::Iter;
 
 pub const N_PIECES: usize = 15;
 pub const N_PIECE_TYPES: usize = 6;
