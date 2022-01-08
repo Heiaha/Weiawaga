@@ -98,21 +98,21 @@ impl Timer {
 
     pub fn stop_check(&mut self) -> bool {
         self.times_checked += 1;
-        if self.times_checked & 0x1000 == 0 && self.stop.load(sync::atomic::Ordering::Relaxed) {
+        if self.times_checked & Self::CHECK_FLAG == 0 && self.stop.load(sync::atomic::Ordering::Relaxed) {
             return true;
         }
 
         let stop = match self.control {
             TimeControl::Infinite => false,
             TimeControl::FixedMillis(millis) => {
-                if self.times_checked & 0x1000 == 0 {
+                if self.times_checked & Self::CHECK_FLAG == 0 {
                     self.elapsed() >= millis
                 } else {
                     false
                 }
             }
             TimeControl::Variable { .. } => {
-                if self.times_checked & 0x1000 == 0 {
+                if self.times_checked & Self::CHECK_FLAG == 0 {
                     self.elapsed() >= self.time_maximum
                 } else {
                     false
@@ -142,6 +142,10 @@ impl Timer {
         }
         self.time_target = min(self.time_maximum, self.time_target * 3 / 2);
     }
+}
+
+impl Timer {
+    const CHECK_FLAG: u64 = 0x1000 - 1;
 }
 
 impl From<&str> for TimeControl {
