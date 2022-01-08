@@ -91,7 +91,7 @@ impl UndoInfo {
     }
 
     #[inline(always)]
-    pub fn set_material_hash(&mut self, material_hash: Key) {
+    pub fn set_material_hash(&mut self, material_hash: Hash) {
         self.material_hash = material_hash;
     }
 }

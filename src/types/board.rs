@@ -22,8 +22,8 @@ pub struct Board {
 
     color_to_play: Color,
 
-    hash: Key,
-    material_hash: Key,
+    hash: Hash,
+    material_hash: Hash,
     game_ply: usize,
     phase: Phase,
     material_score: Score,
@@ -1480,12 +1480,12 @@ impl Board {
     }
 
     #[inline(always)]
-    pub fn hash(&self) -> Key {
+    pub fn hash(&self) -> Hash {
         self.hash
     }
 
     #[inline(always)]
-    pub fn material_hash(&self) -> Key {
+    pub fn material_hash(&self) -> Hash {
         self.material_hash
     }
 }

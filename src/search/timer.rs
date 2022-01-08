@@ -40,8 +40,8 @@ impl Timer {
     pub fn new(board: &Board, control: TimeControl, stop: Arc<AtomicBool>) -> Timer {
         let mut tm = Timer {
             start_time: Instant::now(),
-            stop: stop,
-            control: control,
+            stop,
+            control,
             times_checked: 0,
             time_target: 0,
             time_maximum: 0,
@@ -78,13 +78,22 @@ impl Timer {
     }
 
     pub fn start_check(&self, depth: Depth) -> bool {
-        match self.control {
+        if self.stop.load(sync::atomic::Ordering::Relaxed) {
+            return false;
+        }
+
+        let start = match self.control {
             TimeControl::Infinite => true,
             TimeControl::FixedMillis(millis) => self.elapsed() <= millis,
             TimeControl::FixedDepth(stop_depth) => depth <= stop_depth,
             TimeControl::FixedNodes(_) => true,
             TimeControl::Variable { .. } => self.elapsed() <= self.time_target / 2,
+        };
+
+        if !start {
+            self.stop.store(true, sync::atomic::Ordering::Relaxed);
         }
+        start
     }
 
     pub fn stop_check(&mut self) -> bool {
@@ -92,23 +101,30 @@ impl Timer {
         if self.times_checked & 0x1000 == 0 && self.stop.load(sync::atomic::Ordering::Relaxed) {
             return true;
         }
-        match self.control {
+
+        let stop = match self.control {
             TimeControl::Infinite => false,
             TimeControl::FixedMillis(millis) => {
-                if self.times_checked & 0x1000 != 0 {
-                    return false;
+                if self.times_checked & 0x1000 == 0 {
+                    self.elapsed() >= millis
+                } else {
+                    false
                 }
-                self.elapsed() > millis
             }
             TimeControl::Variable { .. } => {
-                if self.times_checked & 0x1000 != 0 {
-                    return false;
+                if self.times_checked & 0x1000 == 0 {
+                    self.elapsed() >= self.time_maximum
+                } else {
+                    false
                 }
-                self.elapsed() >= self.time_maximum
             }
             TimeControl::FixedDepth(_) => false,
             TimeControl::FixedNodes(nodes) => self.times_checked >= nodes,
+        };
+        if stop {
+            self.stop.store(true, sync::atomic::Ordering::Relaxed);
         }
+        stop
     }
 
     #[inline(always)]

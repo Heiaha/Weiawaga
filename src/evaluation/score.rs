@@ -133,7 +133,7 @@ impl fmt::Display for Score {
 
 impl Score {
     pub const ZERO: Self = Score(0);
-    pub const INF: Value = 200000;
+    pub const INF: Value = 32000;
     pub const TOTAL_PHASE: Phase = 384;
 
     const PIECE_PHASES: [Phase; N_PIECE_TYPES] = [0, 16, 16, 32, 64, 0];

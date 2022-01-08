@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct Statistics {
     pub leafs: u64,
     pub qleafs: u64,

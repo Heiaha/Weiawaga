@@ -1,16 +1,13 @@
-use crate::perft::perft::*;
 use crate::search::search::*;
+use crate::search::search_master::*;
 use crate::search::timer::*;
-use crate::search::tt::*;
-use crate::texel::tuner::*;
 use crate::types::board::*;
 use std::collections::HashMap;
 use std::io::BufRead;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::{io, sync, thread};
 
-enum Option {
+pub enum UCIOption {
     Str { default: String },
     Spin { default: i32, min: i32, max: i32 },
     Check { default: bool },
@@ -18,7 +15,7 @@ enum Option {
     Button,
 }
 
-impl Option {
+impl UCIOption {
     fn string(default: &'static str) -> Self {
         Self::Str {
             default: String::from(default),
@@ -43,32 +40,6 @@ impl Option {
     }
 }
 
-fn get_options() -> HashMap<String, Option> {
-    let mut opts = HashMap::new();
-    opts.insert(String::from("Hash"), Option::spin(16, 1, 128 * 1024));
-    opts
-}
-
-fn print_options() {
-    // printing scheme from Rustfish
-    let opts = get_options();
-    for (name, opt) in opts.iter() {
-        println!(
-            "option name {} type {}",
-            name,
-            match opt {
-                Option::Str { default, .. } => format!("string default {}", default),
-                Option::Spin {
-                    default, min, max, ..
-                } => format!("spin default {} min {} max {}", default, min, max),
-                Option::Check { default, .. } => format!("check default {}", default),
-                Option::Button => format!("button"),
-                Option::Combo { default, .. } => format!("combo default {}", default),
-            }
-        );
-    }
-}
-
 pub enum UCICommand {
     Unknown(String),
     UCINewGame,
@@ -84,85 +55,23 @@ pub enum UCICommand {
 }
 
 impl UCICommand {
-    fn thread_loop(rec: sync::mpsc::Receiver<UCICommand>, abort: Arc<AtomicBool>) {
-        // global board
-        let mut board = Board::new();
-        let options = get_options();
-
-        // global transposition table
-        let mut tt: TT = TT::new(
-            if let Option::Spin { default, .. } = options["Hash"] {
-                default as u64
-            } else {
-                0
-            },
-        );
-        for cmd in rec {
-            match cmd {
-                UCICommand::IsReady => {
-                    println!("readyok");
-                }
-                UCICommand::UCINewGame => {
-                    board = Board::new();
-                }
-                UCICommand::Position(new_board, moves) => {
-                    board = new_board;
-                    for m in moves {
-                        match board.push_str(m) {
-                            Ok(_) => {}
-                            Err(e) => {
-                                board = new_board;
-                                println!("{}", e);
-                            }
-                        }
-                    }
-                }
-                UCICommand::Go(time_control) => {
-                    let timer = Timer::new(&board, time_control, abort.clone());
-                    let mut search = Search::new(timer, &mut tt);
-                    let (best_move, best_score) = search.go(&mut board);
-                    println!("info score cp {}", best_score);
-                    println!("bestmove {}", best_move.to_string());
-                    abort.store(false, Ordering::SeqCst);
-                }
-                UCICommand::Perft(depth) => {
-                    print_perft(&mut board, depth);
-                }
-                UCICommand::Option(name, value) => match name.as_ref() {
-                    "Hash" => {
-                        if let Ok(mb) = value.parse::<u64>() {
-                            tt.resize(mb);
-                        }
-                    }
-                    _ => {}
-                },
-                UCICommand::Tune(filename) => {
-                    let mut tuner = Tuner::new(filename);
-                    tuner.tune();
-                }
-                _ => {
-                    println!("Unexpected UCI Command.");
-                }
-            }
-        }
-    }
-
     pub fn run() {
         println!("Weiawaga");
         println!("Homepage and source code: https://github.com/Heiaha/Weiawaga");
         let stdin = io::stdin();
         let lock = stdin.lock();
 
-        let thread_moved_abort = sync::Arc::new(sync::atomic::AtomicBool::new(false));
-        let abort = sync::Arc::clone(&thread_moved_abort);
+        let thread_abort = sync::Arc::new(sync::atomic::AtomicBool::new(false));
+        let abort = sync::Arc::clone(&thread_abort);
         let (main_tx, main_rx) = sync::mpsc::channel();
-        let handle = thread::spawn(move || Self::thread_loop(main_rx, thread_moved_abort));
+
+        let handle = thread::spawn(move || SearchMaster::new(abort).run_loop(main_rx));
 
         for line in lock.lines() {
             let cmd = UCICommand::from(&*line.unwrap());
             match cmd {
                 UCICommand::Quit => return,
-                UCICommand::Stop => abort.store(true, Ordering::SeqCst),
+                UCICommand::Stop => thread_abort.store(true, Ordering::SeqCst),
                 UCICommand::UCI => {
                     println!("id name Weiawaga");
                     println!("id author Malarksist");
@@ -243,5 +152,32 @@ impl From<&str> for UCICommand {
             return UCICommand::Tune(filename.parse().unwrap());
         }
         Self::Unknown(line.to_owned())
+    }
+}
+
+pub fn get_options() -> HashMap<String, UCIOption> {
+    let mut opts = HashMap::new();
+    opts.insert(String::from("Hash"), UCIOption::spin(16, 1, 128 * 1024));
+    opts.insert(String::from("Threads"), UCIOption::spin(1, 1, 512));
+    opts
+}
+
+fn print_options() {
+    // printing scheme from Rustfish
+    let opts = get_options();
+    for (name, opt) in opts.iter() {
+        println!(
+            "option name {} type {}",
+            name,
+            match opt {
+                UCIOption::Str { default, .. } => format!("string default {}", default),
+                UCIOption::Spin {
+                    default, min, max, ..
+                } => format!("spin default {} min {} max {}", default, min, max),
+                UCIOption::Check { default, .. } => format!("check default {}", default),
+                UCIOption::Button => format!("button"),
+                UCIOption::Combo { default, .. } => format!("combo default {}", default),
+            }
+        );
     }
 }

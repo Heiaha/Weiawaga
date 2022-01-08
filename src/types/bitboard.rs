@@ -9,7 +9,7 @@ use std::ops::*;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct BitBoard(pub u64);
 
-pub type Key = BitBoard;
+pub type Hash = BitBoard;
 
 macro_rules! B {
     ($x:expr) => {
@@ -197,6 +197,12 @@ impl BitBoard {
         } else {
             Self::BLACK_OOO_DANGER
         }
+    }
+}
+
+impl From<u64> for BitBoard {
+    fn from(value: u64) -> Self {
+        Self(value)
     }
 }
 

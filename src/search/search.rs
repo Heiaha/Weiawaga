@@ -1,37 +1,42 @@
-use super::move_sorter;
 use super::statistics::*;
 use super::timer::*;
 use super::tt::*;
 use crate::evaluation::eval::*;
 use crate::evaluation::score::*;
+use crate::search::move_sorter::*;
 use crate::types::board::*;
 use crate::types::moov::*;
-use crate::types::move_list::MoveList;
+use crate::types::move_list::*;
 use std::cmp::{max, min};
 
 pub type Depth = i8;
 pub type Ply = usize;
 
+#[derive(Clone)]
 pub struct Search<'a> {
+    id: u16,
     stop: bool,
     sel_depth: Ply,
     timer: Timer,
-    tt: &'a mut TT,
+    tt: &'a TT,
     stats: Statistics,
+    move_sorter: MoveSorter,
 }
 
 impl<'a> Search<'a> {
-    pub fn new(timer: Timer, tt: &'a mut TT) -> Self {
+    pub fn new(timer: Timer, tt: &'a TT, id: u16) -> Self {
         Search {
+            id,
             stop: false,
             sel_depth: 0,
             timer: timer,
             tt: tt,
             stats: Statistics::new(),
+            move_sorter: MoveSorter::new(),
         }
     }
 
-    pub fn go(&mut self, board: &mut Board) -> (Move, Value) {
+    pub fn go(&mut self, mut board: Board) -> (Move, Value) {
         ///////////////////////////////////////////////////////////////////
         // Starts iterative deepening.
         ///////////////////////////////////////////////////////////////////
@@ -42,7 +47,7 @@ impl<'a> Search<'a> {
         let mut final_score = 0;
         let mut last_score = 0;
 
-        let moves = MoveList::from(board);
+        let moves = MoveList::from(&mut board);
 
         ///////////////////////////////////////////////////////////////////
         // If there's only one legal move, just play
@@ -57,7 +62,7 @@ impl<'a> Search<'a> {
             && !Score::is_checkmate(final_score)
             && depth < Depth::MAX
         {
-            let (m, score) = self.search_root(board, depth, alpha, beta);
+            let (m, score) = self.search_root(&mut board, depth, alpha, beta);
 
             // Use temporary variables m and score until destructuring assignment is made stable
             // and we can just assign to them directly from search_root.
@@ -81,7 +86,9 @@ impl<'a> Search<'a> {
             } else if final_score >= beta {
                 beta = Score::INF;
             } else {
-                self.print_info(board, depth, final_move, final_score);
+                if self.id == 0 {
+                    self.print_info(&mut board, depth, final_move, final_score);
+                }
                 alpha = final_score - Self::ASPIRATION_WINDOW;
                 beta = final_score + Self::ASPIRATION_WINDOW;
                 depth += 1;
@@ -124,8 +131,10 @@ impl<'a> Search<'a> {
         let mut value: Value = -Score::INF;
         let mut best_move = None;
         let mut idx = 0;
+
         let mut moves = MoveList::from(board);
-        move_sorter::score_moves(&mut moves, board, ply, &hash_move);
+        self.move_sorter
+            .score_moves(&mut moves, board, ply, &hash_move);
 
         while let Some(m) = moves.next_best() {
             board.push(m);
@@ -274,7 +283,8 @@ impl<'a> Search<'a> {
         let mut idx = 0;
 
         let mut moves = MoveList::from(board);
-        move_sorter::score_moves(&mut moves, board, ply, &hash_move);
+        self.move_sorter
+            .score_moves(&mut moves, board, ply, &hash_move);
 
         while let Some(m) = moves.next_best() {
             ///////////////////////////////////////////////////////////////////
@@ -339,8 +349,8 @@ impl<'a> Search<'a> {
                 best_move = Some(m);
                 if value >= beta {
                     if m.is_quiet() {
-                        move_sorter::add_killer(board, m, ply);
-                        move_sorter::add_history(m, depth);
+                        self.move_sorter.add_killer(board, m, ply);
+                        self.move_sorter.add_history(m, depth);
                     }
                     self.stats.beta_cutoffs += 1;
                     tt_flag = TTFlag::Lower;
@@ -394,7 +404,8 @@ impl<'a> Search<'a> {
         }
 
         let mut moves = MoveList::from_q(board);
-        move_sorter::score_moves(&mut moves, board, ply, &hash_move);
+        self.move_sorter
+            .score_moves(&mut moves, board, ply, &hash_move);
 
         while let Some(m) = moves.next_best() {
             ///////////////////////////////////////////////////////////////////
@@ -508,14 +519,6 @@ impl<'a> Search<'a> {
     const LMR_MIN_DEPTH: Depth = 3;
     const LMR_BASE_REDUCTION: f32 = 0.75;
     const LMR_MOVE_DIVIDER: f32 = 2.25;
-}
-
-impl<'a> Drop for Search<'a> {
-    fn drop(&mut self) {
-        move_sorter::clear_history();
-        move_sorter::clear_killers();
-        self.tt.clear();
-    }
 }
 
 pub static mut LMR_TABLE: [[Depth; 64]; 64] = [[0; 64]; 64];

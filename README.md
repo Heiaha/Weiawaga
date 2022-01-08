@@ -15,6 +15,7 @@ https://lichess.org/@/Weiawaga
     - [Fancy magic bitboard hashing](https://www.chessprogramming.org/Magic_Bitboards#Fancy)
 - Search
     - [Principal variation search](https://www.chessprogramming.org/Principal_Variation_Search)
+    - [Lazy SMP](https://www.chessprogramming.org/Lazy_SMP)
     - [Iterative deepening](https://en.wikipedia.org/wiki/Iterative_deepening_depth-first_search)
     - [Quiescence search](https://en.wikipedia.org/wiki/Quiescence_search)
     - [Aspiration windows](https://www.chessprogramming.org/Aspiration_Windows)
