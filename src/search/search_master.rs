@@ -4,13 +4,11 @@ use crate::search::timer::*;
 use crate::search::tt::*;
 use crate::texel::tuner::*;
 use crate::types::board::*;
-use crate::uci::*;
+use crate::uci::uci::*;
 use crossbeam::thread;
 use std::sync::atomic::*;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
-use crate::uci::uci::UCIOption;
-use crate::UCICommand;
 
 pub struct SearchMaster {
     stop: Arc<AtomicBool>,
@@ -22,7 +20,7 @@ impl SearchMaster {
     pub fn new(stop: Arc<AtomicBool>) -> Self {
         let mut tt_size = 0;
         let mut num_threads = 1;
-        for (name, option) in uci::get_option_defaults() {
+        for (name, option) in get_option_defaults() {
             match (name, option) {
                 ("Hash", UCIOption::Spin { default, .. }) => tt_size = default as u64,
                 ("Threads", UCIOption::Spin { default, .. }) => num_threads = default as u16,
@@ -66,7 +64,7 @@ impl SearchMaster {
     pub fn run_loop(&mut self, rx: Receiver<UCICommand>) {
         // global board
         let mut board = Board::new();
-        let options = uci::get_option_defaults();
+        let options = get_option_defaults();
 
         for cmd in rx {
             match cmd {

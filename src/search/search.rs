@@ -37,7 +37,6 @@ impl<'a> Search<'a> {
     }
 
     pub fn go(&mut self, mut board: Board) -> (Move, Value) {
-
         ///////////////////////////////////////////////////////////////////
         // Start iterative deepening.
         ///////////////////////////////////////////////////////////////////
@@ -512,7 +511,6 @@ impl<'a> Search<'a> {
 }
 
 impl<'a> Search<'a> {
-
     const SEARCHES_WO_TIMER_UPDATE: Depth = 4;
 
     const ASPIRATION_WINDOW: Value = 25;
