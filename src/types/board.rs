@@ -19,6 +19,7 @@ use std::fmt;
 pub struct Board {
     piece_bb: [BitBoard; N_PIECES],
     board: [Piece; N_SQUARES],
+    color_bb: [BitBoard; N_COLORS],
 
     color_to_play: Color,
 
@@ -47,6 +48,7 @@ impl Board {
     pub fn clean() -> Self {
         Board {
             piece_bb: [BitBoard::ZERO; N_PIECES],
+            color_bb: [BitBoard::ZERO; N_COLORS],
             board: [Piece::None; N_SQUARES],
             color_to_play: Color::White,
             hash: BitBoard::ZERO,
@@ -71,6 +73,9 @@ impl Board {
         self.history = [UndoInfo::default(); 1000];
         self.checkers = BitBoard::ZERO;
         self.pinned = BitBoard::ZERO;
+
+        self.color_bb[Color::White.index()] = BitBoard::ZERO;
+        self.color_bb[Color::Black.index()] = BitBoard::ZERO;
 
         for pc in Piece::iter(Piece::WhitePawn, Piece::BlackKing) {
             self.piece_bb[pc.index()] = BitBoard::ZERO;
@@ -97,6 +102,7 @@ impl Board {
         self.material_score += e_constants::piece_score(pc);
 
         self.board[sq.index()] = pc;
+        self.color_bb[pc.color_of().index()] |= sq.bb();
         self.piece_bb[pc.index()] |= sq.bb();
 
         self.hash ^= zobrist::zobrist_table(pc, sq);
@@ -113,6 +119,7 @@ impl Board {
         self.material_hash ^= zobrist::zobrist_table(pc, sq);
 
         self.piece_bb[pc.index()] &= !sq.bb();
+        self.color_bb[pc.color_of().index()] &= !sq.bb();
         self.board[sq.index()] = Piece::None;
     }
 
@@ -125,7 +132,9 @@ impl Board {
         self.hash ^= hash_update;
         self.material_hash ^= hash_update;
 
-        self.piece_bb[pc.index()] ^= from_sq.bb() | to_sq.bb();
+        let mask = from_sq.bb() | to_sq.bb();
+        self.piece_bb[pc.index()] ^= mask;
+        self.color_bb[pc.color_of().index()] ^= mask;
         self.board[to_sq.index()] = self.board[from_sq.index()];
         self.board[from_sq.index()] = Piece::None;
     }
@@ -152,75 +161,48 @@ impl Board {
     }
 
     pub fn diagonal_sliders(&self, color: Color) -> BitBoard {
-        if color == Color::White {
-            self.piece_bb[Piece::WhiteBishop.index()] | self.piece_bb[Piece::WhiteQueen.index()]
-        } else {
-            self.piece_bb[Piece::BlackBishop.index()] | self.piece_bb[Piece::BlackQueen.index()]
+        match color {
+            Color::White => self.piece_bb[Piece::WhiteBishop.index()] | self.piece_bb[Piece::WhiteQueen.index()],
+            Color::Black => self.piece_bb[Piece::BlackBishop.index()] | self.piece_bb[Piece::BlackQueen.index()],
         }
     }
 
     pub fn orthogonal_sliders(&self, color: Color) -> BitBoard {
-        if color == Color::White {
-            self.piece_bb[Piece::WhiteRook.index()] | self.piece_bb[Piece::WhiteQueen.index()]
-        } else {
-            self.piece_bb[Piece::BlackRook.index()] | self.piece_bb[Piece::BlackQueen.index()]
+        match color {
+            Color::White => self.piece_bb[Piece::WhiteRook.index()] | self.piece_bb[Piece::WhiteQueen.index()],
+            Color::Black => self.piece_bb[Piece::BlackRook.index()] | self.piece_bb[Piece::BlackQueen.index()],
         }
     }
 
     #[inline(always)]
     pub fn all_pieces(&self) -> BitBoard {
-        self.all_pieces_color(Color::White) | self.all_pieces_color(Color::Black)
+        self.color_bb[Color::White.index()] | self.color_bb[Color::Black.index()]
     }
 
+    #[inline(always)]
     pub fn all_pieces_color(&self, color: Color) -> BitBoard {
-        if color == Color::White {
-            self.piece_bb[Piece::WhitePawn.index()]
-                | self.piece_bb[Piece::WhiteKnight.index()]
-                | self.piece_bb[Piece::WhiteBishop.index()]
-                | self.piece_bb[Piece::WhiteRook.index()]
-                | self.piece_bb[Piece::WhiteQueen.index()]
-                | self.piece_bb[Piece::WhiteKing.index()]
-        } else {
-            self.piece_bb[Piece::BlackPawn.index()]
-                | self.piece_bb[Piece::BlackKnight.index()]
-                | self.piece_bb[Piece::BlackBishop.index()]
-                | self.piece_bb[Piece::BlackRook.index()]
-                | self.piece_bb[Piece::BlackQueen.index()]
-                | self.piece_bb[Piece::BlackKing.index()]
-        }
+        self.color_bb[color.index()]
     }
 
     pub fn attackers_from_color(&self, sq: SQ, occ: BitBoard, color: Color) -> BitBoard {
-        if color == Color::White {
-            (self.piece_bb[Piece::WhitePawn.index()] & attacks::pawn_attacks_sq(sq, Color::Black))
-                | (self.piece_bb[Piece::WhiteKnight.index()] & attacks::knight_attacks(sq))
-                | (self.piece_bb[Piece::WhiteBishop.index()] & attacks::bishop_attacks(sq, occ))
-                | (self.piece_bb[Piece::WhiteRook.index()] & attacks::rook_attacks(sq, occ))
-                | (self.piece_bb[Piece::WhiteQueen.index()]
+        match color {
+            Color::White => {
+                (self.piece_bb[Piece::WhitePawn.index()] & attacks::pawn_attacks_sq(sq, Color::Black))
+                    | (self.piece_bb[Piece::WhiteKnight.index()] & attacks::knight_attacks(sq))
+                    | (self.piece_bb[Piece::WhiteBishop.index()] & attacks::bishop_attacks(sq, occ))
+                    | (self.piece_bb[Piece::WhiteRook.index()] & attacks::rook_attacks(sq, occ))
+                    | (self.piece_bb[Piece::WhiteQueen.index()]
                     & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
-        } else {
-            (self.piece_bb[Piece::BlackPawn.index()] & attacks::pawn_attacks_sq(sq, Color::White))
-                | (self.piece_bb[Piece::BlackKnight.index()] & attacks::knight_attacks(sq))
-                | (self.piece_bb[Piece::BlackBishop.index()] & attacks::bishop_attacks(sq, occ))
-                | (self.piece_bb[Piece::BlackRook.index()] & attacks::rook_attacks(sq, occ))
-                | (self.piece_bb[Piece::BlackQueen.index()]
+            }
+            Color::Black => {
+                (self.piece_bb[Piece::BlackPawn.index()] & attacks::pawn_attacks_sq(sq, Color::White))
+                    | (self.piece_bb[Piece::BlackKnight.index()] & attacks::knight_attacks(sq))
+                    | (self.piece_bb[Piece::BlackBishop.index()] & attacks::bishop_attacks(sq, occ))
+                    | (self.piece_bb[Piece::BlackRook.index()] & attacks::rook_attacks(sq, occ))
+                    | (self.piece_bb[Piece::BlackQueen.index()]
                     & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
+            }
         }
-    }
-
-    pub fn attackers_from_all(&self, sq: SQ, occ: BitBoard) -> BitBoard {
-        (self.piece_bb[Piece::WhitePawn.index()] & attacks::pawn_attacks_sq(sq, Color::Black))
-            | (self.piece_bb[Piece::WhiteKnight.index()] & attacks::knight_attacks(sq))
-            | (self.piece_bb[Piece::WhiteBishop.index()] & attacks::bishop_attacks(sq, occ))
-            | (self.piece_bb[Piece::WhiteRook.index()] & attacks::rook_attacks(sq, occ))
-            | (self.piece_bb[Piece::WhiteQueen.index()]
-                & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
-            | (self.piece_bb[Piece::BlackPawn.index()] & attacks::pawn_attacks_sq(sq, Color::White))
-            | (self.piece_bb[Piece::BlackKnight.index()] & attacks::knight_attacks(sq))
-            | (self.piece_bb[Piece::BlackBishop.index()] & attacks::bishop_attacks(sq, occ))
-            | (self.piece_bb[Piece::BlackRook.index()] & attacks::rook_attacks(sq, occ))
-            | (self.piece_bb[Piece::BlackQueen.index()]
-                & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
     }
 
     pub fn in_check(&self) -> bool {
@@ -1235,6 +1217,10 @@ impl Board {
         self.clear();
         let mut parts = fen.split_ascii_whitespace();
 
+        if parts.clone().count() != 6 {
+            return Err("Fen should have 6 parts.");
+        }
+
         let pieces_placement = parts.next().unwrap();
         let color_to_play = parts.next().unwrap();
         let castling_ability = parts.next().unwrap();
@@ -1251,7 +1237,7 @@ impl Board {
         } else if color_to_play == "b" {
             Color::Black
         } else {
-            return Err("Color to play must be either w or b");
+            return Err("Color to play should be either w or b");
         };
 
         if self.color_to_play == Color::Black {
@@ -1297,7 +1283,7 @@ impl Board {
                 self.history[self.game_ply].set_epsq(sq);
                 self.hash ^= zobrist::zobrist_ep(sq.file());
             } else {
-                return Err("En Passant square not valid");
+                return Err("En Passant square is not valid");
             }
         }
 

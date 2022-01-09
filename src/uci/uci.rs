@@ -23,14 +23,10 @@ impl UCIOption {
     }
 
     fn spin(default: i32, min: i32, max: i32) -> Self {
-        Self::Spin {
-            default: default,
-            min: min,
-            max: max,
-        }
+        Self::Spin { default, min, max }
     }
     fn check(default: bool) -> Self {
-        Self::Check { default: default }
+        Self::Check { default }
     }
 
     fn combo(default: &'static str) -> Self {
@@ -62,7 +58,7 @@ impl UCICommand {
         let lock = stdin.lock();
 
         let thread_abort = sync::Arc::new(sync::atomic::AtomicBool::new(false));
-        let abort = sync::Arc::clone(&thread_abort);
+        let abort = thread_abort.clone();
         let (main_tx, main_rx) = sync::mpsc::channel();
 
         let handle = thread::spawn(move || SearchMaster::new(abort).run_loop(main_rx));
@@ -74,7 +70,7 @@ impl UCICommand {
                 UCICommand::Stop => thread_abort.store(true, Ordering::SeqCst),
                 UCICommand::UCI => {
                     println!("id name Weiawaga");
-                    println!("id author Malarksist");
+                    println!("id author Heiaha");
                     print_options();
                     println!("uciok");
                 }
@@ -82,10 +78,6 @@ impl UCICommand {
             }
         }
     }
-}
-
-impl UCICommand {
-    const HASH_DEFAULT: u64 = 512;
 }
 
 impl From<&str> for UCICommand {
@@ -155,16 +147,16 @@ impl From<&str> for UCICommand {
     }
 }
 
-pub fn get_options() -> HashMap<String, UCIOption> {
+pub fn get_option_defaults() -> HashMap<&'static str, UCIOption> {
     let mut opts = HashMap::new();
-    opts.insert(String::from("Hash"), UCIOption::spin(16, 1, 128 * 1024));
-    opts.insert(String::from("Threads"), UCIOption::spin(1, 1, 512));
+    opts.insert("Hash", UCIOption::spin(16, 1, 128 * 1024));
+    opts.insert("Threads", UCIOption::spin(1, 1, 512));
     opts
 }
 
 fn print_options() {
     // printing scheme from Rustfish
-    let opts = get_options();
+    let opts = get_option_defaults();
     for (name, opt) in opts.iter() {
         println!(
             "option name {} type {}",

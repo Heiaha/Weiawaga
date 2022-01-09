@@ -33,7 +33,6 @@ impl MoveSorter {
         hash_move: &Option<Move>,
     ) {
         let mut m: &mut Move;
-        let all_pieces = board.all_pieces();
         for idx in 0..moves.len() {
             m = &mut moves[idx];
 
@@ -65,7 +64,7 @@ impl MoveSorter {
                     continue;
                 }
 
-                let capture_value = see(board, m, all_pieces);
+                let capture_value = see(board, m);
 
                 if capture_value >= 0 {
                     m.add_to_score(capture_value + Self::WINNING_CAPTURES_OFFSET);

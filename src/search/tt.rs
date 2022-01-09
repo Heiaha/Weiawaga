@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 type TTValue = i16;
 
+#[derive(Default)]
 struct AtomicU128(AtomicU64, AtomicU64);
 
 impl AtomicU128 {
@@ -64,7 +65,7 @@ impl TT {
         }
 
         TT {
-            table: table,
+            table,
             bitmask: B!(count - 1),
         }
     }
@@ -136,12 +137,6 @@ impl TTEntry {
     #[inline(always)]
     pub fn flag(&self) -> TTFlag {
         self.flag
-    }
-}
-
-impl Default for AtomicU128 {
-    fn default() -> Self {
-        AtomicU128(AtomicU64::default(), AtomicU64::default())
     }
 }
 

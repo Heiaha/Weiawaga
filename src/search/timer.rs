@@ -10,7 +10,7 @@ use std::time::Instant;
 
 pub type Time = u64;
 
-// Some ideas taken from asymptote
+// Some ideas taken from asymptote, which has a very elegant timer implementation.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum TimeControl {
     Infinite,
@@ -98,7 +98,9 @@ impl Timer {
 
     pub fn stop_check(&mut self) -> bool {
         self.times_checked += 1;
-        if self.times_checked & Self::CHECK_FLAG == 0 && self.stop.load(sync::atomic::Ordering::Relaxed) {
+        if self.times_checked & Self::CHECK_FLAG == 0
+            && self.stop.load(sync::atomic::Ordering::Relaxed)
+        {
             return true;
         }
 

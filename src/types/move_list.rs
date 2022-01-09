@@ -5,11 +5,20 @@ use super::square::*;
 use crate::search::move_sorter::*;
 use std::ops::{Index, IndexMut};
 
-// target pointer logic from pleco
+// Cache size consideration idea originally found in Pleco
+
+// Make sure the move lists are aligned into lengths such that the memory is
+// in an integer number of cache chunks. The is for a 32 bit Move.
+// https://www.youtube.com/watch?v=WDIkqP4JbkE
+
+#[cfg(target_pointer_width = "128")]
+const MAX_MOVES: usize = 248;
 #[cfg(target_pointer_width = "64")]
-pub const MAX_MOVES: usize = 252;
+const MAX_MOVES: usize = 252;
 #[cfg(target_pointer_width = "32")]
-pub const MAX_MOVES: usize = 254;
+const MAX_MOVES: usize = 254;
+#[cfg(any(target_pointer_width = "16", target_pointer_width = "8",))]
+const MAX_MOVES: usize = 255;
 
 #[derive(Debug)]
 pub struct MoveList {

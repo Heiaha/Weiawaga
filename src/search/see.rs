@@ -10,12 +10,13 @@ const SEE_PIECE_TYPE: [SortScore; 6] = [100, 375, 375, 500, 1025, 10000];
 
 // https://www.chessprogramming.org/SEE_-_The_Swap_Algorithm
 // Implementation adapted from Black Marlin
-pub fn see(board: &Board, m: &Move, all_pieces: BitBoard) -> SortScore {
+pub fn see(board: &Board, m: &Move) -> SortScore {
     let mut max_depth = 0;
     let mut defenders;
     let mut piece_bb;
 
     let to_sq = m.to_sq();
+    let all_pieces = board.all_pieces();
     let mut gains = [0; 16];
     let mut color = !board.color_to_play();
     let mut blockers = all_pieces & !m.from_sq().bb();

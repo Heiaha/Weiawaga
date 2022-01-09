@@ -29,16 +29,17 @@ impl<'a> Search<'a> {
             id,
             stop: false,
             sel_depth: 0,
-            timer: timer,
-            tt: tt,
+            timer,
+            tt,
             stats: Statistics::new(),
             move_sorter: MoveSorter::new(),
         }
     }
 
     pub fn go(&mut self, mut board: Board) -> (Move, Value) {
+
         ///////////////////////////////////////////////////////////////////
-        // Starts iterative deepening.
+        // Start iterative deepening.
         ///////////////////////////////////////////////////////////////////
         let mut alpha = -Score::INF;
         let mut beta = Score::INF;
@@ -69,11 +70,12 @@ impl<'a> Search<'a> {
             // https://github.com/rust-lang/rust/issues/71126
             final_move = m;
             final_score = score;
+
             ///////////////////////////////////////////////////////////////////
             // Update the clock if the score is changing
             // by a lot.
             ///////////////////////////////////////////////////////////////////
-            if depth >= 4 {
+            if depth >= Self::SEARCHES_WO_TIMER_UPDATE {
                 self.timer.update(final_score - last_score);
             }
             last_score = final_score;
@@ -86,6 +88,7 @@ impl<'a> Search<'a> {
             } else if final_score >= beta {
                 beta = Score::INF;
             } else {
+                // Only print info if we're in the main thread
                 if self.id == 0 {
                     self.print_info(&mut board, depth, final_move, final_score);
                 }
@@ -509,6 +512,9 @@ impl<'a> Search<'a> {
 }
 
 impl<'a> Search<'a> {
+
+    const SEARCHES_WO_TIMER_UPDATE: Depth = 4;
+
     const ASPIRATION_WINDOW: Value = 25;
 
     const NULL_MIN_DEPTH: Depth = 2;
