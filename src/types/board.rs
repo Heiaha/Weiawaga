@@ -20,18 +20,14 @@ pub struct Board {
     piece_bb: [BitBoard; N_PIECES],
     board: [Piece; N_SQUARES],
     color_bb: [BitBoard; N_COLORS],
-
     color_to_play: Color,
-
     hash: Hash,
     material_hash: Hash,
     game_ply: usize,
     phase: Phase,
     material_score: Score,
     p_sq_score: Score,
-
     history: [UndoInfo; 1000],
-
     checkers: BitBoard,
     pinned: BitBoard,
 }
@@ -1227,10 +1223,14 @@ impl Board {
         self.clear();
         let mut parts = fen.split_ascii_whitespace();
 
+        if parts.clone().count() < 3 {
+            return Err("Fen must at include at least piece placement, color, and castling string.")
+        }
+
         let pieces_placement = parts.next().unwrap();
         let color_to_play = parts.next().unwrap();
         let castling_ability = parts.next().unwrap();
-        let en_passant_square = parts.next().unwrap();
+        let en_passant_square = parts.next().unwrap_or("-");
         let halfmove_clock = parts.next().unwrap_or("0").parse::<u16>().unwrap();
         let fullmove_counter = parts.next().unwrap_or("1").parse::<usize>().unwrap();
 
