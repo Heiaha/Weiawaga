@@ -85,22 +85,6 @@ impl MoveList {
         }
     }
 
-    pub fn make_pr(&mut self, from_sq: SQ, to: BitBoard) {
-        for to_sq in to {
-            self.list[self.len] = Move::new(from_sq, to_sq, MoveFlags::PrKnight);
-            self.len += 1;
-
-            self.list[self.len] = Move::new(from_sq, to_sq, MoveFlags::PrBishop);
-            self.len += 1;
-
-            self.list[self.len] = Move::new(from_sq, to_sq, MoveFlags::PrRook);
-            self.len += 1;
-
-            self.list[self.len] = Move::new(from_sq, to_sq, MoveFlags::PrQueen);
-            self.len += 1;
-        }
-    }
-
     pub fn make_pc(&mut self, from_sq: SQ, to: BitBoard) {
         for to_sq in to {
             self.list[self.len] = Move::new(from_sq, to_sq, MoveFlags::PcKnight);

@@ -52,10 +52,6 @@ impl Piece {
         Self::PIECE_STR.chars().nth(self.index()).unwrap()
     }
 
-    pub fn symbol(self) -> char {
-        Self::PIECE_STR.chars().nth(self.index()).unwrap()
-    }
-
     // Use this iterator pattern for Piece, PieceType, and Bitboard iterator for SQ
     // until we can return to Step implementation once it's stabilized.
     // https://github.com/rust-lang/rust/issues/42168
@@ -90,7 +86,6 @@ impl TryFrom<char> for Piece {
 
 impl Piece {
     const PIECE_STR: &'static str = "PNBRQK  pnbrqk ";
-    const SYMBOL_STR: &'static str = "♙♘♗♖♕♔  ♟♞♝♜♛♚";
     const ALL: [Self; 14] = [
         Self::WhitePawn,
         Self::WhiteKnight,

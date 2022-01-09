@@ -52,8 +52,8 @@ pub enum UCICommand {
 
 impl UCICommand {
     pub fn run() {
-        println!("Weiawaga");
-        println!("Homepage and source code: https://github.com/Heiaha/Weiawaga");
+        println!("Weiawaga v4.0");
+        println!("https://github.com/Heiaha/Weiawaga");
         let stdin = io::stdin();
         let lock = stdin.lock();
 
@@ -61,7 +61,7 @@ impl UCICommand {
         let abort = thread_abort.clone();
         let (main_tx, main_rx) = sync::mpsc::channel();
 
-        let handle = thread::spawn(move || SearchMaster::new(abort).run_loop(main_rx));
+        let _handle = thread::spawn(move || SearchMaster::new(abort).run_loop(main_rx));
 
         for line in lock.lines() {
             let cmd = UCICommand::from(&*line.unwrap());

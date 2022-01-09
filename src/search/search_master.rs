@@ -62,9 +62,8 @@ impl SearchMaster {
     }
 
     pub fn run_loop(&mut self, rx: Receiver<UCICommand>) {
-        // global board
+
         let mut board = Board::new();
-        let options = get_option_defaults();
 
         for cmd in rx {
             match cmd {

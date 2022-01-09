@@ -1224,7 +1224,7 @@ impl Board {
         let mut parts = fen.split_ascii_whitespace();
 
         if parts.clone().count() < 3 {
-            return Err("Fen must at include at least piece placement, color, and castling string.")
+            return Err("Fen must at include at least piece placement, color, and castling string.");
         }
 
         let pieces_placement = parts.next().unwrap();
@@ -1264,7 +1264,7 @@ impl Board {
                     let sq = SQ::from(idx as u8);
                     match Piece::try_from(ch) {
                         Ok(piece) => self.set_piece_at(piece, sq),
-                        Err(e) => return Err("FEN has incorrect piece symbol."),
+                        Err(_e) => return Err("FEN has incorrect piece symbol."),
                     }
 
                     idx += 1;
@@ -1498,13 +1498,18 @@ impl From<&str> for Board {
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::with_capacity(N_SQUARES * 2 + 8);
-        for sq in SQ_DISPLAY_ORDER {
-            let op = self.piece_at(SQ::from(sq));
-            let char = if op != Piece::None { op.uci() } else { '-' };
-            s.push(char);
-            s.push(' ');
-            if sq % 8 == 7 {
-                s.push('\n');
+        for rank_idx in (0..=7).rev() {
+            let rank = Rank::from(rank_idx);
+            for file_idx in 0..=7 {
+                let file = File::from(file_idx);
+                let sq = SQ::encode(rank, file);
+                let pc = self.piece_at(sq);
+                let char = if pc != Piece::None { pc.uci() } else { '-' };
+                s.push(char);
+                s.push(' ');
+                if sq.file() == File::H {
+                    s.push('\n');
+                }
             }
         }
         write!(f, "{}", s)

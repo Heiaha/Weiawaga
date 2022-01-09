@@ -56,6 +56,20 @@ pub enum Diagonal {
     A8A8,
 }
 
+impl Diagonal {
+    #[inline(always)]
+    pub fn bb(self) -> BitBoard {
+        DIAGONAL_BB[self as usize]
+    }
+}
+
+impl From<u8> for Diagonal {
+    #[inline(always)]
+    fn from(n: u8) -> Self {
+        unsafe { transmute::<u8, Self>(n) }
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum AntiDiagonal {
     A1A1,
@@ -75,24 +89,10 @@ pub enum AntiDiagonal {
     H8H8,
 }
 
-impl Diagonal {
-    #[inline(always)]
-    pub fn bb(self) -> BitBoard {
-        DIAGONAL_BB[self as usize]
-    }
-}
-
 impl AntiDiagonal {
     #[inline(always)]
     pub fn bb(self) -> BitBoard {
         ANTIDIAGONAL_BB[self as usize]
-    }
-}
-
-impl From<u8> for Diagonal {
-    #[inline(always)]
-    fn from(n: u8) -> Self {
-        unsafe { transmute::<u8, Self>(n) }
     }
 }
 
