@@ -62,7 +62,6 @@ impl SearchMaster {
     }
 
     pub fn run_loop(&mut self, rx: Receiver<UCICommand>) {
-
         let mut board = Board::new();
 
         for cmd in rx {
@@ -97,7 +96,10 @@ impl SearchMaster {
                             self.tt = TT::new(mb_size);
                             println!("info string set Hash to {}MB", self.tt.mb_size());
                         } else {
-                            println!("Error parsing Hash value. Size remains at {}MB", self.tt.mb_size());
+                            println!(
+                                "Error parsing Hash value. Size remains at {}MB",
+                                self.tt.mb_size()
+                            );
                         }
                     }
                     "Threads" => {
@@ -105,9 +107,11 @@ impl SearchMaster {
                             self.num_threads = num_threads;
                             println!("info string set Threads to {}", self.num_threads);
                         } else {
-                            println!("Error parsing Threads value. Number remains at {}.", self.num_threads);
+                            println!(
+                                "Error parsing Threads value. Number remains at {}.",
+                                self.num_threads
+                            );
                         }
-
                     }
                     _ => {}
                 },

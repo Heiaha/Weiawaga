@@ -1224,7 +1224,9 @@ impl Board {
         let mut parts = fen.split_ascii_whitespace();
 
         if parts.clone().count() < 3 {
-            return Err("Fen must at include at least piece placement, color, and castling string.");
+            return Err(
+                "Fen must at include at least piece placement, color, and castling string.",
+            );
         }
 
         let pieces_placement = parts.next().unwrap();
