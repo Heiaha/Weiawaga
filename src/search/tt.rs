@@ -66,13 +66,13 @@ impl Default for TTEntry {
     }
 }
 
-impl From<u64> for TTEntry {
-    fn from(value: u64) -> Self {
+impl From<Hash> for TTEntry {
+    fn from(value: Hash) -> Self {
         unsafe { std::mem::transmute(value) }
     }
 }
 
-impl From<&TTEntry> for u64 {
+impl From<&TTEntry> for Hash {
     fn from(value: &TTEntry) -> Self {
         unsafe { std::mem::transmute(*value) }
     }
@@ -88,10 +88,10 @@ pub struct TT {
 }
 
 impl TT {
-    pub fn new(mb_size: u64) -> Self {
-        let upper_limit = mb_size * 1024 * 1024 / std::mem::size_of::<TTEntry>() as u64;
+    pub fn new(mb_size: usize) -> Self {
+        let upper_limit = mb_size * 1024 * 1024 / std::mem::size_of::<AtomicU128>() + 1;
         let count = upper_limit.next_power_of_two() / 2;
-        let mut table = Vec::with_capacity(count as usize);
+        let mut table = Vec::with_capacity(count);
 
         for _ in 0..count {
             table.push(AtomicU128::default());
@@ -99,7 +99,7 @@ impl TT {
 
         TT {
             table,
-            bitmask: B!(count - 1),
+            bitmask: B!(count as u64 - 1),
         }
     }
 
@@ -112,13 +112,13 @@ impl TT {
         flag: TTFlag,
     ) {
         let entry = TTEntry::new(value, best_move, depth, flag);
-        let data = B!(u64::from(&entry));
+        let data = Hash::from(&entry);
         self.table[(hash & self.bitmask).0 as usize].write(hash ^ data, &entry)
     }
 
     pub fn probe(&self, hash: Hash) -> Option<TTEntry> {
         let (entry_hash, entry) = self.table[(hash & self.bitmask).0 as usize].read();
-        if entry_hash ^ entry == hash.0 {
+        if entry_hash ^ entry == hash {
             return Some(TTEntry::from(entry));
         }
         None
@@ -130,15 +130,8 @@ impl TT {
         }
     }
 
-    pub fn resize(&mut self, mb_size: u64) {
-        let upper_limit = mb_size * 1024 * 1024 / std::mem::size_of::<TTEntry>() as u64;
-        let count = upper_limit.next_power_of_two() / 2;
-        self.bitmask = B!(count - 1);
-        self.table = Vec::with_capacity(count as usize);
-
-        for _ in 0..count {
-            self.table.push(AtomicU128::default());
-        }
+    pub fn mb_size(&self) -> usize {
+        self.table.len() * std::mem::size_of::<AtomicU128>() / 1024 / 1024
     }
 }
 
@@ -150,15 +143,15 @@ impl TT {
 struct AtomicU128(AtomicU64, AtomicU64);
 
 impl AtomicU128 {
-    fn read(&self) -> (u64, u64) {
+    fn read(&self) -> (Hash, Hash) {
         (
-            self.0.load(Ordering::Relaxed),
-            self.1.load(Ordering::Relaxed),
+            self.0.load(Ordering::Relaxed).into(),
+            self.1.load(Ordering::Relaxed).into(),
         )
     }
 
     fn write(&self, hash: Hash, entry: &TTEntry) {
         self.0.store(hash.0, Ordering::Relaxed);
-        self.1.store(u64::from(entry), Ordering::Relaxed);
+        self.1.store(Hash::from(entry).0, Ordering::Relaxed);
     }
 }

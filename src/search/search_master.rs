@@ -22,7 +22,7 @@ impl SearchMaster {
         let mut num_threads = 1;
         for (name, option) in get_option_defaults() {
             match (name, option) {
-                ("Hash", UCIOption::Spin { default, .. }) => tt_size = default as u64,
+                ("Hash", UCIOption::Spin { default, .. }) => tt_size = default as usize,
                 ("Threads", UCIOption::Spin { default, .. }) => num_threads = default as u16,
                 _ => {}
             }
@@ -93,14 +93,21 @@ impl SearchMaster {
                 }
                 UCICommand::Option(name, value) => match name.as_ref() {
                     "Hash" => {
-                        if let Ok(mb_size) = value.parse::<u64>() {
+                        if let Ok(mb_size) = value.parse::<usize>() {
                             self.tt = TT::new(mb_size);
+                            println!("info string set Hash to {}MB", self.tt.mb_size());
+                        } else {
+                            println!("Error parsing Hash value. Size remains at {}MB", self.tt.mb_size());
                         }
                     }
                     "Threads" => {
                         if let Ok(num_threads) = value.parse::<u16>() {
                             self.num_threads = num_threads;
+                            println!("info string set Threads to {}", self.num_threads);
+                        } else {
+                            println!("Error parsing Threads value. Number remains at {}.", self.num_threads);
                         }
+
                     }
                     _ => {}
                 },
