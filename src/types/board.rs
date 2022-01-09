@@ -1227,10 +1227,6 @@ impl Board {
         self.clear();
         let mut parts = fen.split_ascii_whitespace();
 
-        if parts.clone().count() != 6 {
-            return Err("Fen should have 6 parts.");
-        }
-
         let pieces_placement = parts.next().unwrap();
         let color_to_play = parts.next().unwrap();
         let castling_ability = parts.next().unwrap();
