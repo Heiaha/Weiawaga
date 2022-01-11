@@ -139,6 +139,10 @@ impl<'a> Search<'a> {
             .score_moves(&mut moves, board, ply, &hash_move);
 
         while let Some(m) = moves.next_best() {
+            if self.timer.elapsed() >= Self::PRINT_CURRMOVENUMBER_TIME_MILLIS {
+                Self::print_currmovenumber(depth, m, idx);
+            }
+
             board.push(m);
             if idx == 0
                 || -self.search(board, depth - 1, ply + 1, -alpha - 1, -alpha, true, false) > alpha
@@ -255,6 +259,16 @@ impl<'a> Search<'a> {
                 }
             }
             hash_move = tt_entry.best_move();
+        }
+
+        ///////////////////////////////////////////////////////////////////
+        // Reverse Futility Pruning
+        ///////////////////////////////////////////////////////////////////
+        if Self::can_apply_rfp(depth, in_check, is_pv, beta) {
+            let eval = eval(board);
+            if eval - Self::rfp_margin(depth) >= beta {
+                return eval;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////
@@ -454,6 +468,11 @@ impl<'a> Search<'a> {
     }
 
     #[inline(always)]
+    fn can_apply_rfp(depth: Depth, in_check: bool, is_pv: bool, beta: Value) -> bool {
+        depth <= Self::RFP_MAX_DEPTH && !in_check && !is_pv && !Score::is_checkmate(beta)
+    }
+
+    #[inline(always)]
     fn can_apply_lmr(m: &Move, depth: Depth, move_index: usize) -> bool {
         depth >= Self::LMR_MIN_DEPTH && move_index >= Self::LMR_MOVE_WO_REDUCTION && m.is_quiet()
     }
@@ -462,6 +481,11 @@ impl<'a> Search<'a> {
     fn null_reduction(depth: Depth) -> Depth {
         // Idea of dividing in null move depth taken from Cosette
         Self::NULL_MIN_DEPTH_REDUCTION + (depth - Self::NULL_MIN_DEPTH) / Self::NULL_DEPTH_DIVIDER
+    }
+
+    #[inline(always)]
+    fn rfp_margin(depth: Depth) -> Value {
+        Self::RFP_MARGIN_MULTIPLIER * (depth as Value)
     }
 
     #[inline(always)]
@@ -508,10 +532,24 @@ impl<'a> Search<'a> {
                  nps = 1000 * self.stats.total_nodes() / (self.timer.elapsed() + 1),
                  pv = self.get_pv(board, depth));
     }
+
+    fn print_currmovenumber(depth: Depth, m: Move, idx: usize) {
+        println!(
+            "info depth {depth} currmove {currmove} currmovenumber {currmovenumber}",
+            depth = depth,
+            currmove = m.to_string(),
+            currmovenumber = idx + 1,
+        )
+    }
 }
 
 impl<'a> Search<'a> {
+    const PRINT_CURRMOVENUMBER_TIME_MILLIS: u64 = 3000;
+
     const SEARCHES_WO_TIMER_UPDATE: Depth = 4;
+
+    const RFP_MAX_DEPTH: Depth = 8;
+    const RFP_MARGIN_MULTIPLIER: Value = 120;
 
     const ASPIRATION_WINDOW: Value = 25;
 
