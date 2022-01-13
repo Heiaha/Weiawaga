@@ -7,6 +7,7 @@ use crate::types::piece::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
+const MAX_BOARDS: usize = 500000;
 type GameResult = f64;
 
 pub struct Tuner<'a> {
@@ -23,23 +24,21 @@ impl<'a> Tuner<'a> {
 
         let mut boards: Vec<Board> = Vec::new();
         let mut results: Vec<GameResult> = Vec::new();
-        for line in reader.lines() {
-            let mut line = line.unwrap();
+        for (i, line) in reader.lines().enumerate() {
+            if i == MAX_BOARDS {
+                break;
+            }
+            let line = line.unwrap();
 
-            let result = if line.contains("[1-0]") {
-                line = line.replace("[1-0]", "");
-                1.0 as GameResult
-            } else if line.contains("[1/2-1/2]") {
-                line = line.replace("[1/2-1/2]", "");
-                0.5 as GameResult
-            } else if line.contains("[0-1]") {
-                line = line.replace("[0-1]", "");
-                0.0 as GameResult
-            } else {
-                panic!("Line doesn't contain a result!");
+            let (fen, result) = line.rsplit_once(" ").unwrap();
+            let numerical_result = match result {
+                "[1-0]" | "[1.0]" => 1.0,
+                "[1/2-1/2]" | "[0.5]" => 0.5,
+                "[0-1]" | "[0.0]" => 0.0,
+                _ => { panic!("Line doesn't contain a result!"); }
             };
-            results.push(result);
-            let board = Board::try_from(&*line);
+            results.push(numerical_result);
+            let board = Board::try_from(fen);
             match board {
                 Ok(board) => boards.push(board),
                 Err(e) => panic!("{}", e),
@@ -91,31 +90,28 @@ impl<'a> Tuner<'a> {
     }
 
     fn find_best_k(boards: &Vec<Board>, results: &Vec<GameResult>) -> GameResult {
-        let mut k: GameResult = 1.0;
-        let mut min: GameResult = -10.0;
-        let mut max: GameResult = 10.0;
-        let mut delta: GameResult = 1.0;
-        let mut best_k: GameResult = k;
-        let mut best_error: GameResult = 100.0;
+
+        println!("Finding best k.");
+        let mut min = -10.0;
+        let mut max = 10.0;
+        let mut best = Self::mean_squared_error(min, boards, results);
+        let mut delta = 1.0;
         for _iteration in 0..10 {
-            while min < max {
-                k = min;
-                let new_error = Self::mean_squared_error(k, boards, results);
-                println!(
-                    "k = {} with MSE = {}, min = {}, max = {}",
-                    best_k, best_error, min, max
-                );
-                if new_error < best_error {
-                    best_error = new_error;
-                    best_k = k;
+            let mut value = min;
+            while value < max {
+                let error = Self::mean_squared_error(value, boards, results);
+                if error <= best {
+                    best = error;
+                    min = value;
                 }
-                min += delta;
+                value += delta;
             }
-            min = best_k - delta;
-            max = best_k + delta;
+            println!("K = {}, E = {}", min, best);
+            max = min + delta;
+            min = min - delta;
             delta /= 10.0;
         }
-        best_k
+        min
     }
 
     fn mean_squared_error(
@@ -141,7 +137,6 @@ impl<'a> Tuner<'a> {
         let adjust_value = 1.0 as Value;
         let mut improved = true;
         while improved {
-            let _clear_file = File::create("results.txt").unwrap();
             improved = false;
             for param in &mut self.parameters {
                 for phase in 0_usize..=1_usize {
@@ -164,7 +159,10 @@ impl<'a> Tuner<'a> {
                         }
                     }
                 }
-                println!("Tuned parameter {} with MSE = {}", param.name, best_error);
+                println!("Tuned parameter {} with E = {}", param.name, best_error);
+            }
+            let _clear_file = File::create("results.txt").unwrap();
+            for param in &self.parameters {
                 param.print_and_save();
             }
         }

@@ -7,6 +7,7 @@ use std::io::BufRead;
 use std::sync::atomic::Ordering;
 use std::{io, sync, thread};
 
+#[derive(Debug)]
 pub enum UCIOption {
     Str { default: String },
     Spin { default: i32, min: i32, max: i32 },

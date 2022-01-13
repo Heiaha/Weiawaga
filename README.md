@@ -19,6 +19,7 @@ https://lichess.org/@/Weiawaga
     - [Iterative deepening](https://en.wikipedia.org/wiki/Iterative_deepening_depth-first_search)
     - [Quiescence search](https://en.wikipedia.org/wiki/Quiescence_search)
     - [Aspiration windows](https://www.chessprogramming.org/Aspiration_Windows)
+    - [Reverse Futility Pruning](https://www.chessprogramming.org/Reverse_Futility_Pruning)
     - [Null move pruning](https://www.chessprogramming.org/Null_Move_Pruning)
     - [Check extensions](https://www.chessprogramming.org/Check_Extensions)
 - Evaluation

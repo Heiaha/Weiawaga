@@ -139,7 +139,7 @@ impl<'a> Search<'a> {
             .score_moves(&mut moves, board, ply, &hash_move);
 
         while let Some(m) = moves.next_best() {
-            if self.timer.elapsed() >= Self::PRINT_CURRMOVENUMBER_TIME_MILLIS {
+            if self.id == 0 && self.timer.elapsed() >= Self::PRINT_CURRMOVENUMBER_TIME_MILLIS {
                 Self::print_currmovenumber(depth, m, idx);
             }
 
@@ -545,18 +545,13 @@ impl<'a> Search<'a> {
 
 impl<'a> Search<'a> {
     const PRINT_CURRMOVENUMBER_TIME_MILLIS: u64 = 3000;
-
     const SEARCHES_WO_TIMER_UPDATE: Depth = 4;
-
     const RFP_MAX_DEPTH: Depth = 8;
     const RFP_MARGIN_MULTIPLIER: Value = 120;
-
     const ASPIRATION_WINDOW: Value = 25;
-
     const NULL_MIN_DEPTH: Depth = 2;
     const NULL_MIN_DEPTH_REDUCTION: Depth = 3;
     const NULL_DEPTH_DIVIDER: Depth = 4;
-
     const LMR_MOVE_WO_REDUCTION: usize = 2;
     const LMR_MIN_DEPTH: Depth = 3;
     const LMR_BASE_REDUCTION: f32 = 0.75;

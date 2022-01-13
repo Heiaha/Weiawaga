@@ -1249,7 +1249,15 @@ impl Board {
         let castling_ability = parts.next().unwrap();
         let en_passant_square = parts.next().unwrap_or("-");
         let halfmove_clock = parts.next().unwrap_or("0").parse::<u16>().unwrap();
-        let fullmove_counter = parts.next().unwrap_or("1").parse::<usize>().unwrap();
+        let fullmove_counter = if let Ok(fullmove_number) = parts.next().unwrap_or("1").parse::<usize>() {
+            if fullmove_number > 0 {
+                fullmove_number
+            } else {
+                fullmove_number + 1
+            }
+        } else {
+            1
+        };
 
         if pieces_placement.split("/").count() != 8 {
             return Err("Pieces Placement FEN should have 8 ranks.");

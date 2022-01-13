@@ -43,14 +43,14 @@ impl<'a> Parameter<'a> {
             .append(true)
             .open("results.txt")
             .unwrap();
-        let mut output = "Name: ".to_owned() + self.name + &*"\n".to_owned();
+        let mut output = format!("Name: {}\n", self.name);
         for (i, value) in self.best_values.iter().enumerate() {
-            output += &*format!("S!({:>4}, {:>4}), ", value.mg(), value.eg());
+            output.push_str(&*format!("S!({:>4}, {:>4}), ", value.mg(), value.eg()));
             if (i + 1) % 8 == 0 {
-                output += "\n"
+                output.push_str("\n");
             }
         }
-        output += "\n";
+        output.push_str("\n");
         println!("{}", output);
         file.write_all(output.as_bytes()).unwrap();
     }
