@@ -84,7 +84,7 @@ impl TryFrom<char> for Piece {
 impl Piece {
     pub const N_PIECES: usize = 15;
     const PIECE_STR: &'static str = "PNBRQK  pnbrqk ";
-    const ALL: [Self; 14] = [
+    const ALL: [Self; Self::N_PIECES] = [
         Self::WhitePawn,
         Self::WhiteKnight,
         Self::WhiteBishop,
@@ -99,6 +99,7 @@ impl Piece {
         Self::BlackRook,
         Self::BlackQueen,
         Self::BlackKing,
+        Self::None,
     ];
 }
 
@@ -133,7 +134,7 @@ impl From<u8> for PieceType {
 
 impl PieceType {
     pub const N_PIECE_TYPES: usize = 6;
-    const ALL: [Self; 6] = [
+    const ALL: [Self; Self::N_PIECE_TYPES] = [
         Self::Pawn,
         Self::Knight,
         Self::Bishop,
