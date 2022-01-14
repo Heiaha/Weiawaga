@@ -83,18 +83,18 @@ impl From<&TTEntry> for Hash {
 ///////////////////////////////////////////////////////////////////
 
 pub struct TT {
-    table: Vec<AtomicU128>,
+    table: Vec<AtomicEntry>,
     bitmask: Hash,
 }
 
 impl TT {
     pub fn new(mb_size: usize) -> Self {
-        let upper_limit = mb_size * 1024 * 1024 / std::mem::size_of::<AtomicU128>() + 1;
+        let upper_limit = mb_size * 1024 * 1024 / std::mem::size_of::<AtomicEntry>() + 1;
         let count = upper_limit.next_power_of_two() / 2;
         let mut table = Vec::with_capacity(count);
 
         for _ in 0..count {
-            table.push(AtomicU128::default());
+            table.push(AtomicEntry::default());
         }
 
         TT {
@@ -112,26 +112,21 @@ impl TT {
         flag: TTFlag,
     ) {
         let entry = TTEntry::new(value, best_move, depth, flag);
-        let data = Hash::from(&entry);
-        self.table[(hash & self.bitmask).0 as usize].write(hash ^ data, &entry)
+        self.table[(hash & self.bitmask).0 as usize].write(hash, &entry)
     }
 
     pub fn probe(&self, hash: Hash) -> Option<TTEntry> {
-        let (entry_hash, entry) = self.table[(hash & self.bitmask).0 as usize].read();
-        if entry_hash ^ entry == hash {
-            return Some(TTEntry::from(entry));
-        }
-        None
+        self.table[(hash & self.bitmask).0 as usize].read(hash)
     }
 
     pub fn clear(&mut self) {
         for i in 0..self.table.len() {
-            self.table[i] = AtomicU128::default();
+            self.table[i] = AtomicEntry::default();
         }
     }
 
     pub fn mb_size(&self) -> usize {
-        self.table.len() * std::mem::size_of::<AtomicU128>() / 1024 / 1024
+        self.table.len() * std::mem::size_of::<AtomicEntry>() / 1024 / 1024
     }
 }
 
@@ -140,18 +135,21 @@ impl TT {
 ///////////////////////////////////////////////////////////////////
 
 #[derive(Default)]
-struct AtomicU128(AtomicU64, AtomicU64);
+struct AtomicEntry(AtomicU64, AtomicU64);
 
-impl AtomicU128 {
-    fn read(&self) -> (Hash, Hash) {
-        (
-            self.0.load(Ordering::Relaxed).into(),
-            self.1.load(Ordering::Relaxed).into(),
-        )
+impl AtomicEntry {
+    fn read(&self, lookup_hash: Hash) -> Option<TTEntry> {
+        let entry_hash = Hash::from(self.0.load(Ordering::Relaxed));
+        let data = Hash::from(self.1.load(Ordering::Relaxed));
+        if entry_hash ^ data == lookup_hash {
+            return Some(TTEntry::from(data));
+        }
+        None
     }
 
     fn write(&self, hash: Hash, entry: &TTEntry) {
-        self.0.store(hash.0, Ordering::Relaxed);
-        self.1.store(Hash::from(entry).0, Ordering::Relaxed);
+        let data = Hash::from(entry);
+        self.0.store((hash ^ data).0, Ordering::Relaxed);
+        self.1.store(data.0, Ordering::Relaxed);
     }
 }

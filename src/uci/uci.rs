@@ -1,7 +1,7 @@
 use crate::search::search::*;
-use crate::search::search_master::*;
 use crate::search::timer::*;
 use crate::types::board::*;
+use crate::uci::search_master::*;
 use std::collections::HashMap;
 use std::io::BufRead;
 use std::sync::atomic::Ordering;
@@ -53,8 +53,8 @@ pub enum UCICommand {
 
 impl UCICommand {
     pub fn run() {
-        println!("Weiawaga v4.0");
-        println!("https://github.com/Heiaha/Weiawaga");
+        println!("Weiawaga v{}", env!("CARGO_PKG_VERSION"));
+        println!("{}", env!("CARGO_PKG_REPOSITORY"));
         let stdin = io::stdin();
         let lock = stdin.lock();
 
@@ -65,26 +65,33 @@ impl UCICommand {
         let _handle = thread::spawn(move || SearchMaster::new(abort).run_loop(main_rx));
 
         for line in lock.lines() {
-            let cmd = UCICommand::from(&*line.unwrap());
+            let cmd = UCICommand::try_from(&*line.unwrap());
             match cmd {
-                UCICommand::Quit => return,
-                UCICommand::Stop => thread_abort.store(true, Ordering::SeqCst),
-                UCICommand::UCI => {
-                    println!("id name Weiawaga");
-                    println!("id author Heiaha");
-                    print_options();
-                    println!("uciok");
+                Ok(cmd) => match cmd {
+                    UCICommand::Quit => return,
+                    UCICommand::Stop => thread_abort.store(true, Ordering::SeqCst),
+                    UCICommand::UCI => {
+                        println!("id name Weiawaga v{}", env!("CARGO_PKG_VERSION"));
+                        println!("id author {}", env!("CARGO_PKG_AUTHORS"));
+                        print_options();
+                        println!("uciok");
+                    }
+                    cmd => main_tx.send(cmd).unwrap(),
+                },
+                Err(e) => {
+                    println!("{}", e);
                 }
-                cmd => main_tx.send(cmd).unwrap(),
             }
         }
     }
 }
 
-impl From<&str> for UCICommand {
-    fn from(line: &str) -> Self {
+impl TryFrom<&str> for UCICommand {
+    type Error = &'static str;
+
+    fn try_from(line: &str) -> Result<Self, Self::Error> {
         if line.starts_with("ucinewgame") {
-            return UCICommand::UCINewGame;
+            return Ok(UCICommand::UCINewGame);
         } else if line.starts_with("setoption") {
             let mut words = line.split_whitespace();
             let mut name_parts = Vec::new();
@@ -103,21 +110,24 @@ impl From<&str> for UCICommand {
             }
             let name = name_parts.last().unwrap();
             let value = value_parts.last().unwrap_or(&"");
-            return UCICommand::Option(name.parse().unwrap(), value.parse().unwrap());
+            return Ok(UCICommand::Option(
+                name.parse().unwrap(),
+                value.parse().unwrap(),
+            ));
         } else if line.starts_with("uci") {
-            return UCICommand::UCI;
+            return Ok(UCICommand::UCI);
         } else if line.starts_with("isready") {
-            return UCICommand::IsReady;
+            return Ok(UCICommand::IsReady);
         } else if line.starts_with("go") {
             let time_control = TimeControl::from(line);
-            return UCICommand::Go(time_control);
+            return Ok(UCICommand::Go(time_control));
         } else if line.starts_with("position") {
             let pos;
             let fen = line.trim_start_matches("position ");
             if fen.starts_with("startpos") {
                 pos = Board::new();
             } else {
-                pos = Board::from(fen.trim_start_matches("fen"));
+                pos = Board::try_from(fen.trim_start_matches("fen"))?;
             }
 
             let mut moves = Vec::new();
@@ -128,23 +138,23 @@ impl From<&str> for UCICommand {
                     }
                 }
             }
-            return UCICommand::Position(pos, moves);
+            return Ok(UCICommand::Position(pos, moves));
         } else if line.starts_with("quit") {
-            return UCICommand::Quit;
+            return Ok(UCICommand::Quit);
         } else if line.starts_with("perft") {
             let depth = line
                 .split_whitespace()
                 .nth(1)
                 .and_then(|d| d.parse().ok())
                 .unwrap_or(6);
-            return UCICommand::Perft(depth);
+            return Ok(UCICommand::Perft(depth));
         } else if line == "stop" {
-            return UCICommand::Stop;
+            return Ok(UCICommand::Stop);
         } else if line.starts_with("tune") {
             let filename = line.split_whitespace().nth(1).unwrap();
-            return UCICommand::Tune(filename.parse().unwrap());
+            return Ok(UCICommand::Tune(filename.parse().unwrap()));
         }
-        Self::Unknown(line.to_owned())
+        Err("Unknown command.")
     }
 }
 

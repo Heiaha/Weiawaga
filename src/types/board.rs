@@ -34,29 +34,7 @@ pub struct Board {
 
 impl Board {
     pub fn new() -> Self {
-        let mut board = Self::clean();
-        board
-            .set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-            .unwrap();
-        board
-    }
-
-    pub fn clean() -> Self {
-        Board {
-            piece_bb: [BitBoard::ZERO; N_PIECES],
-            color_bb: [BitBoard::ZERO; N_COLORS],
-            board: [Piece::None; N_SQUARES],
-            color_to_play: Color::White,
-            hash: BitBoard::ZERO,
-            material_hash: BitBoard::ZERO,
-            game_ply: 0,
-            phase: Score::TOTAL_PHASE,
-            material_score: Score::ZERO,
-            p_sq_score: Score::ZERO,
-            history: [UndoInfo::default(); 1000],
-            checkers: BitBoard::ZERO,
-            pinned: BitBoard::ZERO,
-        }
+        Self::try_from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap()
     }
 
     pub fn clear(&mut self) {
@@ -1229,110 +1207,14 @@ impl Board {
         }
     }
 
-    // Set fen function from pabi
-    pub fn set_fen(&mut self, fen: &str) -> Result<Self, &str> {
-        let fen = fen.trim();
-        if !fen.is_ascii() || fen.lines().count() != 1 {
-            return Err("FEN should be a single ASCII line.");
-        }
-        self.clear();
-        let mut parts = fen.split_ascii_whitespace();
-
-        if parts.clone().count() < 3 {
-            return Err(
-                "Fen must at include at least piece placement, color, and castling string.",
-            );
-        }
-
-        let pieces_placement = parts.next().unwrap();
-        let color_to_play = parts.next().unwrap();
-        let castling_ability = parts.next().unwrap();
-        let en_passant_square = parts.next().unwrap_or("-");
-        let halfmove_clock = parts.next().unwrap_or("0").parse::<u16>().unwrap();
-        let fullmove_counter = if let Ok(fullmove_number) = parts.next().unwrap_or("1").parse::<usize>() {
-            if fullmove_number > 0 {
-                fullmove_number
-            } else {
-                fullmove_number + 1
-            }
-        } else {
-            1
-        };
-
-        if pieces_placement.split("/").count() != 8 {
-            return Err("Pieces Placement FEN should have 8 ranks.");
-        }
-
-        self.color_to_play = if color_to_play == "w" {
-            Color::White
-        } else if color_to_play == "b" {
-            Color::Black
-        } else {
-            return Err("Color to play should be either w or b");
-        };
-
-        if self.color_to_play == Color::Black {
-            self.hash ^= zobrist::zobrist_color();
-        }
-
-        self.game_ply = (fullmove_counter - 1) * 2;
-
-        let ranks = pieces_placement.split("/");
-        for (rank_idx, rank_fen) in ranks.enumerate() {
-            let mut idx = (7 - rank_idx) * 8;
-
-            for ch in rank_fen.chars() {
-                let digit = ch.to_digit(10);
-                if let Some(digit) = digit {
-                    idx += digit as usize;
-                } else {
-                    let sq = SQ::from(idx as u8);
-                    match Piece::try_from(ch) {
-                        Ok(piece) => self.set_piece_at(piece, sq),
-                        Err(_e) => return Err("FEN has incorrect piece symbol."),
-                    }
-
-                    idx += 1;
-                }
-            }
-        }
-
-        for (symbol, mask) in "KQkq".chars().zip([
-            BitBoard::WHITE_OO_MASK,
-            BitBoard::WHITE_OOO_MASK,
-            BitBoard::BLACK_OO_MASK,
-            BitBoard::BLACK_OOO_MASK,
-        ]) {
-            if !castling_ability.contains(symbol) {
-                self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() | mask);
-            }
-        }
-
-        if en_passant_square != "-" {
-            if SQ_DISPLAY.contains(&en_passant_square) {
-                let sq = SQ::from(en_passant_square);
-                self.history[self.game_ply].set_epsq(sq);
-                self.hash ^= zobrist::zobrist_ep(sq.file());
-            } else {
-                return Err("En Passant square is not valid");
-            }
-        }
-
-        self.history[self.game_ply].set_half_move_counter(halfmove_clock);
-        Ok(*self)
-    }
-
-    pub fn push_str(&mut self, move_str: String) -> Result<Move, &'static str> {
+    pub fn push_str(&mut self, move_str: &str) -> Result<(), &'static str> {
         let from_sq = SQ::from(&move_str[..2]);
         let to_sq = SQ::from(&move_str[2..4]);
 
         let promo: Option<PieceType>;
 
-        if move_str.len() > 4 {
-            promo = match Piece::try_from(move_str.chars().nth(4).unwrap()) {
-                Ok(piece) => Some(piece.type_of()),
-                Err(e) => return Err(e),
-            };
+        if move_str.len() == 5 {
+            promo = Some(Piece::try_from(move_str.chars().nth(4).unwrap())?.type_of());
         } else {
             promo = None;
         }
@@ -1398,10 +1280,168 @@ impl Board {
             }
         }
         self.push(m);
-        Ok(m)
+        Ok(())
     }
 
-    pub fn fen(&self) -> String {
+    #[inline(always)]
+    pub fn color_to_play(&self) -> Color {
+        self.color_to_play
+    }
+
+    #[inline(always)]
+    pub fn game_ply(&self) -> usize {
+        self.game_ply
+    }
+
+    #[inline(always)]
+    pub fn checkers(&self) -> BitBoard {
+        self.checkers
+    }
+
+    #[inline(always)]
+    pub fn material_score(&self) -> Score {
+        self.material_score
+    }
+
+    #[inline(always)]
+    pub fn p_sq_score(&self) -> Score {
+        self.p_sq_score
+    }
+
+    #[inline(always)]
+    pub fn phase(&self) -> Phase {
+        self.phase
+    }
+
+    #[inline(always)]
+    pub fn hash(&self) -> Hash {
+        self.hash
+    }
+
+    #[inline(always)]
+    pub fn material_hash(&self) -> Hash {
+        self.material_hash
+    }
+}
+
+impl Default for Board {
+    fn default() -> Self {
+        Self {
+            piece_bb: [BitBoard::ZERO; N_PIECES],
+            color_bb: [BitBoard::ZERO; N_COLORS],
+            board: [Piece::None; N_SQUARES],
+            color_to_play: Color::White,
+            hash: BitBoard::ZERO,
+            material_hash: BitBoard::ZERO,
+            game_ply: 0,
+            phase: Score::TOTAL_PHASE,
+            material_score: Score::ZERO,
+            p_sq_score: Score::ZERO,
+            history: [UndoInfo::default(); 1000],
+            checkers: BitBoard::ZERO,
+            pinned: BitBoard::ZERO,
+        }
+    }
+}
+
+impl TryFrom<&str> for Board {
+    type Error = &'static str;
+
+    fn try_from(fen: &str) -> Result<Self, Self::Error> {
+        let mut board = Self::default();
+        let fen = fen.trim();
+        if !fen.is_ascii() || fen.lines().count() != 1 {
+            return Err("FEN should be a single ASCII line.");
+        }
+        let mut parts = fen.split_ascii_whitespace();
+
+        if parts.clone().count() < 3 {
+            return Err(
+                "Fen must at include at least piece placement, color, and castling string.",
+            );
+        }
+
+        let pieces_placement = parts.next().unwrap();
+        let color_to_play = parts.next().unwrap();
+        let castling_ability = parts.next().unwrap();
+        let en_passant_square = parts.next().unwrap_or("-");
+        let halfmove_clock = parts.next().unwrap_or("0").parse::<u16>().unwrap();
+        let fullmove_counter =
+            if let Ok(fullmove_number) = parts.next().unwrap_or("1").parse::<usize>() {
+                if fullmove_number > 0 {
+                    fullmove_number
+                } else {
+                    fullmove_number + 1
+                }
+            } else {
+                1
+            };
+
+        if pieces_placement.split("/").count() != 8 {
+            return Err("Pieces Placement FEN should have 8 ranks.");
+        }
+
+        board.color_to_play = if color_to_play == "w" {
+            Color::White
+        } else if color_to_play == "b" {
+            Color::Black
+        } else {
+            return Err("Color to play should be either w or b");
+        };
+
+        if board.color_to_play == Color::Black {
+            board.hash ^= zobrist::zobrist_color();
+        }
+
+        board.game_ply = (fullmove_counter - 1) * 2;
+
+        let ranks = pieces_placement.split("/");
+        for (rank_idx, rank_fen) in ranks.enumerate() {
+            let mut idx = (7 - rank_idx) * 8;
+
+            for ch in rank_fen.chars() {
+                let digit = ch.to_digit(10);
+                if let Some(digit) = digit {
+                    idx += digit as usize;
+                } else {
+                    let sq = SQ::from(idx as u8);
+                    match Piece::try_from(ch) {
+                        Ok(piece) => board.set_piece_at(piece, sq),
+                        Err(_e) => return Err("FEN has incorrect piece symbol."),
+                    }
+                    idx += 1;
+                }
+            }
+        }
+
+        for (symbol, mask) in "KQkq".chars().zip([
+            BitBoard::WHITE_OO_MASK,
+            BitBoard::WHITE_OOO_MASK,
+            BitBoard::BLACK_OO_MASK,
+            BitBoard::BLACK_OOO_MASK,
+        ]) {
+            if !castling_ability.contains(symbol) {
+                board.history[board.game_ply]
+                    .set_entry(board.history[board.game_ply].entry() | mask);
+            }
+        }
+
+        if en_passant_square != "-" {
+            if SQ_DISPLAY.contains(&en_passant_square) {
+                let sq = SQ::from(en_passant_square);
+                board.history[board.game_ply].set_epsq(sq);
+                board.hash ^= zobrist::zobrist_ep(sq.file());
+            } else {
+                return Err("En Passant square is not valid");
+            }
+        }
+        board.history[board.game_ply].set_half_move_counter(halfmove_clock);
+        Ok(board)
+    }
+}
+
+impl fmt::Display for Board {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut board_string = String::new();
         for rank_idx in (0..=7).rev() {
             let rank = Rank::from(rank_idx);
@@ -1455,7 +1495,8 @@ impl Board {
             "-".to_string()
         };
 
-        format!(
+        write!(
+            f,
             "{} {} {} {} {} {}",
             board_string,
             color_to_play,
@@ -1465,62 +1506,9 @@ impl Board {
             self.game_ply / 2 + 1,
         )
     }
-
-    #[inline(always)]
-    pub fn color_to_play(&self) -> Color {
-        self.color_to_play
-    }
-
-    #[inline(always)]
-    pub fn game_ply(&self) -> usize {
-        self.game_ply
-    }
-
-    #[inline(always)]
-    pub fn checkers(&self) -> BitBoard {
-        self.checkers
-    }
-
-    #[inline(always)]
-    pub fn material_score(&self) -> Score {
-        self.material_score
-    }
-
-    #[inline(always)]
-    pub fn p_sq_score(&self) -> Score {
-        self.p_sq_score
-    }
-
-    #[inline(always)]
-    pub fn phase(&self) -> Phase {
-        self.phase
-    }
-
-    #[inline(always)]
-    pub fn hash(&self) -> Hash {
-        self.hash
-    }
-
-    #[inline(always)]
-    pub fn material_hash(&self) -> Hash {
-        self.material_hash
-    }
 }
 
-impl From<&str> for Board {
-    fn from(fen: &str) -> Self {
-        let mut board = Self::new();
-        return match board.set_fen(fen) {
-            Ok(board) => board,
-            Err(e) => {
-                println!("{}", e);
-                Board::new()
-            }
-        };
-    }
-}
-
-impl fmt::Display for Board {
+impl fmt::Debug for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::with_capacity(N_SQUARES * 2 + 8);
         for rank_idx in (0..=7).rev() {

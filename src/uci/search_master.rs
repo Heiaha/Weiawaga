@@ -73,12 +73,13 @@ impl SearchMaster {
                     board = Board::new();
                 }
                 UCICommand::Position(new_board, moves) => {
+                    let last_board = board;
                     board = new_board;
                     for m in moves {
-                        match board.push_str(m) {
+                        match board.push_str(&m) {
                             Ok(_) => {}
                             Err(e) => {
-                                board = new_board;
+                                board = last_board;
                                 println!("{}", e);
                             }
                         }

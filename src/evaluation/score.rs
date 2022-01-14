@@ -106,7 +106,7 @@ impl Mul<Value> for Score {
 
 impl MulAssign<Value> for Score {
     #[inline(always)]
-    fn mul_assign(&mut self, rhs: i32) {
+    fn mul_assign(&mut self, rhs: Value) {
         self.0 = self.0.wrapping_mul(rhs);
     }
 }

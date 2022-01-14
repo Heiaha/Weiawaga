@@ -35,7 +35,9 @@ impl<'a> Tuner<'a> {
                 "[1-0]" | "[1.0]" => 1.0,
                 "[1/2-1/2]" | "[0.5]" => 0.5,
                 "[0-1]" | "[0.0]" => 0.0,
-                _ => { panic!("Line doesn't contain a result!"); }
+                _ => {
+                    panic!("Line {} with fen {} doesn't contain a result.", i, fen);
+                }
             };
             results.push(numerical_result);
             let board = Board::try_from(fen);
@@ -90,7 +92,6 @@ impl<'a> Tuner<'a> {
     }
 
     fn find_best_k(boards: &Vec<Board>, results: &Vec<GameResult>) -> GameResult {
-
         println!("Finding best k.");
         let mut min = -10.0;
         let mut max = 10.0;
