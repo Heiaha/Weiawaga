@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Statistics {
     pub leafs: u64,
     pub qleafs: u64,

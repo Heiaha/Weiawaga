@@ -1,8 +1,6 @@
 use std::mem::transmute;
 use std::ops::Not;
 
-pub const N_COLORS: usize = 2;
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Color {
     White,
@@ -30,4 +28,8 @@ impl Not for Color {
     fn not(self) -> Color {
         Color::from((self as u8) ^ 1)
     }
+}
+
+impl Color {
+    pub const N_COLORS: usize = 2;
 }

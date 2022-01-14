@@ -17,9 +17,9 @@ use std::fmt;
 
 #[derive(Copy, Clone)]
 pub struct Board {
-    piece_bb: [BitBoard; N_PIECES],
-    board: [Piece; N_SQUARES],
-    color_bb: [BitBoard; N_COLORS],
+    piece_bb: [BitBoard; Piece::N_PIECES],
+    board: [Piece; SQ::N_SQUARES],
+    color_bb: [BitBoard; Color::N_COLORS],
     color_to_play: Color,
     hash: Hash,
     material_hash: Hash,
@@ -1208,8 +1208,8 @@ impl Board {
     }
 
     pub fn push_str(&mut self, move_str: &str) -> Result<(), &'static str> {
-        let from_sq = SQ::from(&move_str[..2]);
-        let to_sq = SQ::from(&move_str[2..4]);
+        let from_sq = SQ::try_from(&move_str[..2])?;
+        let to_sq = SQ::try_from(&move_str[2..4])?;
 
         let promo: Option<PieceType>;
 
@@ -1327,9 +1327,9 @@ impl Board {
 impl Default for Board {
     fn default() -> Self {
         Self {
-            piece_bb: [BitBoard::ZERO; N_PIECES],
-            color_bb: [BitBoard::ZERO; N_COLORS],
-            board: [Piece::None; N_SQUARES],
+            piece_bb: [BitBoard::ZERO; Piece::N_PIECES],
+            color_bb: [BitBoard::ZERO; Color::N_COLORS],
+            board: [Piece::None; SQ::N_SQUARES],
             color_to_play: Color::White,
             hash: BitBoard::ZERO,
             material_hash: BitBoard::ZERO,
@@ -1365,8 +1365,8 @@ impl TryFrom<&str> for Board {
         let color_to_play = parts.next().unwrap();
         let castling_ability = parts.next().unwrap();
         let en_passant_square = parts.next().unwrap_or("-");
-        let halfmove_clock = parts.next().unwrap_or("0").parse::<u16>().unwrap();
-        let fullmove_counter =
+        let halfmove_clock = parts.next().unwrap_or("0").parse::<u16>().unwrap_or(0);
+        let fullmove_counter = parts.next().unwrap_or("1").parse::<usize>().unwrap_or(1);
             if let Ok(fullmove_number) = parts.next().unwrap_or("1").parse::<usize>() {
                 if fullmove_number > 0 {
                     fullmove_number
@@ -1377,7 +1377,7 @@ impl TryFrom<&str> for Board {
                 1
             };
 
-        if pieces_placement.split("/").count() != 8 {
+        if pieces_placement.split("/").count() != Rank::N_RANKS {
             return Err("Pieces Placement FEN should have 8 ranks.");
         }
 
@@ -1427,13 +1427,9 @@ impl TryFrom<&str> for Board {
         }
 
         if en_passant_square != "-" {
-            if SQ_DISPLAY.contains(&en_passant_square) {
-                let sq = SQ::from(en_passant_square);
-                board.history[board.game_ply].set_epsq(sq);
-                board.hash ^= zobrist::zobrist_ep(sq.file());
-            } else {
-                return Err("En Passant square is not valid");
-            }
+            let sq = SQ::try_from(en_passant_square)?;
+            board.history[board.game_ply].set_epsq(sq);
+            board.hash ^= zobrist::zobrist_ep(sq.file());
         }
         board.history[board.game_ply].set_half_move_counter(halfmove_clock);
         Ok(board)
@@ -1510,7 +1506,7 @@ impl fmt::Display for Board {
 
 impl fmt::Debug for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut s = String::with_capacity(N_SQUARES * 2 + 8);
+        let mut s = String::with_capacity(SQ::N_SQUARES * 2 + 8);
         for rank_idx in (0..=7).rev() {
             let rank = Rank::from(rank_idx);
             for file_idx in 0..=7 {

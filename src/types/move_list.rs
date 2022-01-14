@@ -3,6 +3,8 @@ use super::board::*;
 use super::moov::*;
 use super::square::*;
 use crate::search::move_sorter::*;
+use std::fmt;
+use std::fmt::Formatter;
 use std::ops::{Index, IndexMut};
 
 // Cache size consideration idea originally found in Pleco
@@ -20,7 +22,6 @@ const MAX_MOVES: usize = 254;
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "8",))]
 const MAX_MOVES: usize = 255;
 
-#[derive(Debug)]
 pub struct MoveList {
     list: [Move; MAX_MOVES],
     idx: usize,
@@ -52,11 +53,7 @@ impl MoveList {
         self.len
     }
 
-    pub fn print(&self) {
-        for i in 0..self.len {
-            println!("{}", self.list[i].to_string());
-        }
-    }
+    pub fn print(&self) {}
 
     #[inline(always)]
     pub fn push(&mut self, m: Move) {
@@ -145,5 +142,16 @@ impl Index<usize> for MoveList {
 impl IndexMut<usize> for MoveList {
     fn index_mut(&mut self, i: usize) -> &mut Self::Output {
         &mut self.list[i]
+    }
+}
+
+impl fmt::Debug for MoveList {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let mut result = String::from('[');
+        for i in 0..self.len {
+            result.push_str(&*format!("{}, ", self.list[i].to_string()));
+        }
+        result.push(']');
+        write!(f, "{}", result)
     }
 }

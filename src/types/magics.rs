@@ -22,7 +22,7 @@ macro_rules! M {
 }
 
 #[rustfmt::skip]
-const BISHOP_MAGICS_INIT: [MagicInit; N_SQUARES] = [
+const BISHOP_MAGICS_INIT: [MagicInit; SQ::N_SQUARES] = [
     M!(0x007fbfbfbfbfbfff,  5378), M!(0x0000a060401007fc,  4093), M!(0x0001004008020000,  4314), M!(0x0000806004000000,  6587),
     M!(0x0000100400000000,  6491), M!(0x000021c100b20000,  6330), M!(0x0000040041008000,  5609), M!(0x00000fb0203fff80, 22236),
     M!(0x0000040100401004,  6106), M!(0x0000020080200802,  5625), M!(0x0000004010202000, 16785), M!(0x0000008060040000, 16817),
@@ -42,7 +42,7 @@ const BISHOP_MAGICS_INIT: [MagicInit; N_SQUARES] = [
 ];
 
 #[rustfmt::skip]
-const ROOK_MAGICS_INIT: [MagicInit; N_SQUARES] = [
+const ROOK_MAGICS_INIT: [MagicInit; SQ::N_SQUARES] = [
     M!(0x00280077ffebfffe, 26304), M!(0x2004010201097fff, 35520), M!(0x0010020010053fff, 38592), M!(0x0040040008004002,  8026),
     M!(0x7fd00441ffffd003, 22196), M!(0x4020008887dffffe, 80870), M!(0x004000888847ffff, 76747), M!(0x006800fbff75fffd, 30400),
     M!(0x000028010113ffff, 11115), M!(0x0020040201fcffff, 18205), M!(0x007fe80042ffffe8, 53577), M!(0x00001800217fffe8, 62724),
@@ -64,9 +64,9 @@ const ROOK_MAGICS_INIT: [MagicInit; N_SQUARES] = [
 pub static mut ATTACKS_TABLE: [BitBoard; 88772] = [BitBoard::ZERO; 88772];
 
 pub struct Magics {
-    masks: [BitBoard; N_SQUARES],
-    magics: [BitBoard; N_SQUARES],
-    pub attacks: [&'static [BitBoard]; N_SQUARES],
+    masks: [BitBoard; SQ::N_SQUARES],
+    magics: [BitBoard; SQ::N_SQUARES],
+    pub attacks: [&'static [BitBoard]; SQ::N_SQUARES],
     shift: u32,
 }
 
@@ -78,16 +78,16 @@ impl Magics {
 }
 
 pub static mut ROOK_MAGICS: Magics = Magics {
-    masks: [BitBoard::ZERO; N_SQUARES],
-    magics: [BitBoard::ZERO; N_SQUARES],
-    attacks: [&[]; N_SQUARES],
+    masks: [BitBoard::ZERO; SQ::N_SQUARES],
+    magics: [BitBoard::ZERO; SQ::N_SQUARES],
+    attacks: [&[]; SQ::N_SQUARES],
     shift: 64 - 12,
 };
 
 pub static mut BISHOP_MAGICS: Magics = Magics {
-    masks: [BitBoard::ZERO; N_SQUARES],
-    magics: [BitBoard::ZERO; N_SQUARES],
-    attacks: [&[]; N_SQUARES],
+    masks: [BitBoard::ZERO; SQ::N_SQUARES],
+    magics: [BitBoard::ZERO; SQ::N_SQUARES],
+    attacks: [&[]; SQ::N_SQUARES],
     shift: 64 - 9,
 };
 

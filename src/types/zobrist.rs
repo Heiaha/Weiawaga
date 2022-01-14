@@ -4,8 +4,8 @@ use super::piece::*;
 use super::square::*;
 use rand::Rng;
 
-static mut ZOBRIST_TABLE: [[BitBoard; N_SQUARES]; N_PIECES] =
-    [[BitBoard::ZERO; N_SQUARES]; N_PIECES];
+static mut ZOBRIST_TABLE: [[BitBoard; SQ::N_SQUARES]; Piece::N_PIECES] =
+    [[BitBoard::ZERO; SQ::N_SQUARES]; Piece::N_PIECES];
 static mut ZOBRIST_EP: [BitBoard; 8] = [BitBoard::ZERO; 8];
 static mut ZOBRIST_COLOR: BitBoard = BitBoard::ZERO;
 
@@ -28,10 +28,10 @@ pub fn zobrist_color() -> BitBoard {
 // Inits
 //////////////////////////////////////////////
 
-fn init_zobrist_table(zobrist_table: &mut [[BitBoard; N_SQUARES]; N_PIECES]) {
+fn init_zobrist_table(zobrist_table: &mut [[BitBoard; SQ::N_SQUARES]; Piece::N_PIECES]) {
     let mut rng = rand::thread_rng();
-    for p in 0..N_PIECES {
-        for s in 0..N_SQUARES {
+    for p in 0..Piece::N_PIECES {
+        for s in 0..SQ::N_SQUARES {
             zobrist_table[p][s] = B!(rng.gen::<u64>());
         }
     }

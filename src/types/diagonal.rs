@@ -1,42 +1,6 @@
 use super::bitboard::*;
 use std::mem::transmute;
 
-pub static DIAGONAL_BB: [BitBoard; 15] = [
-    B!(0x0000_0000_0000_0080),
-    B!(0x0000_0000_0000_8040),
-    B!(0x0000_0000_0080_4020),
-    B!(0x0000_0000_8040_2010),
-    B!(0x0000_0080_4020_1008),
-    B!(0x0000_8040_2010_0804),
-    B!(0x0080_4020_1008_0402),
-    B!(0x8040_2010_0804_0201),
-    B!(0x4020_1008_0402_0100),
-    B!(0x2010_0804_0201_0000),
-    B!(0x1008_0402_0100_0000),
-    B!(0x0804_0201_0000_0000),
-    B!(0x0402_0100_0000_0000),
-    B!(0x0201_0000_0000_0000),
-    B!(0x0100_0000_0000_0000),
-];
-
-pub static ANTIDIAGONAL_BB: [BitBoard; 15] = [
-    B!(0x0000_0000_0000_0001),
-    B!(0x0000_0000_0000_0102),
-    B!(0x0000_0000_0001_0204),
-    B!(0x0000_0000_0102_0408),
-    B!(0x0000_0001_0204_0810),
-    B!(0x0000_0102_0408_1020),
-    B!(0x0001_0204_0810_2040),
-    B!(0x0102_0408_1020_4080),
-    B!(0x0204_0810_2040_8000),
-    B!(0x0408_1020_4080_0000),
-    B!(0x0810_2040_8000_0000),
-    B!(0x1020_4080_0000_0000),
-    B!(0x2040_8000_0000_0000),
-    B!(0x4080_0000_0000_0000),
-    B!(0x8000_0000_0000_0000),
-];
-
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Diagonal {
     H1H1,
@@ -59,7 +23,7 @@ pub enum Diagonal {
 impl Diagonal {
     #[inline(always)]
     pub fn bb(self) -> BitBoard {
-        DIAGONAL_BB[self as usize]
+        Self::DIAGONAL_BB[self as usize]
     }
 }
 
@@ -68,6 +32,27 @@ impl From<u8> for Diagonal {
     fn from(n: u8) -> Self {
         unsafe { transmute::<u8, Self>(n) }
     }
+}
+
+impl Diagonal {
+    pub const N_DIAGONALS: usize = 15;
+    const DIAGONAL_BB: [BitBoard; Self::N_DIAGONALS] = [
+        B!(0x0000_0000_0000_0080),
+        B!(0x0000_0000_0000_8040),
+        B!(0x0000_0000_0080_4020),
+        B!(0x0000_0000_8040_2010),
+        B!(0x0000_0080_4020_1008),
+        B!(0x0000_8040_2010_0804),
+        B!(0x0080_4020_1008_0402),
+        B!(0x8040_2010_0804_0201),
+        B!(0x4020_1008_0402_0100),
+        B!(0x2010_0804_0201_0000),
+        B!(0x1008_0402_0100_0000),
+        B!(0x0804_0201_0000_0000),
+        B!(0x0402_0100_0000_0000),
+        B!(0x0201_0000_0000_0000),
+        B!(0x0100_0000_0000_0000),
+    ];
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -92,7 +77,7 @@ pub enum AntiDiagonal {
 impl AntiDiagonal {
     #[inline(always)]
     pub fn bb(self) -> BitBoard {
-        ANTIDIAGONAL_BB[self as usize]
+        Self::ANTIDIAGONAL_BB[self as usize]
     }
 }
 
@@ -101,4 +86,25 @@ impl From<u8> for AntiDiagonal {
     fn from(n: u8) -> Self {
         unsafe { transmute::<u8, Self>(n) }
     }
+}
+
+impl AntiDiagonal {
+    pub const N_ANTIDIAGONALS: usize = 15;
+    const ANTIDIAGONAL_BB: [BitBoard; Self::N_ANTIDIAGONALS] = [
+        B!(0x0000_0000_0000_0001),
+        B!(0x0000_0000_0000_0102),
+        B!(0x0000_0000_0001_0204),
+        B!(0x0000_0000_0102_0408),
+        B!(0x0000_0001_0204_0810),
+        B!(0x0000_0102_0408_1020),
+        B!(0x0001_0204_0810_2040),
+        B!(0x0102_0408_1020_4080),
+        B!(0x0204_0810_2040_8000),
+        B!(0x0408_1020_4080_0000),
+        B!(0x0810_2040_8000_0000),
+        B!(0x1020_4080_0000_0000),
+        B!(0x2040_8000_0000_0000),
+        B!(0x4080_0000_0000_0000),
+        B!(0x8000_0000_0000_0000),
+    ];
 }

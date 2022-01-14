@@ -215,14 +215,13 @@ impl<'a> Search<'a> {
         if in_check {
             depth += 1;
         }
-        depth = max(0, depth);
 
         ///////////////////////////////////////////////////////////////////
         // Quiescence search - here we search tactical
         // moves after the main search to prevent a
         // horizon effect.
         ///////////////////////////////////////////////////////////////////
-        if depth == 0 {
+        if depth <= 0 {
             return self.q_search(board, ply, alpha, beta);
         }
         self.stats.nodes += 1;
@@ -400,6 +399,11 @@ impl<'a> Search<'a> {
     fn q_search(&mut self, board: &mut Board, ply: Ply, mut alpha: Value, beta: Value) -> Value {
         if self.stop || self.timer.stop_check() {
             self.stop = true;
+            return 0;
+        }
+
+        if board.is_draw() {
+            self.stats.qleafs += 1;
             return 0;
         }
 

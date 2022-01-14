@@ -39,7 +39,7 @@ pub static mut KING_SCORES: [Score; 1] = [S!(  21,   -7), ];
 pub const IX_KING_PAWN_SHIELD_BONUS: usize = 0;
 
 #[rustfmt::skip]
-pub static mut PIECE_TYPE_TABLES: [[Score; N_SQUARES]; 6] = [
+pub static mut PIECE_TYPE_TABLES: [[Score; SQ::N_SQUARES]; 6] = [
     [
         S!( -60,  -49), S!( -60,  -49), S!( -60,  -49), S!( -60,  -49), S!( -60,  -49), S!( -60,  -49), S!( -60,  -49), S!( -60,  -49),
         S!( -35,  -24), S!( -24,  -34), S!( -38,  -29), S!( -53,  -22), S!( -47,  -20), S!(   2,  -31), S!(   5,  -41), S!( -25,  -43),
@@ -104,13 +104,13 @@ pub static mut PIECE_TYPE_TABLES: [[Score; N_SQUARES]; 6] = [
 ];
 
 #[rustfmt::skip]
-pub static mut PIECE_VALUES: [Score; N_PIECES] = [Score::ZERO; N_PIECES];
+pub static mut PIECE_VALUES: [Score; Piece::N_PIECES] = [Score::ZERO; Piece::N_PIECES];
 
 #[rustfmt::skip]
-pub static mut PIECE_TABLES: [[Score; N_SQUARES]; N_PIECES] = [[Score::ZERO; N_SQUARES]; N_PIECES];
+pub static mut PIECE_TABLES: [[Score; SQ::N_SQUARES]; Piece::N_PIECES] = [[Score::ZERO; SQ::N_SQUARES]; Piece::N_PIECES];
 
 #[rustfmt::skip]
-pub static mut PAWN_SHIELD_MASKS: [[BitBoard; N_SQUARES]; N_COLORS] = [[BitBoard::ZERO; N_SQUARES]; N_COLORS];
+pub static mut PAWN_SHIELD_MASKS: [[BitBoard; SQ::N_SQUARES]; Color::N_COLORS] = [[BitBoard::ZERO; SQ::N_SQUARES]; Color::N_COLORS];
 
 #[inline(always)]
 pub fn tempo() -> Score {
@@ -162,7 +162,7 @@ pub fn pawns_shield_mask(color: Color, sq: SQ) -> BitBoard {
     unsafe { PAWN_SHIELD_MASKS[color.index()][sq.index()] }
 }
 
-fn init_pawn_shields(pawn_shields: &mut [[BitBoard; N_SQUARES]; N_COLORS]) {
+fn init_pawn_shields(pawn_shields: &mut [[BitBoard; SQ::N_SQUARES]; Color::N_COLORS]) {
     for sq in BitBoard::ALL {
         pawn_shields[Color::White.index()][sq.index()] = sq.bb().shift(Direction::North, 1)
             | sq.bb().shift(Direction::NorthEast, 1)
@@ -174,8 +174,8 @@ fn init_pawn_shields(pawn_shields: &mut [[BitBoard; N_SQUARES]; N_COLORS]) {
 }
 
 fn init_piece_values(
-    piece_values: &mut [Score; N_PIECES],
-    piece_tables: &mut [[Score; N_SQUARES]; N_PIECES],
+    piece_values: &mut [Score; Piece::N_PIECES],
+    piece_tables: &mut [[Score; SQ::N_SQUARES]; Piece::N_PIECES],
 ) {
     unsafe {
         for pc in Piece::iter(Piece::WhitePawn, Piece::WhiteKing) {

@@ -2,9 +2,6 @@ use super::color::*;
 use std::convert::TryFrom;
 use std::mem::transmute;
 
-pub const N_PIECES: usize = 15;
-pub const N_PIECE_TYPES: usize = 6;
-
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Debug)]
 pub enum Piece {
     WhitePawn = 0b0000,
@@ -85,6 +82,7 @@ impl TryFrom<char> for Piece {
 }
 
 impl Piece {
+    pub const N_PIECES: usize = 15;
     const PIECE_STR: &'static str = "PNBRQK  pnbrqk ";
     const ALL: [Self; 14] = [
         Self::WhitePawn,
@@ -101,17 +99,6 @@ impl Piece {
         Self::BlackRook,
         Self::BlackQueen,
         Self::BlackKing,
-    ];
-}
-
-impl PieceType {
-    const ALL: [Self; 6] = [
-        Self::Pawn,
-        Self::Knight,
-        Self::Bishop,
-        Self::Rook,
-        Self::Queen,
-        Self::King,
     ];
 }
 
@@ -142,4 +129,16 @@ impl From<u8> for PieceType {
     fn from(n: u8) -> Self {
         unsafe { transmute::<u8, Self>(n) }
     }
+}
+
+impl PieceType {
+    pub const N_PIECE_TYPES: usize = 6;
+    const ALL: [Self; 6] = [
+        Self::Pawn,
+        Self::Knight,
+        Self::Bishop,
+        Self::Rook,
+        Self::Queen,
+        Self::King,
+    ];
 }

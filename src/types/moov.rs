@@ -1,5 +1,7 @@
 use super::square::*;
 use crate::search::move_sorter::*;
+use std::fmt;
+use std::fmt::Formatter;
 use std::mem::transmute;
 
 pub type MoveInt = u16;
@@ -112,9 +114,9 @@ impl From<u8> for MoveFlags {
     }
 }
 
-impl ToString for Move {
-    fn to_string(&self) -> String {
-        let mut uci = "".to_owned();
+impl fmt::Display for Move {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let mut uci = String::new();
         uci.push_str(&*self.from_sq().to_string());
         uci.push_str(&*self.to_sq().to_string());
         match self.flags() {
@@ -132,7 +134,7 @@ impl ToString for Move {
             }
             _ => {}
         }
-        uci.to_owned()
+        write!(f, "{}", uci)
     }
 }
 

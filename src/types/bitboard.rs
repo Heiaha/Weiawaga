@@ -4,9 +4,10 @@ use super::file::*;
 use super::square::*;
 use crate::evaluation::score::*;
 use std::fmt;
+use std::fmt::Formatter;
 use std::ops::*;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct BitBoard(pub u64);
 
 pub type Hash = BitBoard;
@@ -127,16 +128,6 @@ impl BitBoard {
     #[inline(always)]
     pub fn file_fill(self) -> Self {
         self.fill(Direction::North) | self.fill(Direction::South)
-    }
-
-    pub fn print(&self) {
-        println!();
-        for i in (0..=56).rev().step_by(8) {
-            for j in 0..8 {
-                print!("{} ", (self.0 >> (i + j)) & 1);
-            }
-            println!();
-        }
     }
 }
 
@@ -351,8 +342,21 @@ impl Iterator for BitBoard {
 // Display
 //////////////////////////////////////////////
 
-impl fmt::Display for BitBoard {
+impl fmt::Debug for BitBoard {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut result = String::new();
+        for i in (0..=56).rev().step_by(8) {
+            for j in 0..8 {
+                result.push_str(&*format!("{} ", self.0 >> (i + j) & 1));
+            }
+            result.push('\n');
+        }
+        write!(f, "{}", result)
+    }
+}
+
+impl fmt::Display for BitBoard {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{:#x}", self.0)
     }
 }
@@ -385,10 +389,12 @@ impl BitBoard {
     pub const CENTER: Self = B!(0x1818000000);
 }
 
-static mut BETWEEN_BB: [[BitBoard; N_SQUARES]; N_SQUARES] = [[B!(0); N_SQUARES]; N_SQUARES];
-static mut LINES_BB: [[BitBoard; N_SQUARES]; N_SQUARES] = [[B!(0); N_SQUARES]; N_SQUARES];
+static mut BETWEEN_BB: [[BitBoard; SQ::N_SQUARES]; SQ::N_SQUARES] =
+    [[B!(0); SQ::N_SQUARES]; SQ::N_SQUARES];
+static mut LINES_BB: [[BitBoard; SQ::N_SQUARES]; SQ::N_SQUARES] =
+    [[B!(0); SQ::N_SQUARES]; SQ::N_SQUARES];
 
-fn init_between(between_bb: &mut [[BitBoard; N_SQUARES]; N_SQUARES]) {
+fn init_between(between_bb: &mut [[BitBoard; SQ::N_SQUARES]; SQ::N_SQUARES]) {
     for sq1 in BitBoard::ALL {
         for sq2 in BitBoard::ALL {
             let sqs = sq1.bb() | sq2.bb();
@@ -403,7 +409,7 @@ fn init_between(between_bb: &mut [[BitBoard; N_SQUARES]; N_SQUARES]) {
     }
 }
 
-fn init_lines(lines_bb: &mut [[BitBoard; N_SQUARES]; N_SQUARES]) {
+fn init_lines(lines_bb: &mut [[BitBoard; SQ::N_SQUARES]; SQ::N_SQUARES]) {
     for sq1 in BitBoard::ALL {
         for sq2 in BitBoard::ALL {
             if sq1.file() == sq2.file() || sq1.rank() == sq2.rank() {

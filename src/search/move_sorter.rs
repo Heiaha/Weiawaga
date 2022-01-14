@@ -13,15 +13,15 @@ const N_KILLER: usize = 3;
 
 #[derive(Clone)]
 pub struct MoveSorter {
-    killer_moves: [[[Option<Move>; N_KILLER]; 256]; N_COLORS],
-    history_scores: [[SortScore; N_SQUARES]; N_SQUARES],
+    killer_moves: [[[Option<Move>; N_KILLER]; 256]; Color::N_COLORS],
+    history_scores: [[SortScore; SQ::N_SQUARES]; SQ::N_SQUARES],
 }
 
 impl MoveSorter {
     pub fn new() -> Self {
         Self {
-            killer_moves: [[[None; N_KILLER]; 256]; N_COLORS],
-            history_scores: [[0; N_SQUARES]; N_SQUARES],
+            killer_moves: [[[None; N_KILLER]; 256]; Color::N_COLORS],
+            history_scores: [[0; SQ::N_SQUARES]; SQ::N_SQUARES],
         }
     }
 
@@ -129,23 +129,6 @@ impl MoveSorter {
     #[inline(always)]
     fn history_score(&self, m: &Move) -> SortScore {
         self.history_scores[m.from_sq().index()][m.to_sq().index()]
-    }
-
-    pub fn clear_history(&mut self) {
-        for sq1 in BitBoard::ALL {
-            for sq2 in BitBoard::ALL {
-                self.history_scores[sq1.index()][sq2.index()] = 0;
-            }
-        }
-    }
-
-    pub fn clear_killers(&mut self) {
-        for ply in 0..self.killer_moves[0].len() {
-            for killer_idx in 0..self.killer_moves[0][0].len() {
-                self.killer_moves[Color::White.index()][ply][killer_idx] = None;
-                self.killer_moves[Color::Black.index()][ply][killer_idx] = None;
-            }
-        }
     }
 }
 
