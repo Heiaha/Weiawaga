@@ -8,7 +8,7 @@ use crate::types::square::*;
 pub static mut TEMPO: [Score; 1] = [S!(  19,   18), ];
 
 #[rustfmt::skip]
-pub static mut PIECE_TYPE_VALUES: [Score; 6] = [
+pub static mut PIECE_TYPE_VALUES: [Score; PieceType::N_PIECE_TYPES] = [
     S!( 113,  139), S!( 358,  332), S!( 362,  332), S!( 475,  561), S!(1010, 1020), S!(   0,    0),
 ];
 
@@ -39,7 +39,7 @@ pub static mut KING_SCORES: [Score; 1] = [S!(  22,   -9), ];
 pub const IX_KING_PAWN_SHIELD_BONUS: usize = 0;
 
 #[rustfmt::skip]
-pub static mut PIECE_TYPE_TABLES: [[Score; SQ::N_SQUARES]; 6] = [
+pub static mut PIECE_TYPE_TABLES: [[Score; SQ::N_SQUARES]; PieceType::N_PIECE_TYPES] = [
     [
         S!(   0,    0), S!(   0,    0), S!(   0,    0), S!(   0,    0), S!(   0,    0), S!(   0,    0), S!(   0,    0), S!(   0,    0),
         S!( -44,  -33), S!( -35,  -37), S!( -37,  -34), S!( -54,  -31), S!( -44,  -17), S!( -12,  -37), S!(  -7,  -47), S!( -39,  -49),
