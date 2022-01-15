@@ -15,6 +15,12 @@ use std::cmp::min;
 use std::convert::TryFrom;
 use std::fmt;
 
+#[cfg(not(feature = "tune"))]
+const N_HISTORIES: usize = 1000;
+
+#[cfg(feature = "tune")]
+const N_HISTORIES: usize = 1;
+
 #[derive(Copy, Clone)]
 pub struct Board {
     piece_bb: [BitBoard; Piece::N_PIECES],
@@ -27,7 +33,7 @@ pub struct Board {
     phase: Phase,
     material_score: Score,
     p_sq_score: Score,
-    history: [UndoInfo; 1000],
+    history: [UndoInfo; N_HISTORIES],
     checkers: BitBoard,
     pinned: BitBoard,
 }
@@ -44,7 +50,7 @@ impl Board {
         self.phase = Score::TOTAL_PHASE;
         self.material_score = Score::ZERO;
         self.p_sq_score = Score::ZERO;
-        self.history = [UndoInfo::default(); 1000];
+        self.history = [UndoInfo::default(); N_HISTORIES];
         self.checkers = BitBoard::ZERO;
         self.pinned = BitBoard::ZERO;
 
@@ -1337,7 +1343,7 @@ impl Default for Board {
             phase: Score::TOTAL_PHASE,
             material_score: Score::ZERO,
             p_sq_score: Score::ZERO,
-            history: [UndoInfo::default(); 1000],
+            history: [UndoInfo::default(); N_HISTORIES],
             checkers: BitBoard::ZERO,
             pinned: BitBoard::ZERO,
         }
@@ -1362,7 +1368,7 @@ impl TryFrom<&str> for Board {
         }
 
         let pieces_placement = parts.next().unwrap();
-        let color_to_play = parts.next().unwrap();
+        let color_to_play = parts.next().unwrap().chars().next().unwrap();
         let castling_ability = parts.next().unwrap();
         let en_passant_square = parts.next().unwrap_or("-");
         let halfmove_clock = parts.next().unwrap_or("0").parse::<u16>().unwrap_or(0);
@@ -1381,13 +1387,7 @@ impl TryFrom<&str> for Board {
             return Err("Pieces Placement FEN should have 8 ranks.");
         }
 
-        board.color_to_play = if color_to_play == "w" {
-            Color::White
-        } else if color_to_play == "b" {
-            Color::Black
-        } else {
-            return Err("Color to play should be either w or b");
-        };
+        board.color_to_play = Color::try_from(color_to_play)?;
 
         if board.color_to_play == Color::Black {
             board.hash ^= zobrist::zobrist_color();
@@ -1395,20 +1395,21 @@ impl TryFrom<&str> for Board {
 
         board.game_ply = (fullmove_counter - 1) * 2;
 
+
+        if cfg!(feature = "tune") {
+            board.game_ply = 0;
+        }
+
         let ranks = pieces_placement.split("/");
         for (rank_idx, rank_fen) in ranks.enumerate() {
             let mut idx = (7 - rank_idx) * 8;
 
             for ch in rank_fen.chars() {
-                let digit = ch.to_digit(10);
-                if let Some(digit) = digit {
+                if let Some(digit) = ch.to_digit(10) {
                     idx += digit as usize;
                 } else {
                     let sq = SQ::from(idx as u8);
-                    match Piece::try_from(ch) {
-                        Ok(piece) => board.set_piece_at(piece, sq),
-                        Err(_e) => return Err("FEN has incorrect piece symbol."),
-                    }
+                    board.set_piece_at(Piece::try_from(ch)?, sq);
                     idx += 1;
                 }
             }

@@ -20,3 +20,6 @@ debug-assertions = false
 codegen-units = 1
 lto = true
 panic = "abort"
+
+[features]
+tune = []

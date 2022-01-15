@@ -30,6 +30,18 @@ impl Not for Color {
     }
 }
 
+impl TryFrom<char> for Color {
+    type Error = &'static str;
+
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        return match value {
+            'w' => Ok(Self::White),
+            'b' => Ok(Self::Black),
+            _ => Err("Color must be either 'w' or 'b'."),
+        };
+    }
+}
+
 impl Color {
     pub const N_COLORS: usize = 2;
 }

@@ -7,7 +7,6 @@ use crate::types::piece::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-const MAX_BOARDS: usize = 500000;
 type GameResult = f64;
 
 pub struct Tuner<'a> {
@@ -25,9 +24,6 @@ impl<'a> Tuner<'a> {
         let mut boards: Vec<Board> = Vec::new();
         let mut results: Vec<GameResult> = Vec::new();
         for (i, line) in reader.lines().enumerate() {
-            if i == MAX_BOARDS {
-                break;
-            }
             let line = line.unwrap();
 
             let (fen, result) = line.rsplit_once(" ").unwrap();
@@ -46,6 +42,7 @@ impl<'a> Tuner<'a> {
                 Err(e) => panic!("{}", e),
             }
         }
+        println!("Tuning with {} positions.", boards.len());
 
         let mut parameters: Vec<Parameter> = Vec::new();
         unsafe {
