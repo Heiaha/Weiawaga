@@ -1372,7 +1372,7 @@ impl TryFrom<&str> for Board {
         let castling_ability = parts.next().unwrap();
         let en_passant_square = parts.next().unwrap_or("-");
         let halfmove_clock = parts.next().unwrap_or("0").parse::<u16>().unwrap_or(0);
-        let fullmove_counter = parts.next().unwrap_or("1").parse::<usize>().unwrap_or(1);
+        let fullmove_number =
             if let Ok(fullmove_number) = parts.next().unwrap_or("1").parse::<usize>() {
                 if fullmove_number > 0 {
                     fullmove_number
@@ -1393,8 +1393,7 @@ impl TryFrom<&str> for Board {
             board.hash ^= zobrist::zobrist_color();
         }
 
-        board.game_ply = (fullmove_counter - 1) * 2;
-
+        board.game_ply = (fullmove_number - 1) * 2;
 
         if cfg!(feature = "tune") {
             board.game_ply = 0;
