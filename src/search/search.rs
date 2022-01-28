@@ -410,7 +410,9 @@ impl<'a> Search<'a> {
         self.sel_depth = max(self.sel_depth, ply);
         self.stats.qnodes += 1;
 
-        let mut value = eval(board);
+        // let mut value = eval(board);
+
+        let mut value = board.eval();
 
         if value >= beta {
             self.stats.qleafs += 1;

@@ -45,6 +45,13 @@ impl Piece {
         Self::from(((color as u8) << 3) + pt as u8)
     }
 
+    pub fn nn_index(&self) -> usize {
+        return if self.color_of() == Color::White {
+            *self as usize
+        } else {
+            *self as usize - 2
+        };
+    }
     pub fn uci(self) -> char {
         Self::PIECE_STR.chars().nth(self.index()).unwrap()
     }

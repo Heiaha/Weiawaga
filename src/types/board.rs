@@ -10,6 +10,7 @@ use super::square::*;
 use super::undo_info::*;
 use super::zobrist;
 use crate::evaluation::e_constants;
+use crate::evaluation::nnue::Network;
 use crate::evaluation::score::*;
 use std::cmp::min;
 use std::convert::TryFrom;
@@ -36,6 +37,7 @@ pub struct Board {
     history: [UndoInfo; N_HISTORIES],
     checkers: BitBoard,
     pinned: BitBoard,
+    network: Network,
 }
 
 impl Board {
@@ -64,6 +66,8 @@ impl Board {
         for sq in BitBoard::ALL {
             self.board[sq.index()] = Piece::None;
         }
+
+        self.network = Network::default();
     }
 
     #[inline(always)]
@@ -77,6 +81,7 @@ impl Board {
     }
 
     pub fn set_piece_at(&mut self, pc: Piece, sq: SQ) {
+        self.network.set_piece_at(pc, sq);
         self.phase -= Score::piece_phase(pc.type_of());
         self.p_sq_score += e_constants::piece_sq_value(pc, sq);
         self.material_score += e_constants::piece_score(pc);
@@ -91,6 +96,7 @@ impl Board {
 
     pub fn remove_piece(&mut self, sq: SQ) {
         let pc = self.piece_at(sq);
+        self.network.remove_piece_at(pc, sq);
         self.phase += Score::piece_phase(pc.type_of());
         self.p_sq_score -= e_constants::piece_sq_value(pc, sq);
         self.material_score -= e_constants::piece_score(pc);
@@ -105,6 +111,8 @@ impl Board {
 
     pub fn move_piece_quiet(&mut self, from_sq: SQ, to_sq: SQ) {
         let pc = self.piece_at(from_sq);
+        self.network.remove_piece_at(pc, from_sq);
+        self.network.set_piece_at(pc, to_sq);
         self.p_sq_score +=
             e_constants::piece_sq_value(pc, to_sq) - e_constants::piece_sq_value(pc, from_sq);
 
@@ -122,6 +130,14 @@ impl Board {
     pub fn move_piece(&mut self, from_sq: SQ, to_sq: SQ) {
         self.remove_piece(to_sq);
         self.move_piece_quiet(from_sq, to_sq);
+    }
+
+    pub fn eval(&mut self) -> Value {
+        if self.color_to_play == Color::White {
+            self.network.eval()
+        } else {
+            -self.network.eval()
+        }
     }
 
     #[inline(always)]
@@ -1346,6 +1362,7 @@ impl Default for Board {
             history: [UndoInfo::default(); N_HISTORIES],
             checkers: BitBoard::ZERO,
             pinned: BitBoard::ZERO,
+            network: Network::default(),
         }
     }
 }
@@ -1372,16 +1389,17 @@ impl TryFrom<&str> for Board {
         let castling_ability = parts.next().unwrap();
         let en_passant_square = parts.next().unwrap_or("-");
         let halfmove_clock = parts.next().unwrap_or("0").parse::<u16>().unwrap_or(0);
-        let fullmove_number =
-            if let Ok(fullmove_number) = parts.next().unwrap_or("1").parse::<usize>() {
-                if fullmove_number > 0 {
-                    fullmove_number
-                } else {
-                    fullmove_number + 1
-                }
+        let fullmove_counter = parts.next().unwrap_or("1").parse::<usize>().unwrap_or(1);
+        if let Ok(fullmove_number) = parts.next().unwrap_or("1").parse::<usize>() {
+            if fullmove_number > 0 {
+                fullmove_number
             } else {
-                1
-            };
+                println!("{}", fullmove_counter);
+                fullmove_number + 1
+            }
+        } else {
+            1
+        };
 
         if pieces_placement.split("/").count() != Rank::N_RANKS {
             return Err("Pieces Placement FEN should have 8 ranks.");
@@ -1393,7 +1411,7 @@ impl TryFrom<&str> for Board {
             board.hash ^= zobrist::zobrist_color();
         }
 
-        board.game_ply = (fullmove_number - 1) * 2;
+        board.game_ply = (fullmove_counter - 1) * 2;
 
         if cfg!(feature = "tune") {
             board.game_ply = 0;
