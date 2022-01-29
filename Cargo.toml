@@ -10,7 +10,7 @@ readme = "README.md"
 
 [dependencies]
 rand = "0.8.4"
-crossbeam = "0.7"
+crossbeam = "0.8"
 
 [profile.release]
 opt-level = 3

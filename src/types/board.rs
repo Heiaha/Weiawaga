@@ -22,7 +22,7 @@ const N_HISTORIES: usize = 1000;
 #[cfg(feature = "tune")]
 const N_HISTORIES: usize = 1;
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct Board {
     piece_bb: [BitBoard; Piece::N_PIECES],
     board: [Piece; SQ::N_SQUARES],
@@ -67,7 +67,7 @@ impl Board {
             self.board[sq.index()] = Piece::None;
         }
 
-        self.network = Network::default();
+        self.network = Network::new();
     }
 
     #[inline(always)]
@@ -81,7 +81,7 @@ impl Board {
     }
 
     pub fn set_piece_at(&mut self, pc: Piece, sq: SQ) {
-        self.network.set_piece_at(pc, sq);
+        self.network.activate(pc, sq);
         self.phase -= Score::piece_phase(pc.type_of());
         self.p_sq_score += e_constants::piece_sq_value(pc, sq);
         self.material_score += e_constants::piece_score(pc);
@@ -96,7 +96,7 @@ impl Board {
 
     pub fn remove_piece(&mut self, sq: SQ) {
         let pc = self.piece_at(sq);
-        self.network.remove_piece_at(pc, sq);
+        self.network.deactivate(pc, sq);
         self.phase += Score::piece_phase(pc.type_of());
         self.p_sq_score -= e_constants::piece_sq_value(pc, sq);
         self.material_score -= e_constants::piece_score(pc);
@@ -111,8 +111,8 @@ impl Board {
 
     pub fn move_piece_quiet(&mut self, from_sq: SQ, to_sq: SQ) {
         let pc = self.piece_at(from_sq);
-        self.network.remove_piece_at(pc, from_sq);
-        self.network.set_piece_at(pc, to_sq);
+        self.network.deactivate(pc, from_sq);
+        self.network.activate(pc, to_sq);
         self.p_sq_score +=
             e_constants::piece_sq_value(pc, to_sq) - e_constants::piece_sq_value(pc, from_sq);
 
@@ -1362,7 +1362,7 @@ impl Default for Board {
             history: [UndoInfo::default(); N_HISTORIES],
             checkers: BitBoard::ZERO,
             pinned: BitBoard::ZERO,
-            network: Network::default(),
+            network: Network::new(),
         }
     }
 }

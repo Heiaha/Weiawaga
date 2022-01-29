@@ -3,58 +3,76 @@ use crate::evaluation::score::Value;
 use crate::types::piece::Piece;
 use crate::types::square::SQ;
 
-const HIDDEN_LAYER_SIZE: usize = 128;
 const SCALE: i32 = 64;
 
-#[derive(Copy, Clone)]
-pub struct Network {
-    pub feature_weights: &'static [i16],
-    pub hidden_weights: &'static [i16],
-    pub hidden_activations: [i16; HIDDEN_LAYER_SIZE],
-    pub output_bias: i32,
+#[derive(Clone)]
+struct Layer {
+    weights: &'static [i16],
+    biases: &'static [i16],
+    activations: Vec<i16>, // used for incremental layer
 }
 
-impl Network {
-    #[inline(always)]
-    pub fn set_piece_at(&mut self, piece: Piece, sq: SQ) {
-        let feature_idx = piece.nn_index() * 64 + sq.index();
-        for j in 0..HIDDEN_LAYER_SIZE {
-            self.hidden_activations[j] += self.feature_weights[feature_idx * HIDDEN_LAYER_SIZE + j];
+impl Layer {
+    pub fn new(weights: &'static [i16], biases: &'static [i16]) -> Self {
+        Self {
+            weights,
+            biases,
+            activations: Vec::from(biases),
         }
     }
 
     #[inline(always)]
-    pub fn remove_piece_at(&mut self, piece: Piece, sq: SQ) {
-        let feature_idx = piece.nn_index() * 64 + sq.index();
-        for j in 0..HIDDEN_LAYER_SIZE {
-            self.hidden_activations[j] -= self.feature_weights[feature_idx * HIDDEN_LAYER_SIZE + j];
+    pub fn len(&self) -> usize {
+        self.activations.len()
+    }
+}
+
+#[derive(Clone)]
+pub struct Network {
+    input_layer: Layer,
+    hidden_layer: Layer,
+    output_layer: Layer,
+}
+
+impl Network {
+    pub fn new() -> Self {
+        Self {
+            input_layer: Layer::new(&NNUE_FEATURE_WEIGHTS, &[]),
+            hidden_layer: Layer::new(&NNUE_HIDDEN_WEIGHTS, &NNUE_HIDDEN_BIASES),
+            output_layer: Layer::new(&[], &[NNUE_OUTPUT_BIAS]),
+        }
+    }
+
+    #[inline(always)]
+    pub fn activate(&mut self, piece: Piece, sq: SQ) {
+        let feature_idx = (piece.nn_index() * SQ::N_SQUARES + sq.index()) * self.hidden_layer.len();
+        for j in 0..self.hidden_layer.len() {
+            self.hidden_layer.activations[j] += self.input_layer.weights[feature_idx + j];
+        }
+    }
+
+    #[inline(always)]
+    pub fn deactivate(&mut self, piece: Piece, sq: SQ) {
+        let feature_idx = (piece.nn_index() * SQ::N_SQUARES + sq.index()) * self.hidden_layer.len();
+        for j in 0..self.hidden_layer.len() {
+            self.hidden_layer.activations[j] -= self.input_layer.weights[feature_idx + j];
         }
     }
 
     pub fn eval(&mut self) -> Value {
-        let mut output = self.output_bias;
+        let mut output = self.output_layer.biases[0] as i32;
         let mut relud;
 
-        for i in 0..HIDDEN_LAYER_SIZE {
-            relud = Self::clipped_relu(self.hidden_activations[i]) as i32;
-            output += relud * self.hidden_weights[i] as i32;
+        for i in 0..self.hidden_layer.len() {
+            relud = Self::clipped_relu(self.hidden_layer.activations[i]) as i32;
+            output += relud * self.hidden_layer.weights[i] as i32;
         }
-        (output/(SCALE * SCALE)) as Value
+
+        (output / (SCALE * SCALE)) as Value
     }
 
     #[inline(always)]
     pub fn clipped_relu(x: i16) -> i16 {
         x.max(0).min(SCALE as i16)
-    }
-}
-
-impl Default for Network {
-    fn default() -> Self {
-        Self {
-            feature_weights: &NNUE_FEATURE_WEIGHTS,
-            hidden_weights: &NNUE_HIDDEN_WEIGHTS,
-            hidden_activations: NNUE_HIDDEN_BIASES,
-            output_bias: NNUE_OUTPUT_BIAS,
-        }
     }
 }

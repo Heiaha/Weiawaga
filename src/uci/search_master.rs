@@ -79,7 +79,7 @@ impl SearchMaster {
                         match board.push_str(&m) {
                             Ok(_) => {}
                             Err(e) => {
-                                board = last_board;
+                                board = last_board.clone();
                                 println!("{}", e);
                             }
                         }

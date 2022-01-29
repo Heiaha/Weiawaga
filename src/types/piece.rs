@@ -45,12 +45,23 @@ impl Piece {
         Self::from(((color as u8) << 3) + pt as u8)
     }
 
+    #[inline(always)]
     pub fn nn_index(&self) -> usize {
-        return if self.color_of() == Color::White {
-            *self as usize
-        } else {
-            *self as usize - 2
-        };
+        match self {
+            Piece::WhitePawn => 0,
+            Piece::WhiteKnight => 1,
+            Piece::WhiteBishop => 2,
+            Piece::WhiteRook => 3,
+            Piece::WhiteQueen => 4,
+            Piece::WhiteKing => 5,
+            Piece::BlackPawn => 6,
+            Piece::BlackKnight => 7,
+            Piece::BlackBishop => 8,
+            Piece::BlackRook => 9,
+            Piece::BlackQueen => 10,
+            Piece::BlackKing => 11,
+            Piece::None => panic!("No network index for no piece."),
+        }
     }
     pub fn uci(self) -> char {
         Self::PIECE_STR.chars().nth(self.index()).unwrap()
