@@ -531,7 +531,11 @@ impl<'a> Search<'a> {
         }
 
         let score_str = if Score::is_checkmate(score) {
-            format!("mate {}", ((Score::INF - score.abs()) as f64 / 2.).ceil())
+            let mut mate_score = ((Score::INF - score.abs()) as f64 / 2.).ceil() as i32;
+            if score < 0 {
+                mate_score *= -1;
+            }
+            format!("mate {}", mate_score)
         } else {
           format!("cp {}", score)
         };
