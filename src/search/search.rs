@@ -97,6 +97,7 @@ impl<'a> Search<'a> {
                 self.stats = Statistics::new();
             }
         }
+
         if final_move.is_none() {
             return (moves[0], 0);
         }
@@ -528,12 +529,19 @@ impl<'a> Search<'a> {
         if m.is_none() {
             return;
         }
-        println!("info currmove {m} depth {depth} seldepth {sel_depth} time {time} score cp {score} nodes {nodes} nps {nps} pv {pv}",
+
+        let score_str = if Score::is_checkmate(score) {
+            format!("mate {}", ((Score::INF - score.abs()) as f64 / 2.).ceil())
+        } else {
+          format!("cp {}", score)
+        };
+
+        println!("info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} pv {pv}",
                  m = m.unwrap().to_string(),
                  depth = depth,
                  sel_depth = self.sel_depth,
                  time = self.timer.elapsed(),
-                 score = score,
+                 score_str = score_str,
                  nodes = self.stats.total_nodes(),
                  nps = 1000 * self.stats.total_nodes() / (self.timer.elapsed() + 1),
                  pv = self.get_pv(board, depth));

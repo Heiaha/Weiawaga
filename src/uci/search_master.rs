@@ -55,7 +55,6 @@ impl SearchMaster {
         })
         .unwrap();
 
-        println!("info score cp {}", best_value);
         println!("bestmove {}", best_move.to_string());
         self.stop.store(false, Ordering::SeqCst);
         self.tt.clear();

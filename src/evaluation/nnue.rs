@@ -3,7 +3,6 @@ use crate::evaluation::score::Value;
 use crate::types::piece::Piece;
 use crate::types::square::SQ;
 
-const SCALE: i32 = 64;
 
 #[derive(Clone)]
 struct Layer {
@@ -68,11 +67,15 @@ impl Network {
             output += relud * self.hidden_layer.weights[i] as i32;
         }
 
-        (output / (SCALE * SCALE)) as Value
+        (output / Self::SCALE) as Value
     }
 
     #[inline(always)]
     pub fn clipped_relu(x: i16) -> i16 {
-        x.max(0).min(SCALE as i16)
+        x.max(0).min(Self::SCALE as i16)
     }
+}
+
+impl Network {
+    const SCALE: i32 = 64 * 64;
 }
