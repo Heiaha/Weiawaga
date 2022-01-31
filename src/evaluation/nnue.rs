@@ -58,7 +58,7 @@ impl Network {
         }
     }
 
-    pub fn eval(&mut self) -> Value {
+    pub fn eval(&self) -> Value {
         let mut output = self.output_layer.biases[0] as i32;
         let mut relud;
 
@@ -67,7 +67,7 @@ impl Network {
             output += relud * self.hidden_layer.weights[i] as i32;
         }
 
-        (output / Self::SCALE) as Value
+        (output / (Self::SCALE * Self::SCALE)) as Value
     }
 
     #[inline(always)]
@@ -77,5 +77,5 @@ impl Network {
 }
 
 impl Network {
-    const SCALE: i32 = 64 * 64;
+    const SCALE: i32 = 64;
 }

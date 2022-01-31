@@ -132,7 +132,7 @@ impl Board {
         self.move_piece_quiet(from_sq, to_sq);
     }
 
-    pub fn eval(&mut self) -> Value {
+    pub fn eval(&self) -> Value {
         if self.color_to_play == Color::White {
             self.network.eval()
         } else {
