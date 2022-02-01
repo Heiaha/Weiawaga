@@ -16,6 +16,9 @@ use std::cmp::min;
 use std::convert::TryFrom;
 use std::fmt;
 
+#[cfg(feature = "classical")]
+use crate::evaluation::eval::eval;
+
 #[cfg(not(feature = "tune"))]
 const N_HISTORIES: usize = 1000;
 
@@ -132,6 +135,12 @@ impl Board {
         self.move_piece_quiet(from_sq, to_sq);
     }
 
+    #[cfg(feature = "classical")]
+    pub fn eval(&self) -> Value {
+        eval(&self)
+    }
+
+    #[cfg(not(feature = "classical"))]
     pub fn eval(&self) -> Value {
         if self.color_to_play == Color::White {
             self.network.eval()

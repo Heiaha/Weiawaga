@@ -49,6 +49,7 @@ pub enum UCICommand {
     Perft(Depth),
     Option(String, String),
     Tune(String),
+    Eval,
 }
 
 impl UCICommand {
@@ -153,6 +154,8 @@ impl TryFrom<&str> for UCICommand {
         } else if line.starts_with("tune") {
             let filename = line.split_whitespace().nth(1).unwrap();
             return Ok(UCICommand::Tune(filename.parse().unwrap()));
+        } else if line.starts_with("eval") {
+            return Ok(UCICommand::Eval);
         }
         Err("Unknown command.")
     }
