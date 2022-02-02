@@ -95,6 +95,7 @@ impl<'a> Search<'a> {
                 beta = final_score + Self::ASPIRATION_WINDOW;
                 depth += 1;
                 self.stats = Statistics::new();
+                self.sel_depth = 0;
             }
         }
 
