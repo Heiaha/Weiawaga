@@ -538,7 +538,7 @@ impl<'a> Search<'a> {
             }
             format!("mate {}", mate_score)
         } else {
-          format!("cp {}", score)
+            format!("cp {}", score)
         };
 
         println!("info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} pv {pv}",

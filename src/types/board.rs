@@ -142,7 +142,7 @@ impl Board {
 
     #[cfg(not(feature = "classical"))]
     pub fn eval(&self) -> Value {
-        let bucket = (self.all_pieces().pop_count() as usize - 1)/4;
+        let bucket = (self.all_pieces().pop_count() as usize - 1) / 4;
         if self.color_to_play == Color::White {
             self.network.eval(bucket)
         } else {
@@ -1442,15 +1442,16 @@ impl TryFrom<&str> for Board {
             }
         }
 
+        board.history[board.game_ply].set_entry(BitBoard::ALL_CASTLING_MASK);
         for (symbol, mask) in "KQkq".chars().zip([
             BitBoard::WHITE_OO_MASK,
             BitBoard::WHITE_OOO_MASK,
             BitBoard::BLACK_OO_MASK,
             BitBoard::BLACK_OOO_MASK,
         ]) {
-            if !castling_ability.contains(symbol) {
+            if castling_ability.contains(symbol) {
                 board.history[board.game_ply]
-                    .set_entry(board.history[board.game_ply].entry() | mask);
+                    .set_entry(board.history[board.game_ply].entry() & !mask);
             }
         }
 

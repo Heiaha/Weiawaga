@@ -118,7 +118,7 @@ impl SearchMaster {
                 UCICommand::Tune(filename) => {
                     let mut tuner = Tuner::new(filename);
                     tuner.tune();
-                },
+                }
                 UCICommand::Eval => {
                     println!("{}", board.eval());
                 }

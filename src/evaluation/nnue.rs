@@ -3,7 +3,6 @@ use crate::evaluation::score::Value;
 use crate::types::piece::Piece;
 use crate::types::square::SQ;
 
-
 #[derive(Clone)]
 struct Layer {
     weights: &'static [i16],
@@ -59,7 +58,6 @@ impl Network {
     }
 
     pub fn eval(&self, bucket: usize) -> Value {
-
         let mut output = self.output_layer.biases[bucket] as Value;
         let mut relud;
 
