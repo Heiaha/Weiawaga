@@ -65,7 +65,7 @@ impl Network {
 
         let bucket_idx = bucket * self.hidden_layer.len();
         for j in 0..self.hidden_layer.len() {
-            relud = Self::clipped_relu(self.hidden_layer.activations[i]);
+            relud = Self::clipped_relu(self.hidden_layer.activations[j]);
             output += relud * self.hidden_layer.weights[bucket_idx + j] as Value;
         }
 
