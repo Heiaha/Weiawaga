@@ -25,7 +25,7 @@ pub struct Search<'a> {
 
 impl<'a> Search<'a> {
     pub fn new(timer: Timer, tt: &'a TT, id: u16) -> Self {
-        Search {
+        Self {
             id,
             stop: false,
             sel_depth: 0,

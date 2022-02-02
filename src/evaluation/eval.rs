@@ -18,8 +18,8 @@ pub struct Evaluator<'a> {
 }
 
 impl<'a> Evaluator<'a> {
-    pub fn new(board: &Board, color: Color) -> Evaluator {
-        Evaluator {
+    pub fn new(board: &'a Board, color: Color) -> Self {
+        Self {
             board,
             color,
             our_king: board.bitboard_of(color, PieceType::King).lsb(),

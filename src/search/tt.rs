@@ -120,8 +120,8 @@ impl TT {
     }
 
     pub fn clear(&mut self) {
-        for i in 0..self.table.len() {
-            self.table[i] = AtomicEntry::default();
+        for j in 0..self.table.len() {
+            self.table[j] = AtomicEntry::default();
         }
     }
 

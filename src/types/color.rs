@@ -25,7 +25,7 @@ impl Not for Color {
     type Output = Color;
 
     #[inline(always)]
-    fn not(self) -> Color {
+    fn not(self) -> Self {
         Color::from((self as u8) ^ 1)
     }
 }

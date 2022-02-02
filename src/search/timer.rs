@@ -37,8 +37,8 @@ pub struct Timer {
 }
 
 impl Timer {
-    pub fn new(board: &Board, control: TimeControl, stop: Arc<AtomicBool>) -> Timer {
-        let mut tm = Timer {
+    pub fn new(board: &Board, control: TimeControl, stop: Arc<AtomicBool>) -> Self {
+        let mut tm = Self {
             start_time: Instant::now(),
             stop,
             control,

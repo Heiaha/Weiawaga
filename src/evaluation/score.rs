@@ -17,7 +17,7 @@ macro_rules! S {
 impl Score {
     #[inline(always)]
     pub const fn new(mg: Value, eg: Value) -> Self {
-        Score((mg << 16) + eg)
+        Self((mg << 16) + eg)
     }
 
     #[inline(always)]
@@ -42,7 +42,7 @@ impl Score {
 
     #[inline(always)]
     pub fn is_checkmate(value: Value) -> bool {
-        2 * value.abs() >= Score::INF
+        2 * value.abs() >= Self::INF
     }
 
     pub fn scores(&self) -> (Value, Value) {
@@ -132,7 +132,7 @@ impl fmt::Display for Score {
 //////////////////////////////////////////////
 
 impl Score {
-    pub const ZERO: Self = Score(0);
+    pub const ZERO: Self = Self(0);
     pub const INF: Value = 32000;
     pub const TOTAL_PHASE: Phase = 384;
 

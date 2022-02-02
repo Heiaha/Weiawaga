@@ -57,8 +57,8 @@ impl SQ {
     }
 
     #[inline(always)]
-    pub fn square_mirror(self) -> SQ {
-        SQ::from(self as u8 ^ 0x38)
+    pub fn square_mirror(self) -> Self {
+        Self::from(self as u8 ^ 0x38)
     }
 
     #[inline]
@@ -119,8 +119,8 @@ impl TryFrom<&str> for SQ {
     type Error = &'static str;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        if SQ::SQ_DISPLAY.contains(&value) {
-            return Ok(SQ::from(
+        if Self::SQ_DISPLAY.contains(&value) {
+            return Ok(Self::from(
                 Self::SQ_DISPLAY
                     .iter()
                     .position(|potential| *potential == value)

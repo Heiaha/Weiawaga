@@ -11,7 +11,7 @@ pub struct Statistics {
 
 impl Statistics {
     pub fn new() -> Self {
-        Statistics {
+        Self {
             leafs: 0,
             qleafs: 0,
             beta_cutoffs: 0,

@@ -39,7 +39,7 @@ impl SearchMaster {
         let main_thread_timer = Timer::new(board, time_control, self.stop.clone());
         let mut main_search_thread = Search::new(main_thread_timer, &self.tt, 0);
 
-        let (best_move, best_value) = thread::scope(|s| {
+        let (best_move, _best_value) = thread::scope(|s| {
             for id in 1..self.num_threads {
                 let helper_thread_timer =
                     Timer::new(&board, TimeControl::Infinite, self.stop.clone());

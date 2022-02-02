@@ -27,8 +27,8 @@ impl Rank {
     }
 
     #[inline(always)]
-    pub fn relative(self, c: Color) -> Rank {
-        Rank::from((self as u8) ^ (c as u8 * 7))
+    pub fn relative(self, c: Color) -> Self {
+        Self::from((self as u8) ^ (c as u8 * 7))
     }
 }
 
@@ -44,7 +44,7 @@ impl Add for Rank {
 
     #[inline(always)]
     fn add(self, other: Self) -> Self::Output {
-        Rank::from(self as u8 + other as u8)
+        Self::from(self as u8 + other as u8)
     }
 }
 
@@ -53,7 +53,7 @@ impl Sub for Rank {
 
     #[inline(always)]
     fn sub(self, other: Self) -> Self::Output {
-        Rank::from(self as u8 - other as u8)
+        Self::from(self as u8 - other as u8)
     }
 }
 

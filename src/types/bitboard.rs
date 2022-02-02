@@ -102,7 +102,7 @@ impl BitBoard {
 
     #[inline(always)]
     pub fn reverse(self) -> Self {
-        BitBoard(self.0.reverse_bits())
+        Self(self.0.reverse_bits())
     }
 
     pub fn fill(self, dir: Direction) -> Self {
@@ -137,16 +137,16 @@ impl BitBoard {
 
 impl BitBoard {
     #[inline(always)]
-    pub fn line(sq1: SQ, sq2: SQ) -> BitBoard {
+    pub fn line(sq1: SQ, sq2: SQ) -> Self {
         unsafe { LINES_BB[sq1.index()][sq2.index()] }
     }
     #[inline(always)]
-    pub fn between(sq1: SQ, sq2: SQ) -> BitBoard {
+    pub fn between(sq1: SQ, sq2: SQ) -> Self {
         unsafe { BETWEEN_BB[sq1.index()][sq2.index()] }
     }
 
     #[inline(always)]
-    pub fn oo_mask(c: Color) -> BitBoard {
+    pub fn oo_mask(c: Color) -> Self {
         if c == Color::White {
             Self::WHITE_OO_MASK
         } else {
@@ -155,7 +155,7 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub fn ooo_mask(c: Color) -> BitBoard {
+    pub fn ooo_mask(c: Color) -> Self {
         if c == Color::White {
             Self::WHITE_OOO_MASK
         } else {
@@ -164,7 +164,7 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub fn oo_blockers_mask(c: Color) -> BitBoard {
+    pub fn oo_blockers_mask(c: Color) -> Self {
         if c == Color::White {
             Self::WHITE_OO_BLOCKERS_AND_ATTACKERS_MASK
         } else {
@@ -173,7 +173,7 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub fn ooo_blockers_mask(c: Color) -> BitBoard {
+    pub fn ooo_blockers_mask(c: Color) -> Self {
         if c == Color::White {
             Self::WHITE_OOO_BLOCKERS_AND_ATTACKERS_MASK
         } else {
@@ -182,7 +182,7 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub fn ignore_ooo_danger(c: Color) -> BitBoard {
+    pub fn ignore_ooo_danger(c: Color) -> Self {
         if c == Color::White {
             Self::WHITE_OOO_DANGER
         } else {
@@ -331,7 +331,7 @@ impl Iterator for BitBoard {
     type Item = SQ;
 
     fn next(&mut self) -> Option<SQ> {
-        if *self == BitBoard::ZERO {
+        if *self == Self::ZERO {
             return None;
         }
         Some(self.pop_lsb())

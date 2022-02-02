@@ -92,7 +92,7 @@ impl TryFrom<&str> for UCICommand {
 
     fn try_from(line: &str) -> Result<Self, Self::Error> {
         if line.starts_with("ucinewgame") {
-            return Ok(UCICommand::UCINewGame);
+            return Ok(Self::UCINewGame);
         } else if line.starts_with("setoption") {
             let mut words = line.split_whitespace();
             let mut name_parts = Vec::new();
@@ -111,17 +111,17 @@ impl TryFrom<&str> for UCICommand {
             }
             let name = name_parts.last().unwrap();
             let value = value_parts.last().unwrap_or(&"");
-            return Ok(UCICommand::Option(
+            return Ok(Self::Option(
                 name.parse().unwrap(),
                 value.parse().unwrap(),
             ));
         } else if line.starts_with("uci") {
-            return Ok(UCICommand::UCI);
+            return Ok(Self::UCI);
         } else if line.starts_with("isready") {
-            return Ok(UCICommand::IsReady);
+            return Ok(Self::IsReady);
         } else if line.starts_with("go") {
             let time_control = TimeControl::from(line);
-            return Ok(UCICommand::Go(time_control));
+            return Ok(Self::Go(time_control));
         } else if line.starts_with("position") {
             let pos;
             let fen = line.trim_start_matches("position ");
@@ -139,23 +139,23 @@ impl TryFrom<&str> for UCICommand {
                     }
                 }
             }
-            return Ok(UCICommand::Position(pos, moves));
+            return Ok(Self::Position(pos, moves));
         } else if line.starts_with("quit") {
-            return Ok(UCICommand::Quit);
+            return Ok(Self::Quit);
         } else if line.starts_with("perft") {
             let depth = line
                 .split_whitespace()
                 .nth(1)
                 .and_then(|d| d.parse().ok())
                 .unwrap_or(6);
-            return Ok(UCICommand::Perft(depth));
+            return Ok(Self::Perft(depth));
         } else if line == "stop" {
-            return Ok(UCICommand::Stop);
+            return Ok(Self::Stop);
         } else if line.starts_with("tune") {
             let filename = line.split_whitespace().nth(1).unwrap();
-            return Ok(UCICommand::Tune(filename.parse().unwrap()));
+            return Ok(Self::Tune(filename.parse().unwrap()));
         } else if line.starts_with("eval") {
-            return Ok(UCICommand::Eval);
+            return Ok(Self::Eval);
         }
         Err("Unknown command.")
     }

@@ -27,7 +27,7 @@ impl Piece {
 
     #[inline(always)]
     pub fn flip(self) -> Piece {
-        Piece::from(self as u8 ^ 0b1000)
+        Self::from(self as u8 ^ 0b1000)
     }
 
     #[inline(always)]
@@ -48,19 +48,19 @@ impl Piece {
     #[inline(always)]
     pub fn nn_index(&self) -> usize {
         match self {
-            Piece::WhitePawn => 0,
-            Piece::WhiteKnight => 1,
-            Piece::WhiteBishop => 2,
-            Piece::WhiteRook => 3,
-            Piece::WhiteQueen => 4,
-            Piece::WhiteKing => 5,
-            Piece::BlackPawn => 6,
-            Piece::BlackKnight => 7,
-            Piece::BlackBishop => 8,
-            Piece::BlackRook => 9,
-            Piece::BlackQueen => 10,
-            Piece::BlackKing => 11,
-            Piece::None => panic!("No network index for no piece."),
+            Self::WhitePawn => 0,
+            Self::WhiteKnight => 1,
+            Self::WhiteBishop => 2,
+            Self::WhiteRook => 3,
+            Self::WhiteQueen => 4,
+            Self::WhiteKing => 5,
+            Self::BlackPawn => 6,
+            Self::BlackKnight => 7,
+            Self::BlackBishop => 8,
+            Self::BlackRook => 9,
+            Self::BlackQueen => 10,
+            Self::BlackKing => 11,
+            Self::None => panic!("No network index for no piece."),
         }
     }
     pub fn uci(self) -> char {

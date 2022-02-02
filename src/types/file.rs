@@ -38,7 +38,7 @@ impl Add for File {
 
     #[inline(always)]
     fn add(self, other: Self) -> Self::Output {
-        File::from(self as u8 + other as u8)
+        Self::from(self as u8 + other as u8)
     }
 }
 
@@ -47,7 +47,7 @@ impl Sub for File {
 
     #[inline(always)]
     fn sub(self, other: Self) -> Self::Output {
-        File::from(self as u8 - other as u8)
+        Self::from(self as u8 - other as u8)
     }
 }
 

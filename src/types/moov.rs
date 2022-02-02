@@ -33,7 +33,7 @@ pub enum MoveFlags {
 impl Move {
     #[inline(always)]
     pub fn new(from_sq: SQ, to_square: SQ, flags: MoveFlags) -> Self {
-        Move {
+        Self {
             m: ((flags as MoveInt) << 12) | ((from_sq as MoveInt) << 6) | (to_square as MoveInt),
             score: 0,
         }
@@ -41,7 +41,7 @@ impl Move {
 
     #[inline(always)]
     pub fn empty() -> Self {
-        Move { m: 0, score: 0 }
+        Self { m: 0, score: 0 }
     }
 
     #[inline(always)]
@@ -145,5 +145,5 @@ impl PartialEq for Move {
 }
 
 impl Move {
-    pub const NULL: Move = Move { m: 4160, score: 0 };
+    pub const NULL: Self = Self { m: 4160, score: 0 };
 }
