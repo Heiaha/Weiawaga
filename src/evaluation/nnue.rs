@@ -38,7 +38,7 @@ impl Network {
         Self {
             input_layer: Layer::new(&NNUE_FEATURE_WEIGHTS, &[]),
             hidden_layer: Layer::new(&NNUE_HIDDEN_WEIGHTS, &NNUE_HIDDEN_BIASES),
-            output_layer: Layer::new(&[], &[NNUE_OUTPUT_BIAS]),
+            output_layer: Layer::new(&[], &NNUE_OUTPUT_BIASES),
         }
     }
 
@@ -58,21 +58,23 @@ impl Network {
         }
     }
 
-    pub fn eval(&self) -> Value {
-        let mut output = self.output_layer.biases[0] as i32;
+    pub fn eval(&self, bucket: usize) -> Value {
+
+        let mut output = self.output_layer.biases[bucket] as Value;
         let mut relud;
 
-        for i in 0..self.hidden_layer.len() {
-            relud = Self::clipped_relu(self.hidden_layer.activations[i]) as i32;
-            output += relud * self.hidden_layer.weights[i] as i32;
+        let bucket_idx = bucket * self.hidden_layer.len();
+        for j in 0..self.hidden_layer.len() {
+            relud = Self::clipped_relu(self.hidden_layer.activations[i]);
+            output += relud * self.hidden_layer.weights[bucket_idx + j] as Value;
         }
 
-        (output / (Self::SCALE * Self::SCALE)) as Value
+        output / (Self::SCALE * Self::SCALE)
     }
 
     #[inline(always)]
-    pub fn clipped_relu(x: i16) -> i16 {
-        x.max(0).min(Self::SCALE as i16)
+    pub fn clipped_relu(x: i16) -> Value {
+        (x as Value).max(0).min(Self::SCALE)
     }
 }
 

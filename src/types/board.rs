@@ -142,10 +142,11 @@ impl Board {
 
     #[cfg(not(feature = "classical"))]
     pub fn eval(&self) -> Value {
+        let bucket = (self.all_pieces().pop_count() as usize - 1)/4;
         if self.color_to_play == Color::White {
-            self.network.eval()
+            self.network.eval(bucket)
         } else {
-            -self.network.eval()
+            -self.network.eval(bucket)
         }
     }
 
