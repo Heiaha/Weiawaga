@@ -111,10 +111,7 @@ impl TryFrom<&str> for UCICommand {
             }
             let name = name_parts.last().unwrap();
             let value = value_parts.last().unwrap_or(&"");
-            return Ok(Self::Option(
-                name.parse().unwrap(),
-                value.parse().unwrap(),
-            ));
+            return Ok(Self::Option(name.parse().unwrap(), value.parse().unwrap()));
         } else if line.starts_with("uci") {
             return Ok(Self::UCI);
         } else if line.starts_with("isready") {
