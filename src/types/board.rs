@@ -56,8 +56,6 @@ impl Board {
         self.material_score = Score::ZERO;
         self.p_sq_score = Score::ZERO;
         self.history = [UndoInfo::default(); N_HISTORIES];
-        self.checkers = BitBoard::ZERO;
-        self.pinned = BitBoard::ZERO;
 
         self.color_bb[Color::White.index()] = BitBoard::ZERO;
         self.color_bb[Color::Black.index()] = BitBoard::ZERO;
@@ -617,7 +615,7 @@ impl Board {
         // square and then intersecting them with the enemy bitboard of the
         // respective piece.
         ///////////////////////////////////////////////////////////////////
-        self.checkers = (attacks::knight_attacks(our_king)
+        let mut checkers = (attacks::knight_attacks(our_king)
             & self.bitboard_of(them, PieceType::Knight))
             | (attacks::pawn_attacks_sq(our_king, us) & self.bitboard_of(them, PieceType::Pawn));
 
@@ -627,7 +625,7 @@ impl Board {
         let candidates = (attacks::rook_attacks(our_king, them_bb) & their_orth_sliders)
             | (attacks::bishop_attacks(our_king, them_bb) & their_diag_sliders);
 
-        self.pinned = BitBoard::ZERO;
+        let mut pinned = BitBoard::ZERO;
         for sq in candidates {
             b1 = BitBoard::between(our_king, sq) & us_bb;
 
@@ -636,15 +634,15 @@ impl Board {
             // pieces? If yes, that piece is pinned. Otherwise, we are checked.
             ///////////////////////////////////////////////////////////////////
             if b1 == BitBoard::ZERO {
-                self.checkers ^= sq.bb();
+                checkers ^= sq.bb();
             } else if b1.is_single() {
-                self.pinned ^= b1;
+                pinned ^= b1;
             }
         }
 
-        let not_pinned = !self.pinned;
+        let not_pinned = !pinned;
 
-        match self.checkers.pop_count() {
+        match checkers.pop_count() {
             2 => {
                 ///////////////////////////////////////////////////////////////////
                 // If we're in a double check, we have to move the king. We've already
@@ -653,7 +651,7 @@ impl Board {
                 return;
             }
             1 => {
-                let checker_square = self.checkers.lsb();
+                let checker_square = checkers.lsb();
                 let pt = self.piece_at(checker_square).type_of();
                 match pt {
                     PieceType::Pawn | PieceType::Knight => {
@@ -662,7 +660,7 @@ impl Board {
                         // that can capture it.
                         ///////////////////////////////////////////////////////////////////
                         if pt == PieceType::Pawn
-                            && self.checkers
+                            && checkers
                                 == self.history[self.game_ply]
                                     .epsq()
                                     .bb()
@@ -699,7 +697,7 @@ impl Board {
                         // We have to either capture the piece or block it, since it must be
                         // a slider.
                         ///////////////////////////////////////////////////////////////////
-                        capture_mask = self.checkers;
+                        capture_mask = checkers;
                         quiet_mask = BitBoard::between(our_king, checker_square);
                     }
                 }
@@ -757,7 +755,7 @@ impl Board {
                     // and the ep square is in line with the king.
                     ///////////////////////////////////////////////////////////////////
                     b1 = b2
-                        & self.pinned
+                        & pinned
                         & BitBoard::line(self.history[self.game_ply].epsq(), our_king);
                     if b1 != BitBoard::ZERO {
                         moves.push(Move::new(
@@ -1038,32 +1036,32 @@ impl Board {
         let capture_mask: BitBoard;
         let quiet_mask: BitBoard;
 
-        self.checkers = (attacks::knight_attacks(our_king)
+        let mut checkers = (attacks::knight_attacks(our_king)
             & self.bitboard_of(them, PieceType::Knight))
             | (attacks::pawn_attacks_sq(our_king, us) & self.bitboard_of(them, PieceType::Pawn));
 
         let candidates = (attacks::rook_attacks(our_king, them_bb) & their_orth_sliders)
             | (attacks::bishop_attacks(our_king, them_bb) & their_diag_sliders);
 
-        self.pinned = BitBoard::ZERO;
+        let mut pinned = BitBoard::ZERO;
         for sq in candidates {
             b1 = BitBoard::between(our_king, sq) & us_bb;
             if b1 == BitBoard::ZERO {
-                self.checkers ^= sq.bb();
+                checkers ^= sq.bb();
             } else if b1.is_single() {
-                self.pinned ^= b1;
+                pinned ^= b1;
             }
         }
 
-        let not_pinned = !self.pinned;
+        let not_pinned = !pinned;
 
-        match self.checkers.pop_count() {
+        match checkers.pop_count() {
             2 => {
                 moves.make_q(our_king, king_attacks & !them_bb);
                 return;
             }
             1 => {
-                let checker_square = self.checkers.lsb();
+                let checker_square = checkers.lsb();
                 let pt = self.piece_at(checker_square).type_of();
                 match pt {
                     PieceType::Pawn | PieceType::Knight => {
@@ -1072,7 +1070,7 @@ impl Board {
                         // that can capture it.
                         ///////////////////////////////////////////////////////////////////
                         if pt == PieceType::Pawn
-                            && self.checkers
+                            && checkers
                                 == self.history[self.game_ply]
                                     .epsq()
                                     .bb()
@@ -1106,7 +1104,7 @@ impl Board {
                         // We have to either capture the piece or block it, since it must be
                         // a slider.
                         ///////////////////////////////////////////////////////////////////
-                        capture_mask = self.checkers;
+                        capture_mask = checkers;
                         quiet_mask = BitBoard::between(our_king, checker_square);
                     }
                 }
@@ -1138,7 +1136,7 @@ impl Board {
                         }
                     }
                     b1 = b2
-                        & self.pinned
+                        & pinned
                         & BitBoard::line(self.history[self.game_ply].epsq(), our_king);
                     if b1 != BitBoard::ZERO {
                         moves.push(Move::new(
@@ -1323,11 +1321,6 @@ impl Board {
     #[inline(always)]
     pub fn game_ply(&self) -> usize {
         self.game_ply
-    }
-
-    #[inline(always)]
-    pub fn checkers(&self) -> BitBoard {
-        self.checkers
     }
 
     #[inline(always)]
