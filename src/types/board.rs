@@ -80,7 +80,9 @@ impl Board {
     }
 
     pub fn set_piece_at(&mut self, pc: Piece, sq: SQ) {
-        self.network.activate(pc, sq);
+        if !cfg!(feature = "classical") {
+            self.network.activate(pc, sq);
+        }
         self.phase -= Score::piece_phase(pc.type_of());
         self.p_sq_score += e_constants::piece_sq_value(pc, sq);
         self.material_score += e_constants::piece_score(pc);
@@ -95,7 +97,9 @@ impl Board {
 
     pub fn remove_piece(&mut self, sq: SQ) {
         let pc = self.piece_at(sq);
-        self.network.deactivate(pc, sq);
+        if !cfg!(feature = "classical") {
+            self.network.deactivate(pc, sq);
+        }
         self.phase += Score::piece_phase(pc.type_of());
         self.p_sq_score -= e_constants::piece_sq_value(pc, sq);
         self.material_score -= e_constants::piece_score(pc);
@@ -110,8 +114,10 @@ impl Board {
 
     pub fn move_piece_quiet(&mut self, from_sq: SQ, to_sq: SQ) {
         let pc = self.piece_at(from_sq);
-        self.network.deactivate(pc, from_sq);
-        self.network.activate(pc, to_sq);
+        if !cfg!(feature = "classical") {
+            self.network.deactivate(pc, from_sq);
+            self.network.activate(pc, to_sq);
+        }
         self.p_sq_score +=
             e_constants::piece_sq_value(pc, to_sq) - e_constants::piece_sq_value(pc, from_sq);
 
