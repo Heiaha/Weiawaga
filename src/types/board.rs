@@ -38,8 +38,6 @@ pub struct Board {
     material_score: Score,
     p_sq_score: Score,
     history: [UndoInfo; N_HISTORIES],
-    checkers: BitBoard,
-    pinned: BitBoard,
     network: Network,
 }
 
@@ -1363,8 +1361,6 @@ impl Default for Board {
             material_score: Score::ZERO,
             p_sq_score: Score::ZERO,
             history: [UndoInfo::default(); N_HISTORIES],
-            checkers: BitBoard::ZERO,
-            pinned: BitBoard::ZERO,
             network: Network::new(),
         }
     }
