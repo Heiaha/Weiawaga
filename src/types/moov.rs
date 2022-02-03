@@ -103,7 +103,7 @@ impl Move {
 impl From<MoveInt> for Move {
     #[inline(always)]
     fn from(m: MoveInt) -> Self {
-        Move { m, score: 0 }
+        Self { m, score: 0 }
     }
 }
 
