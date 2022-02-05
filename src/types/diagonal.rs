@@ -1,5 +1,4 @@
 use super::bitboard::*;
-use std::mem::transmute;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Diagonal {
@@ -30,7 +29,7 @@ impl Diagonal {
 impl From<u8> for Diagonal {
     #[inline(always)]
     fn from(n: u8) -> Self {
-        unsafe { transmute::<u8, Self>(n) }
+        unsafe { std::mem::transmute::<u8, Self>(n) }
     }
 }
 
@@ -84,7 +83,7 @@ impl AntiDiagonal {
 impl From<u8> for AntiDiagonal {
     #[inline(always)]
     fn from(n: u8) -> Self {
-        unsafe { transmute::<u8, Self>(n) }
+        unsafe { std::mem::transmute::<u8, Self>(n) }
     }
 }
 

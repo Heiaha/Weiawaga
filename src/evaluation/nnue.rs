@@ -1,8 +1,8 @@
 use crate::evaluation::nnue_weights::*;
-use crate::evaluation::score::Value;
-use crate::types::board::Board;
-use crate::types::piece::Piece;
-use crate::types::square::SQ;
+use crate::evaluation::score::*;
+use crate::types::board::*;
+use crate::types::piece::*;
+use crate::types::square::*;
 
 #[derive(Clone)]
 struct Layer {

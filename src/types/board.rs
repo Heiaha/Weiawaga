@@ -10,7 +10,7 @@ use super::square::*;
 use super::undo_info::*;
 use super::zobrist;
 use crate::evaluation::e_constants;
-use crate::evaluation::nnue::Network;
+use crate::evaluation::nnue::*;
 use crate::evaluation::score::*;
 use std::cmp::min;
 use std::convert::TryFrom;

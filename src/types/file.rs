@@ -1,5 +1,4 @@
 use super::bitboard::*;
-use std::mem::transmute;
 use std::ops::*;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
@@ -29,7 +28,7 @@ impl File {
 impl From<u8> for File {
     #[inline(always)]
     fn from(n: u8) -> Self {
-        unsafe { transmute::<u8, Self>(n) }
+        unsafe { std::mem::transmute::<u8, Self>(n) }
     }
 }
 

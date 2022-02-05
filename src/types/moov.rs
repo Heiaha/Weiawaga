@@ -2,7 +2,6 @@ use super::square::*;
 use crate::search::move_sorter::*;
 use std::fmt;
 use std::fmt::Formatter;
-use std::mem::transmute;
 
 pub type MoveInt = u16;
 
@@ -110,7 +109,7 @@ impl From<MoveInt> for Move {
 impl From<u8> for MoveFlags {
     #[inline(always)]
     fn from(n: u8) -> Self {
-        unsafe { transmute::<u8, Self>(n) }
+        unsafe { std::mem::transmute::<u8, Self>(n) }
     }
 }
 

@@ -1,6 +1,5 @@
 use super::color::*;
 use std::convert::TryFrom;
-use std::mem::transmute;
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Debug)]
 pub enum Piece {
@@ -82,7 +81,7 @@ impl Piece {
 impl From<u8> for Piece {
     #[inline(always)]
     fn from(n: u8) -> Self {
-        unsafe { transmute::<u8, Self>(n) }
+        unsafe { std::mem::transmute::<u8, Self>(n) }
     }
 }
 
@@ -146,7 +145,7 @@ impl PieceType {
 impl From<u8> for PieceType {
     #[inline(always)]
     fn from(n: u8) -> Self {
-        unsafe { transmute::<u8, Self>(n) }
+        unsafe { std::mem::transmute::<u8, Self>(n) }
     }
 }
 

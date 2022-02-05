@@ -4,7 +4,6 @@ use super::diagonal::*;
 use super::file::*;
 use super::rank::*;
 use std::fmt;
-use std::mem::transmute;
 use std::ops::*;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
@@ -111,7 +110,7 @@ impl fmt::Display for SQ {
 impl From<u8> for SQ {
     #[inline(always)]
     fn from(n: u8) -> Self {
-        unsafe { transmute::<u8, Self>(n) }
+        unsafe { std::mem::transmute::<u8, Self>(n) }
     }
 }
 
@@ -193,6 +192,6 @@ impl Direction {
 impl From<i8> for Direction {
     #[inline(always)]
     fn from(n: i8) -> Self {
-        unsafe { transmute::<i8, Self>(n) }
+        unsafe { std::mem::transmute::<i8, Self>(n) }
     }
 }

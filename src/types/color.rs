@@ -1,4 +1,3 @@
-use std::mem::transmute;
 use std::ops::Not;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -17,7 +16,7 @@ impl Color {
 impl From<u8> for Color {
     #[inline(always)]
     fn from(n: u8) -> Self {
-        unsafe { transmute::<u8, Self>(n) }
+        unsafe { std::mem::transmute::<u8, Self>(n) }
     }
 }
 
