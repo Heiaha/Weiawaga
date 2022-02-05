@@ -1,5 +1,6 @@
 use crate::evaluation::nnue_weights::*;
 use crate::evaluation::score::Value;
+use crate::types::board::Board;
 use crate::types::piece::Piece;
 use crate::types::square::SQ;
 
@@ -18,54 +19,49 @@ impl Layer {
             activations: Vec::from(biases),
         }
     }
-
-    #[inline(always)]
-    pub fn len(&self) -> usize {
-        self.activations.len()
-    }
 }
 
 #[derive(Clone)]
 pub struct Network {
     input_layer: Layer,
     hidden_layer: Layer,
-    output_layer: Layer,
 }
 
 impl Network {
     pub fn new() -> Self {
         Self {
-            input_layer: Layer::new(&NNUE_FEATURE_WEIGHTS, &[]),
+            input_layer: Layer::new(&NNUE_INPUT_WEIGHTS, &NNUE_INPUT_BIASES),
             hidden_layer: Layer::new(&NNUE_HIDDEN_WEIGHTS, &NNUE_HIDDEN_BIASES),
-            output_layer: Layer::new(&[], &NNUE_OUTPUT_BIASES),
         }
     }
 
     #[inline(always)]
     pub fn activate(&mut self, piece: Piece, sq: SQ) {
-        let feature_idx = (piece.nn_index() * SQ::N_SQUARES + sq.index()) * self.hidden_layer.len();
-        for j in 0..self.hidden_layer.len() {
-            self.hidden_layer.activations[j] += self.input_layer.weights[feature_idx + j];
+        let feature_idx =
+            (piece.nn_index() * SQ::N_SQUARES + sq.index()) * self.input_layer.activations.len();
+        for j in 0..self.input_layer.activations.len() {
+            self.input_layer.activations[j] += self.input_layer.weights[feature_idx + j];
         }
     }
 
     #[inline(always)]
     pub fn deactivate(&mut self, piece: Piece, sq: SQ) {
-        let feature_idx = (piece.nn_index() * SQ::N_SQUARES + sq.index()) * self.hidden_layer.len();
-        for j in 0..self.hidden_layer.len() {
-            self.hidden_layer.activations[j] -= self.input_layer.weights[feature_idx + j];
+        let feature_idx =
+            (piece.nn_index() * SQ::N_SQUARES + sq.index()) * self.input_layer.activations.len();
+        for j in 0..self.input_layer.activations.len() {
+            self.input_layer.activations[j] -= self.input_layer.weights[feature_idx + j];
         }
     }
 
-    pub fn eval(&self, bucket: usize) -> Value {
-        let mut output = self.output_layer.biases[bucket] as Value;
-        let bucket_idx = bucket * self.hidden_layer.len();
+    pub fn eval(&self, board: &Board) -> Value {
+        let bucket = (board.all_pieces().pop_count() as usize - 1) / 4;
+        let bucket_idx = bucket * self.input_layer.activations.len();
+        let mut output = self.hidden_layer.biases[bucket] as Value;
 
-        for j in 0..self.hidden_layer.len() {
-            output += Self::clipped_relu(self.hidden_layer.activations[j])
+        for j in 0..self.input_layer.activations.len() {
+            output += Self::clipped_relu(self.input_layer.activations[j])
                 * self.hidden_layer.weights[bucket_idx + j] as Value;
         }
-
         output / (Self::SCALE * Self::SCALE)
     }
 
