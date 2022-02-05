@@ -59,12 +59,11 @@ impl Network {
 
     pub fn eval(&self, bucket: usize) -> Value {
         let mut output = self.output_layer.biases[bucket] as Value;
-        let mut relud;
-
         let bucket_idx = bucket * self.hidden_layer.len();
+
         for j in 0..self.hidden_layer.len() {
-            relud = Self::clipped_relu(self.hidden_layer.activations[j]);
-            output += relud * self.hidden_layer.weights[bucket_idx + j] as Value;
+            output += Self::clipped_relu(self.hidden_layer.activations[j])
+                * self.hidden_layer.weights[bucket_idx + j] as Value;
         }
 
         output / (Self::SCALE * Self::SCALE)

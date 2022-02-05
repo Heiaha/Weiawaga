@@ -758,9 +758,7 @@ impl Board {
                     // Pinned pawns can only capture ep if they are pinned diagonally
                     // and the ep square is in line with the king.
                     ///////////////////////////////////////////////////////////////////
-                    b1 = b2
-                        & pinned
-                        & BitBoard::line(self.history[self.game_ply].epsq(), our_king);
+                    b1 = b2 & pinned & BitBoard::line(self.history[self.game_ply].epsq(), our_king);
                     if b1 != BitBoard::ZERO {
                         moves.push(Move::new(
                             b1.lsb(),
@@ -1139,9 +1137,7 @@ impl Board {
                             ));
                         }
                     }
-                    b1 = b2
-                        & pinned
-                        & BitBoard::line(self.history[self.game_ply].epsq(), our_king);
+                    b1 = b2 & pinned & BitBoard::line(self.history[self.game_ply].epsq(), our_king);
                     if b1 != BitBoard::ZERO {
                         moves.push(Move::new(
                             b1.lsb(),
