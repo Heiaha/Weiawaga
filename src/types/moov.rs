@@ -2,6 +2,7 @@ use super::square::*;
 use crate::search::move_sorter::*;
 use std::fmt;
 use std::fmt::Formatter;
+use crate::types::piece::PieceType;
 
 pub type MoveInt = u16;
 
@@ -79,8 +80,19 @@ impl Move {
     }
 
     #[inline(always)]
-    pub fn is_promotion(&self) -> bool {
-        ((self.m >> 12) & 0b1000) != 0
+    pub fn is_ep(&self) -> bool {
+        self.flags() == MoveFlags::EnPassant
+    }
+
+    #[inline(always)]
+    pub fn promotion(&self) -> Option<PieceType> {
+        return match self.flags() {
+            MoveFlags::PrKnight | MoveFlags::PcKnight => Some(PieceType::Knight),
+            MoveFlags::PrBishop | MoveFlags::PcBishop => Some(PieceType::Bishop),
+            MoveFlags::PrRook | MoveFlags::PcRook => Some(PieceType::Rook),
+            MoveFlags::PrQueen | MoveFlags::PcQueen => Some(PieceType::Queen),
+            _ => None
+        }
     }
 
     #[inline(always)]

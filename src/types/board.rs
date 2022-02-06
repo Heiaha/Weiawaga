@@ -1532,8 +1532,8 @@ impl fmt::Debug for Board {
                 let file = File::from(file_idx);
                 let sq = SQ::encode(rank, file);
                 let pc = self.piece_at(sq);
-                let char = if pc != Piece::None { pc.uci() } else { '-' };
-                s.push(char);
+                let c = if pc != Piece::None { pc.uci() } else { '-' };
+                s.push(c);
                 s.push(' ');
                 if sq.file() == File::H {
                     s.push('\n');

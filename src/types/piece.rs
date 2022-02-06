@@ -21,7 +21,7 @@ pub enum Piece {
 impl Piece {
     #[inline(always)]
     pub fn index(self) -> usize {
-        self as usize
+        self as usize - 2 * self.color_of().index()
     }
 
     #[inline(always)]
@@ -44,24 +44,6 @@ impl Piece {
         Self::from(((color as u8) << 3) + pt as u8)
     }
 
-    #[inline(always)]
-    pub fn nn_index(&self) -> usize {
-        match self {
-            Self::WhitePawn => 0,
-            Self::WhiteKnight => 1,
-            Self::WhiteBishop => 2,
-            Self::WhiteRook => 3,
-            Self::WhiteQueen => 4,
-            Self::WhiteKing => 5,
-            Self::BlackPawn => 6,
-            Self::BlackKnight => 7,
-            Self::BlackBishop => 8,
-            Self::BlackRook => 9,
-            Self::BlackQueen => 10,
-            Self::BlackKing => 11,
-            Self::None => panic!("No network index for no piece."),
-        }
-    }
     pub fn uci(self) -> char {
         Self::PIECE_STR.chars().nth(self.index()).unwrap()
     }
@@ -71,10 +53,9 @@ impl Piece {
     // https://github.com/rust-lang/rust/issues/42168
     #[inline(always)]
     pub fn iter(start: Self, end: Self) -> impl Iterator<Item = Self> {
-        Self::ALL[start.index()..=end.index()]
-            .iter()
-            .copied()
-            .filter(|x| *x != Self::None)
+        (start as u8..=end as u8)
+            .filter(|n| !matches!(n, 0b0110 | 0b0111)) // Skip over 6 and 7, as they're not assigned to a piece so as to align color bits
+            .map(|n| Self::from(n))
     }
 }
 
@@ -99,25 +80,8 @@ impl TryFrom<char> for Piece {
 }
 
 impl Piece {
-    pub const N_PIECES: usize = 15;
+    pub const N_PIECES: usize = 13;
     const PIECE_STR: &'static str = "PNBRQK  pnbrqk ";
-    const ALL: [Self; Self::N_PIECES] = [
-        Self::WhitePawn,
-        Self::WhiteKnight,
-        Self::WhiteBishop,
-        Self::WhiteRook,
-        Self::WhiteQueen,
-        Self::WhiteKing,
-        Self::None,
-        Self::None,
-        Self::BlackPawn,
-        Self::BlackKnight,
-        Self::BlackBishop,
-        Self::BlackRook,
-        Self::BlackQueen,
-        Self::BlackKing,
-        Self::None,
-    ];
 }
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Debug)]
@@ -138,7 +102,7 @@ impl PieceType {
 
     #[inline(always)]
     pub fn iter(start: Self, end: Self) -> impl Iterator<Item = Self> {
-        Self::ALL[start.index()..=end.index()].iter().copied()
+        (start as u8..=end as u8).map(|n| Self::from(n))
     }
 }
 
@@ -151,12 +115,4 @@ impl From<u8> for PieceType {
 
 impl PieceType {
     pub const N_PIECE_TYPES: usize = 6;
-    const ALL: [Self; Self::N_PIECE_TYPES] = [
-        Self::Pawn,
-        Self::Knight,
-        Self::Bishop,
-        Self::Rook,
-        Self::Queen,
-        Self::King,
-    ];
 }

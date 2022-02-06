@@ -5,6 +5,7 @@ use crate::types::board::*;
 use crate::types::color::*;
 use crate::types::moov::*;
 use crate::types::move_list::*;
+use crate::types::piece::PieceType;
 use crate::types::square::*;
 
 pub type SortScore = i16;
@@ -59,7 +60,7 @@ impl MoveSorter {
             }
 
             if m.is_capture() {
-                if m.flags() == MoveFlags::EnPassant {
+                if m.is_ep() {
                     m.add_to_score(Self::WINNING_CAPTURES_OFFSET);
                     continue;
                 }
@@ -73,18 +74,18 @@ impl MoveSorter {
                 }
             }
 
-            if m.is_promotion() {
-                match m.flags() {
-                    MoveFlags::PcBishop | MoveFlags::PrBishop => {
-                        m.add_to_score(Self::BISHOP_PROMOTION_SCORE);
-                    }
-                    MoveFlags::PcKnight | MoveFlags::PrKnight => {
+            if let Some(promo_piece) = m.promotion() {
+                match promo_piece {
+                    PieceType::Knight => {
                         m.add_to_score(Self::KNIGHT_PROMOTION_SCORE);
                     }
-                    MoveFlags::PcRook | MoveFlags::PrRook => {
+                    PieceType::Bishop => {
+                        m.add_to_score(Self::BISHOP_PROMOTION_SCORE);
+                    }
+                    PieceType::Rook => {
                         m.add_to_score(Self::ROOK_PROMOTION_SCORE);
                     }
-                    MoveFlags::PcQueen | MoveFlags::PrQueen => {
+                    PieceType::Queen => {
                         m.add_to_score(Self::QUEEN_PROMOTION_SCORE);
                     }
                     _ => {}

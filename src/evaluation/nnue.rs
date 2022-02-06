@@ -38,7 +38,7 @@ impl Network {
     #[inline(always)]
     pub fn activate(&mut self, piece: Piece, sq: SQ) {
         let feature_idx =
-            (piece.nn_index() * SQ::N_SQUARES + sq.index()) * self.input_layer.activations.len();
+            (piece.index() * SQ::N_SQUARES + sq.index()) * self.input_layer.activations.len();
         for j in 0..self.input_layer.activations.len() {
             self.input_layer.activations[j] += self.input_layer.weights[feature_idx + j];
         }
@@ -47,7 +47,7 @@ impl Network {
     #[inline(always)]
     pub fn deactivate(&mut self, piece: Piece, sq: SQ) {
         let feature_idx =
-            (piece.nn_index() * SQ::N_SQUARES + sq.index()) * self.input_layer.activations.len();
+            (piece.index() * SQ::N_SQUARES + sq.index()) * self.input_layer.activations.len();
         for j in 0..self.input_layer.activations.len() {
             self.input_layer.activations[j] -= self.input_layer.weights[feature_idx + j];
         }
