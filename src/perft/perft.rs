@@ -3,14 +3,14 @@ use crate::types::board::*;
 use crate::types::move_list::*;
 use std::time::Instant;
 
-pub fn perft(board: &mut Board, depth: Depth) -> usize {
+pub fn perft(board: &mut Board, depth: Depth) -> u128 {
     let moves: MoveList = MoveList::from(board);
 
     if depth == 1 {
-        return moves.len();
+        return moves.len() as u128;
     }
 
-    let mut nodes: usize = 0;
+    let mut nodes = 0;
 
     for m in moves {
         board.push(m);
@@ -20,11 +20,11 @@ pub fn perft(board: &mut Board, depth: Depth) -> usize {
     nodes
 }
 
-pub fn print_perft(board: &mut Board, depth: Depth) -> usize {
-    let moves: MoveList = MoveList::from(board);
-
-    let mut nodes: usize = 0;
+pub fn print_perft(board: &mut Board, depth: Depth) -> u128 {
     let now = Instant::now();
+
+    let moves: MoveList = MoveList::from(board);
+    let mut nodes = 0;
     for m in moves {
         print!("{}: ", m.to_string());
         board.push(m);
@@ -33,14 +33,14 @@ pub fn print_perft(board: &mut Board, depth: Depth) -> usize {
         nodes += move_nodes;
         println!("{}", move_nodes);
     }
-    let elapsed = now.elapsed().as_millis() as f64 / 1000.0_f64;
+    let elapsed = now.elapsed().as_millis() / 1000;
     println!();
     println!("{:?}", board);
     println!("FEN: {}", board);
     println!("Hash: {}", board.hash());
     println!("Nodes: {}", nodes);
-    if elapsed > 0.0 {
-        println!("NPS: {:.0}", nodes as f64 / elapsed);
+    if elapsed > 0 {
+        println!("NPS: {:.0}", nodes / elapsed);
         println!("Elapsed: {:.1} seconds", elapsed);
     }
     nodes

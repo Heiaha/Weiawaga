@@ -163,12 +163,13 @@ pub fn pawns_shield_mask(color: Color, sq: SQ) -> BitBoard {
 
 fn init_pawn_shields(pawn_shields: &mut [[BitBoard; SQ::N_SQUARES]; Color::N_COLORS]) {
     for sq in BitBoard::ALL {
-        pawn_shields[Color::White.index()][sq.index()] = sq.bb().shift(Direction::North, 1)
-            | sq.bb().shift(Direction::NorthEast, 1)
-            | sq.bb().shift(Direction::NorthWest, 1);
-        pawn_shields[Color::Black.index()][sq.index()] = sq.bb().shift(Direction::South, 1)
-            | sq.bb().shift(Direction::SouthEast, 1)
-            | sq.bb().shift(Direction::SouthWest, 1);
+        let sq_bb = sq.bb();
+        pawn_shields[Color::White.index()][sq.index()] = sq_bb.shift(Direction::North)
+            | sq_bb.shift(Direction::NorthEast)
+            | sq_bb.shift(Direction::NorthWest);
+        pawn_shields[Color::Black.index()][sq.index()] = sq_bb.shift(Direction::South)
+            | sq_bb.shift(Direction::SouthEast)
+            | sq_bb.shift(Direction::SouthWest);
     }
 }
 

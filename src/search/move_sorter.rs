@@ -8,8 +8,6 @@ use crate::types::move_list::*;
 use crate::types::piece::PieceType;
 use crate::types::square::*;
 
-pub type SortScore = i16;
-
 const N_KILLER: usize = 3;
 
 #[derive(Clone)]
@@ -74,33 +72,24 @@ impl MoveSorter {
                 }
             }
 
-            if let Some(promo_piece) = m.promotion() {
-                match promo_piece {
-                    PieceType::Knight => {
-                        m.add_to_score(Self::KNIGHT_PROMOTION_SCORE);
-                    }
-                    PieceType::Bishop => {
-                        m.add_to_score(Self::BISHOP_PROMOTION_SCORE);
-                    }
-                    PieceType::Rook => {
-                        m.add_to_score(Self::ROOK_PROMOTION_SCORE);
-                    }
-                    PieceType::Queen => {
-                        m.add_to_score(Self::QUEEN_PROMOTION_SCORE);
-                    }
-                    _ => {}
-                }
-            }
+            m.add_to_score(match m.promotion() {
+                PieceType::Knight => Self::KNIGHT_PROMOTION_SCORE,
+                PieceType::Bishop => Self::BISHOP_PROMOTION_SCORE,
+                PieceType::Rook => Self::ROOK_PROMOTION_SCORE,
+                PieceType::Queen => Self::QUEEN_PROMOTION_SCORE,
+                PieceType::None => 0,
+                _ => unreachable!(),
+            });
         }
     }
 
-    pub fn add_killer(&mut self, board: &Board, m: Move, ply: Ply) {
+    pub fn add_killer(&mut self, board: &Board, m: &Move, ply: Ply) {
         let color = board.color_to_play() as usize;
         self.killer_moves[color][ply].rotate_right(1);
-        self.killer_moves[color][ply][0] = Some(m);
+        self.killer_moves[color][ply][0] = Some(*m);
     }
 
-    pub fn add_history(&mut self, m: Move, depth: Depth) {
+    pub fn add_history(&mut self, m: &Move, depth: Depth) {
         debug_assert!(depth >= 0, "Depth is less than 0 in the history heuristic!");
 
         let depth = depth as SortScore;

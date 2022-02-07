@@ -366,8 +366,8 @@ impl<'a> Search<'a> {
                 best_move = Some(m);
                 if value >= beta {
                     if m.is_quiet() {
-                        self.move_sorter.add_killer(board, m, ply);
-                        self.move_sorter.add_history(m, depth);
+                        self.move_sorter.add_killer(&board, &m, ply);
+                        self.move_sorter.add_history(&m, depth);
                     }
                     self.stats.beta_cutoffs += 1;
                     tt_flag = TTFlag::Lower;
@@ -412,8 +412,6 @@ impl<'a> Search<'a> {
         self.sel_depth = max(self.sel_depth, ply);
         self.stats.qnodes += 1;
 
-        // let mut value = eval(board);
-
         let mut value = board.eval();
 
         if value >= beta {
@@ -429,7 +427,7 @@ impl<'a> Search<'a> {
 
         let mut moves = MoveList::from_q(board);
         self.move_sorter
-            .score_moves(&mut moves, board, ply, &hash_move);
+            .score_moves(&mut moves, &board, ply, &hash_move);
 
         while let Some(m) = moves.next_best() {
             ///////////////////////////////////////////////////////////////////
@@ -563,7 +561,7 @@ impl<'a> Search<'a> {
 }
 
 impl<'a> Search<'a> {
-    const PRINT_CURRMOVENUMBER_TIME_MILLIS: u64 = 3000;
+    const PRINT_CURRMOVENUMBER_TIME_MILLIS: Time = 3000;
     const SEARCHES_WO_TIMER_UPDATE: Depth = 4;
     const RFP_MAX_DEPTH: Depth = 8;
     const RFP_MARGIN_MULTIPLIER: Value = 120;

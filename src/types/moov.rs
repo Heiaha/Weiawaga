@@ -1,33 +1,15 @@
 use super::square::*;
-use crate::search::move_sorter::*;
+use crate::types::piece::PieceType;
 use std::fmt;
 use std::fmt::Formatter;
-use crate::types::piece::PieceType;
 
 pub type MoveInt = u16;
+pub type SortScore = i16;
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct Move {
     m: MoveInt,
     score: SortScore,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum MoveFlags {
-    Quiet = 0b0000,
-    DoublePush = 0b0001,
-    OO = 0b0010,
-    OOO = 0b0011,
-    Capture = 0b0100,
-    EnPassant = 0b0101,
-    PrKnight = 0b1000,
-    PrBishop = 0b1001,
-    PrRook = 0b1010,
-    PrQueen = 0b1011,
-    PcKnight = 0b1100,
-    PcBishop = 0b1101,
-    PcRook = 0b1110,
-    PcQueen = 0b1111,
 }
 
 impl Move {
@@ -85,14 +67,14 @@ impl Move {
     }
 
     #[inline(always)]
-    pub fn promotion(&self) -> Option<PieceType> {
+    pub fn promotion(&self) -> PieceType {
         return match self.flags() {
-            MoveFlags::PrKnight | MoveFlags::PcKnight => Some(PieceType::Knight),
-            MoveFlags::PrBishop | MoveFlags::PcBishop => Some(PieceType::Bishop),
-            MoveFlags::PrRook | MoveFlags::PcRook => Some(PieceType::Rook),
-            MoveFlags::PrQueen | MoveFlags::PcQueen => Some(PieceType::Queen),
-            _ => None
-        }
+            MoveFlags::PrKnight | MoveFlags::PcKnight => PieceType::Knight,
+            MoveFlags::PrBishop | MoveFlags::PcBishop => PieceType::Bishop,
+            MoveFlags::PrRook | MoveFlags::PcRook => PieceType::Rook,
+            MoveFlags::PrQueen | MoveFlags::PcQueen => PieceType::Queen,
+            _ => PieceType::None,
+        };
     }
 
     #[inline(always)]
@@ -118,34 +100,15 @@ impl From<MoveInt> for Move {
     }
 }
 
-impl From<u8> for MoveFlags {
-    #[inline(always)]
-    fn from(n: u8) -> Self {
-        unsafe { std::mem::transmute::<u8, Self>(n) }
-    }
-}
-
 impl fmt::Display for Move {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let mut uci = String::new();
-        uci.push_str(&*self.from_sq().to_string());
-        uci.push_str(&*self.to_sq().to_string());
-        match self.flags() {
-            MoveFlags::PrKnight | MoveFlags::PcKnight => {
-                uci.push('n');
-            }
-            MoveFlags::PrBishop | MoveFlags::PcBishop => {
-                uci.push('b');
-            }
-            MoveFlags::PrRook | MoveFlags::PcRook => {
-                uci.push('r');
-            }
-            MoveFlags::PrQueen | MoveFlags::PcQueen => {
-                uci.push('q');
-            }
-            _ => {}
-        }
-        write!(f, "{}", uci)
+        write!(
+            f,
+            "{}{}{}",
+            self.from_sq().to_string(),
+            self.to_sq().to_string(),
+            self.promotion().to_string()
+        )
     }
 }
 
@@ -157,4 +120,29 @@ impl PartialEq for Move {
 
 impl Move {
     pub const NULL: Self = Self { m: 4160, score: 0 };
+}
+
+#[derive(Debug, PartialEq)]
+pub enum MoveFlags {
+    Quiet = 0b0000,
+    DoublePush = 0b0001,
+    OO = 0b0010,
+    OOO = 0b0011,
+    Capture = 0b0100,
+    EnPassant = 0b0101,
+    PrKnight = 0b1000,
+    PrBishop = 0b1001,
+    PrRook = 0b1010,
+    PrQueen = 0b1011,
+    PcKnight = 0b1100,
+    PcBishop = 0b1101,
+    PcRook = 0b1110,
+    PcQueen = 0b1111,
+}
+
+impl From<u8> for MoveFlags {
+    #[inline(always)]
+    fn from(n: u8) -> Self {
+        unsafe { std::mem::transmute::<u8, Self>(n) }
+    }
 }

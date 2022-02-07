@@ -51,51 +51,20 @@ impl BitBoard {
         self.0.count_ones() as Value
     }
 
-    pub fn shift(self, dir: Direction, n: u32) -> Self {
+    pub fn shift(self, dir: Direction) -> Self {
         let mut result = self;
 
         match dir {
-            Direction::North => {
-                for _ in 0..n {
-                    result <<= 8;
-                }
-            }
-            Direction::South => {
-                for _ in 0..n {
-                    result >>= 8;
-                }
-            }
-            Direction::East => {
-                for _ in 0..n {
-                    result = (result << 1) & !File::A.bb();
-                }
-            }
-            Direction::West => {
-                for _ in 0..n {
-                    result = (result >> 1) & !File::H.bb();
-                }
-            }
-            Direction::NorthEast => {
-                for _ in 0..n {
-                    result = (result & !File::H.bb()) << 9;
-                }
-            }
-            Direction::NorthWest => {
-                for _ in 0..n {
-                    result = (result & !File::A.bb()) << 7;
-                }
-            }
-            Direction::SouthEast => {
-                for _ in 0..n {
-                    result = (result & !File::H.bb()) >> 7;
-                }
-            }
-            Direction::SouthWest => {
-                for _ in 0..n {
-                    result = (result & !File::A.bb()) >> 9;
-                }
-            }
-            _ => {}
+            Direction::North => result <<= 8,
+            Direction::South => result >>= 8,
+            Direction::NorthNorth => result <<= 16,
+            Direction::SouthSouth => result >>= 16,
+            Direction::East => result = (result << 1) & !File::A.bb(),
+            Direction::West => result = (result >> 1) & !File::H.bb(),
+            Direction::NorthEast => result = (result & !File::H.bb()) << 9,
+            Direction::NorthWest => result = (result & !File::A.bb()) << 7,
+            Direction::SouthEast => result = (result & !File::H.bb()) >> 7,
+            Direction::SouthWest => result = (result & !File::A.bb()) >> 9,
         }
         result
     }

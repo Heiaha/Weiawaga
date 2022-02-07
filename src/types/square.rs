@@ -123,15 +123,12 @@ impl TryFrom<&str> for SQ {
     type Error = &'static str;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        if Self::SQ_DISPLAY.contains(&value) {
-            return Ok(Self::from(
-                Self::SQ_DISPLAY
-                    .iter()
-                    .position(|potential| *potential == value)
-                    .unwrap() as u8,
-            ));
-        }
-        Err("Invalid square")
+        return Ok(Self::from(
+            Self::SQ_DISPLAY
+                .iter()
+                .position(|potential_sq_str| *potential_sq_str == value)
+                .ok_or("Invalid square.")? as u8,
+        ));
     }
 }
 
@@ -140,23 +137,15 @@ impl SQ {
 
     #[rustfmt::skip]
     const SQUARES_BB: [BitBoard; Self::N_SQUARES + 1] = [
-        BitBoard(1 << 0),  BitBoard(1 << 1),  BitBoard(1 << 2),  BitBoard(1 << 3),
-        BitBoard(1 << 4),  BitBoard(1 << 5),  BitBoard(1 << 6),  BitBoard(1 << 7),
-        BitBoard(1 << 8),  BitBoard(1 << 9),  BitBoard(1 << 10), BitBoard(1 << 11),
-        BitBoard(1 << 12), BitBoard(1 << 13), BitBoard(1 << 14), BitBoard(1 << 15),
-        BitBoard(1 << 16), BitBoard(1 << 17), BitBoard(1 << 18), BitBoard(1 << 19),
-        BitBoard(1 << 20), BitBoard(1 << 21), BitBoard(1 << 22), BitBoard(1 << 23),
-        BitBoard(1 << 24), BitBoard(1 << 25), BitBoard(1 << 26), BitBoard(1 << 27),
-        BitBoard(1 << 28), BitBoard(1 << 29), BitBoard(1 << 30), BitBoard(1 << 31),
-        BitBoard(1 << 32), BitBoard(1 << 33), BitBoard(1 << 34), BitBoard(1 << 35),
-        BitBoard(1 << 36), BitBoard(1 << 37), BitBoard(1 << 38), BitBoard(1 << 39),
-        BitBoard(1 << 40), BitBoard(1 << 41), BitBoard(1 << 42), BitBoard(1 << 43),
-        BitBoard(1 << 44), BitBoard(1 << 45), BitBoard(1 << 46), BitBoard(1 << 47),
-        BitBoard(1 << 48), BitBoard(1 << 49), BitBoard(1 << 50), BitBoard(1 << 51),
-        BitBoard(1 << 52), BitBoard(1 << 53), BitBoard(1 << 54), BitBoard(1 << 55),
-        BitBoard(1 << 56), BitBoard(1 << 57), BitBoard(1 << 58), BitBoard(1 << 59),
-        BitBoard(1 << 60), BitBoard(1 << 61), BitBoard(1 << 62), BitBoard(1 << 63),
-        BitBoard(0)
+        B!(1 << 0),  B!(1 << 1),  B!(1 << 2),  B!(1 << 3),  B!(1 << 4),  B!(1 << 5),  B!(1 << 6),  B!(1 << 7),
+        B!(1 << 8),  B!(1 << 9),  B!(1 << 10), B!(1 << 11), B!(1 << 12), B!(1 << 13), B!(1 << 14), B!(1 << 15),
+        B!(1 << 16), B!(1 << 17), B!(1 << 18), B!(1 << 19), B!(1 << 20), B!(1 << 21), B!(1 << 22), B!(1 << 23),
+        B!(1 << 24), B!(1 << 25), B!(1 << 26), B!(1 << 27), B!(1 << 28), B!(1 << 29), B!(1 << 30), B!(1 << 31),
+        B!(1 << 32), B!(1 << 33), B!(1 << 34), B!(1 << 35), B!(1 << 36), B!(1 << 37), B!(1 << 38), B!(1 << 39),
+        B!(1 << 40), B!(1 << 41), B!(1 << 42), B!(1 << 43), B!(1 << 44), B!(1 << 45), B!(1 << 46), B!(1 << 47),
+        B!(1 << 48), B!(1 << 49), B!(1 << 50), B!(1 << 51), B!(1 << 52), B!(1 << 53), B!(1 << 54), B!(1 << 55),
+        B!(1 << 56), B!(1 << 57), B!(1 << 58), B!(1 << 59), B!(1 << 60), B!(1 << 61), B!(1 << 62), B!(1 << 63),
+        B!(0)
     ];
 
     #[rustfmt::skip]

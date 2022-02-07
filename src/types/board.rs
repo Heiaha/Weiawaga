@@ -667,7 +667,7 @@ impl Board {
                                 == self.history[self.game_ply]
                                     .epsq()
                                     .bb()
-                                    .shift(Direction::South.relative(us), 1)
+                                    .shift(Direction::South.relative(us))
                         {
                             b1 = attacks::pawn_attacks_sq(self.history[self.game_ply].epsq(), them)
                                 & self.bitboard_of(us, PieceType::Pawn)
@@ -741,7 +741,7 @@ impl Board {
                                 ^ self.history[self.game_ply]
                                     .epsq()
                                     .bb()
-                                    .shift(Direction::South.relative(us), 1),
+                                    .shift(Direction::South.relative(us)),
                             our_king.rank().bb(),
                         );
 
@@ -829,11 +829,11 @@ impl Board {
                         ///////////////////////////////////////////////////////////////////
                         // Single and double pawn pushes
                         ///////////////////////////////////////////////////////////////////
-                        b2 = sq.bb().shift(Direction::North.relative(us), 1)
+                        b2 = sq.bb().shift(Direction::North.relative(us))
                             & !all
                             & BitBoard::line(our_king, sq);
                         b3 = (b2 & Rank::Three.relative(us).bb())
-                            .shift(Direction::North.relative(us), 1)
+                            .shift(Direction::North.relative(us))
                             & !all
                             & BitBoard::line(our_king, sq);
 
@@ -869,9 +869,8 @@ impl Board {
         }
 
         b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & !Rank::Seven.relative(us).bb();
-        b2 = b1.shift(Direction::North.relative(us), 1) & !all;
-        b3 = (b2 & Rank::Three.relative(us).bb()).shift(Direction::North.relative(us), 1)
-            & quiet_mask;
+        b2 = b1.shift(Direction::North.relative(us)) & !all;
+        b3 = (b2 & Rank::Three.relative(us).bb()).shift(Direction::North.relative(us)) & quiet_mask;
 
         b2 &= quiet_mask;
 
@@ -891,8 +890,8 @@ impl Board {
             ));
         }
 
-        b2 = b1.shift(Direction::NorthWest.relative(us), 1) & capture_mask;
-        b3 = b1.shift(Direction::NorthEast.relative(us), 1) & capture_mask;
+        b2 = b1.shift(Direction::NorthWest.relative(us)) & capture_mask;
+        b3 = b1.shift(Direction::NorthEast.relative(us)) & capture_mask;
 
         for sq in b2 {
             moves.push(Move::new(
@@ -913,7 +912,7 @@ impl Board {
         b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & Rank::Seven.relative(us).bb();
 
         if b1 != BitBoard::ZERO {
-            b2 = b1.shift(Direction::North.relative(us), 1) & quiet_mask;
+            b2 = b1.shift(Direction::North.relative(us)) & quiet_mask;
             for sq in b2 {
                 moves.push(Move::new(
                     sq - Direction::North.relative(us),
@@ -937,8 +936,8 @@ impl Board {
                 ));
             }
 
-            b2 = b1.shift(Direction::NorthWest.relative(us), 1) & capture_mask;
-            b3 = b1.shift(Direction::NorthEast.relative(us), 1) & capture_mask;
+            b2 = b1.shift(Direction::NorthWest.relative(us)) & capture_mask;
+            b3 = b1.shift(Direction::NorthEast.relative(us)) & capture_mask;
             for sq in b2 {
                 moves.push(Move::new(
                     sq - Direction::NorthWest.relative(us),
@@ -1075,7 +1074,7 @@ impl Board {
                                 == self.history[self.game_ply]
                                     .epsq()
                                     .bb()
-                                    .shift(Direction::South.relative(us), 1)
+                                    .shift(Direction::South.relative(us))
                         {
                             b1 = attacks::pawn_attacks_sq(self.history[self.game_ply].epsq(), them)
                                 & self.bitboard_of(us, PieceType::Pawn)
@@ -1124,7 +1123,7 @@ impl Board {
                                 ^ self.history[self.game_ply]
                                     .epsq()
                                     .bb()
-                                    .shift(Direction::South.relative(us), 1),
+                                    .shift(Direction::South.relative(us)),
                             our_king.rank().bb(),
                         );
 
@@ -1186,8 +1185,8 @@ impl Board {
         }
 
         b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & !Rank::Seven.relative(us).bb();
-        b2 = b1.shift(Direction::NorthWest.relative(us), 1) & capture_mask;
-        b3 = b1.shift(Direction::NorthEast.relative(us), 1) & capture_mask;
+        b2 = b1.shift(Direction::NorthWest.relative(us)) & capture_mask;
+        b3 = b1.shift(Direction::NorthEast.relative(us)) & capture_mask;
 
         for sq in b2 {
             moves.push(Move::new(
@@ -1207,7 +1206,7 @@ impl Board {
 
         b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & Rank::Seven.relative(us).bb();
         if b1 != BitBoard::ZERO {
-            b2 = b1.shift(Direction::North.relative(us), 1) & quiet_mask;
+            b2 = b1.shift(Direction::North.relative(us)) & quiet_mask;
             for sq in b2 {
                 moves.push(Move::new(
                     sq - Direction::North.relative(us),
@@ -1216,8 +1215,8 @@ impl Board {
                 ));
             }
 
-            b2 = b1.shift(Direction::NorthWest.relative(us), 1) & capture_mask;
-            b3 = b1.shift(Direction::NorthEast.relative(us), 1) & capture_mask;
+            b2 = b1.shift(Direction::NorthWest.relative(us)) & capture_mask;
+            b3 = b1.shift(Direction::NorthEast.relative(us)) & capture_mask;
             for sq in b2 {
                 moves.push(Move::new(
                     sq - Direction::NorthWest.relative(us),
@@ -1384,9 +1383,14 @@ impl TryFrom<&str> for Board {
             );
         }
 
-        let pieces_placement = parts.next().unwrap();
-        let color_to_play = parts.next().unwrap().chars().next().unwrap();
-        let castling_ability = parts.next().unwrap();
+        let pieces_placement = parts.next().ok_or("Invalid piece placement.")?;
+        let color_to_play = parts
+            .next()
+            .ok_or("Invalid color.")?
+            .chars()
+            .next()
+            .ok_or("Invalid color.")?;
+        let castling_ability = parts.next().ok_or("Invalid castling.")?;
         let en_passant_square = parts.next().unwrap_or("-");
         let halfmove_clock = parts.next().unwrap_or("0").parse::<u16>().unwrap_or(0);
         let fullmove_counter = parts.next().unwrap_or("1").parse::<usize>().unwrap_or(1);
@@ -1394,7 +1398,6 @@ impl TryFrom<&str> for Board {
             if fullmove_number > 0 {
                 fullmove_number
             } else {
-                println!("{}", fullmove_counter);
                 fullmove_number + 1
             }
         } else {
@@ -1470,7 +1473,7 @@ impl fmt::Display for Board {
                         board_string.push_str(format!("{}", empty_squares).as_str());
                         empty_squares = 0;
                     }
-                    board_string.push(pc.uci());
+                    board_string.push_str(&pc.to_string());
                 } else {
                     empty_squares += 1;
                 }
@@ -1532,8 +1535,12 @@ impl fmt::Debug for Board {
                 let file = File::from(file_idx);
                 let sq = SQ::encode(rank, file);
                 let pc = self.piece_at(sq);
-                let c = if pc != Piece::None { pc.uci() } else { '-' };
-                s.push(c);
+                let pc_str = if pc != Piece::None {
+                    pc.to_string()
+                } else {
+                    "-".to_string()
+                };
+                s.push_str(&pc_str);
                 s.push(' ');
                 if sq.file() == File::H {
                     s.push('\n');

@@ -63,17 +63,17 @@ impl Timer {
                 wtime
             } else {
                 btime
-            } as f64;
+            };
             let inc = if board.color_to_play() == Color::White {
                 winc
             } else {
                 binc
             }
-            .unwrap_or(0) as f64;
+            .unwrap_or(0);
 
-            let target = time.min(time / moves_to_go.unwrap_or(40) as f64 + inc);
+            let target = time.min(time / moves_to_go.unwrap_or(40) + inc);
             self.time_target = target as Time;
-            self.time_maximum = (target + (time - target) / 4.0) as Time;
+            self.time_maximum = (target + (time - target) / 4) as Time;
         }
     }
 

@@ -2,7 +2,6 @@ use super::bitboard::*;
 use super::board::*;
 use super::moov::*;
 use super::square::*;
-use crate::search::move_sorter::*;
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Index, IndexMut};
@@ -52,8 +51,6 @@ impl MoveList {
     pub fn len(&self) -> usize {
         self.len
     }
-
-    pub fn print(&self) {}
 
     #[inline(always)]
     pub fn push(&mut self, m: Move) {

@@ -18,6 +18,7 @@ pub enum TTFlag {
 ///////////////////////////////////////////////////////////////////
 
 #[derive(Eq, PartialEq, Copy, Clone)]
+#[repr(align(8))]
 pub struct TTEntry {
     value: TTValue,
     best_move: Option<MoveInt>,

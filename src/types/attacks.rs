@@ -107,9 +107,9 @@ pub fn king_attacks(sq: SQ) -> BitBoard {
 #[inline(always)]
 pub fn pawn_attacks_bb(bb: BitBoard, color: Color) -> BitBoard {
     if color == Color::White {
-        bb.shift(Direction::NorthWest, 1) | bb.shift(Direction::NorthEast, 1)
+        bb.shift(Direction::NorthWest) | bb.shift(Direction::NorthEast)
     } else {
-        bb.shift(Direction::SouthWest, 1) | bb.shift(Direction::SouthEast, 1)
+        bb.shift(Direction::SouthWest) | bb.shift(Direction::SouthEast)
     }
 }
 
@@ -127,12 +127,12 @@ pub fn sliding_attacks(sq: SQ, occ: BitBoard, mask: BitBoard) -> BitBoard {
 
 pub fn attacks(pt: PieceType, sq: SQ, occ: BitBoard) -> BitBoard {
     match pt {
-        PieceType::Pawn => BitBoard::ZERO, // Use color-dependent pawn attack generator for that.
         PieceType::Knight => knight_attacks(sq),
         PieceType::Bishop => bishop_attacks(sq, occ),
         PieceType::Rook => rook_attacks(sq, occ),
         PieceType::Queen => bishop_attacks(sq, occ) | rook_attacks(sq, occ),
         PieceType::King => king_attacks(sq),
+        _ => BitBoard::ZERO,
     }
 }
 

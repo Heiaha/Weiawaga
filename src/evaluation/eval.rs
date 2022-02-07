@@ -37,23 +37,23 @@ impl<'a> Evaluator<'a> {
         let mut fill = BitBoard::ZERO;
         fill |= self
             .their_pawns
-            .shift(Direction::SouthWest.relative(self.color), 1);
+            .shift(Direction::SouthWest.relative(self.color));
         fill |= self
             .their_pawns
-            .shift(Direction::SouthEast.relative(self.color), 1);
+            .shift(Direction::SouthEast.relative(self.color));
         fill = fill.fill(Direction::South.relative(self.color));
         (!fill & self.our_pawns).pop_count()
     }
 
     fn n_doubled_pawns(&self) -> Value {
-        let mut fill = self.our_pawns.shift(Direction::North, 1);
+        let mut fill = self.our_pawns.shift(Direction::North);
         fill = fill.fill(Direction::North);
         (fill & self.our_pawns).pop_count()
     }
 
     fn n_isolated_pawns(&self) -> Value {
-        ((self.our_pawns & !self.our_pawns.shift(Direction::East, 1).file_fill())
-            & (self.our_pawns & !self.our_pawns.shift(Direction::West, 1).file_fill()))
+        ((self.our_pawns & !self.our_pawns.shift(Direction::East).file_fill())
+            & (self.our_pawns & !self.our_pawns.shift(Direction::West).file_fill()))
         .pop_count()
     }
 

@@ -1,5 +1,6 @@
 use super::color::*;
 use std::convert::TryFrom;
+use std::fmt;
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Debug)]
 pub enum Piece {
@@ -44,10 +45,6 @@ impl Piece {
         Self::from(((color as u8) << 3) + pt as u8)
     }
 
-    pub fn uci(self) -> char {
-        Self::PIECE_STR.chars().nth(self.index()).unwrap()
-    }
-
     // Use this iterator pattern for Piece, PieceType, and Bitboard iterator for SQ
     // until we can return to Step implementation once it's stabilized.
     // https://github.com/rust-lang/rust/issues/42168
@@ -79,6 +76,21 @@ impl TryFrom<char> for Piece {
     }
 }
 
+impl fmt::Display for Piece {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            Self::PIECE_STR
+                .chars()
+                .nth(*self as usize)
+                .unwrap()
+                .to_string()
+                .replace(" ", "")
+        )
+    }
+}
+
 impl Piece {
     pub const N_PIECES: usize = 13;
     const PIECE_STR: &'static str = "PNBRQK  pnbrqk ";
@@ -92,6 +104,7 @@ pub enum PieceType {
     Rook,
     Queen,
     King,
+    None,
 }
 
 impl PieceType {
@@ -113,6 +126,22 @@ impl From<u8> for PieceType {
     }
 }
 
+impl fmt::Display for PieceType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            Self::PIECE_TYPE_STR
+                .chars()
+                .nth(*self as usize)
+                .unwrap()
+                .to_string()
+                .replace(" ", "")
+        )
+    }
+}
+
 impl PieceType {
     pub const N_PIECE_TYPES: usize = 6;
+    pub const PIECE_TYPE_STR: &'static str = "pnbrqk ";
 }
