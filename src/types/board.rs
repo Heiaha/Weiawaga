@@ -537,7 +537,7 @@ impl Board {
         m
     }
 
-    pub fn generate_legal_moves(&mut self, moves: &mut MoveList) {
+    pub fn generate_legal_moves(&self, moves: &mut MoveList) {
         let us = self.color_to_play;
         let them = !self.color_to_play;
 
@@ -986,7 +986,7 @@ impl Board {
         }
     }
 
-    pub fn generate_legal_q_moves(&mut self, moves: &mut MoveList) {
+    pub fn generate_legal_q_moves(&self, moves: &mut MoveList) {
         let us = self.color_to_play;
         let them = !self.color_to_play;
 

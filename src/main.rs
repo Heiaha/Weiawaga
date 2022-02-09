@@ -1,4 +1,3 @@
-#![allow(unused_variables)]
 #![allow(dead_code)]
 #![allow(non_snake_case)] // Allow so we don't get a warning about the uppercase name.
 
