@@ -3,7 +3,6 @@ use super::board::*;
 use super::moov::*;
 use super::square::*;
 use std::fmt;
-use std::fmt::Formatter;
 use std::ops::{Index, IndexMut};
 
 // Cache size consideration idea originally found in Pleco
@@ -143,7 +142,7 @@ impl IndexMut<usize> for MoveList {
 }
 
 impl fmt::Debug for MoveList {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut result = String::from('[');
         for i in 0..self.len {
             result.push_str(&*format!("{}, ", self.list[i].to_string()));
