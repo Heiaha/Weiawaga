@@ -36,19 +36,24 @@ impl SearchMaster {
     }
 
     pub fn go(&mut self, board: &Board, time_control: TimeControl) {
-        let main_thread_timer = Timer::new(board, time_control, self.stop.clone());
-        let mut main_search_thread = Search::new(main_thread_timer, &self.tt, 0);
+        let mut main_search_thread = Search::new(
+            Timer::new(board, time_control, self.stop.clone()),
+            &self.tt,
+            0,
+        );
 
         let (best_move, _best_value) = thread::scope(|s| {
             for id in 1..self.num_threads {
-                let helper_thread_timer =
-                    Timer::new(&board, TimeControl::Infinite, self.stop.clone());
+                let mut helper_search_thread = Search::new(
+                    Timer::new(&board, TimeControl::Infinite, self.stop.clone()),
+                    &self.tt,
+                    id,
+                );
 
-                let mut search_thread = Search::new(helper_thread_timer, &self.tt, id);
                 s.builder()
                     .name(format!("Search thread #{:>3}", id))
                     .stack_size(8 * 1024 * 1024)
-                    .spawn(move |_| search_thread.go(board.clone()))
+                    .spawn(move |_| helper_search_thread.go(board.clone()))
                     .unwrap();
             }
             main_search_thread.go(board.clone())
