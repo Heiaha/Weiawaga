@@ -2,40 +2,9 @@ use crate::search::search::*;
 use crate::search::timer::*;
 use crate::types::board::*;
 use crate::uci::search_master::*;
-use std::collections::HashMap;
 use std::io::BufRead;
 use std::sync::atomic::Ordering;
 use std::{io, sync, thread};
-
-#[derive(Debug)]
-pub enum UCIOption {
-    Str { default: String },
-    Spin { default: i32, min: i32, max: i32 },
-    Check { default: bool },
-    Combo { default: String },
-    Button,
-}
-
-impl UCIOption {
-    fn string(default: &'static str) -> Self {
-        Self::Str {
-            default: String::from(default),
-        }
-    }
-
-    fn spin(default: i32, min: i32, max: i32) -> Self {
-        Self::Spin { default, min, max }
-    }
-    fn check(default: bool) -> Self {
-        Self::Check { default }
-    }
-
-    fn combo(default: &'static str) -> Self {
-        Self::Combo {
-            default: String::from(default),
-        }
-    }
-}
 
 pub enum UCICommand {
     Unknown(String),
@@ -71,12 +40,6 @@ impl UCICommand {
                 Ok(cmd) => match cmd {
                     UCICommand::Quit => return,
                     UCICommand::Stop => thread_abort.store(true, Ordering::SeqCst),
-                    UCICommand::UCI => {
-                        println!("id name Weiawaga v{}", env!("CARGO_PKG_VERSION"));
-                        println!("id author {}", env!("CARGO_PKG_AUTHORS"));
-                        print_options();
-                        println!("uciok");
-                    }
                     cmd => main_tx.send(cmd).unwrap(),
                 },
                 Err(e) => {
@@ -149,38 +112,11 @@ impl TryFrom<&str> for UCICommand {
         } else if line == "stop" {
             return Ok(Self::Stop);
         } else if line.starts_with("tune") {
-            let filename = line.split_whitespace().nth(1).unwrap();
-            return Ok(Self::Tune(filename.parse().unwrap()));
+            let filename = line.split_whitespace().nth(1).ok_or("Filename required.")?;
+            return Ok(Self::Tune(filename.to_string()));
         } else if line.starts_with("eval") {
             return Ok(Self::Eval);
         }
         Err("Unknown command.")
-    }
-}
-
-pub fn get_option_defaults() -> HashMap<&'static str, UCIOption> {
-    let mut opts = HashMap::new();
-    opts.insert("Hash", UCIOption::spin(16, 1, 128 * 1024));
-    opts.insert("Threads", UCIOption::spin(1, 1, 512));
-    opts
-}
-
-fn print_options() {
-    // printing scheme from Rustfish
-    let opts = get_option_defaults();
-    for (name, opt) in opts.iter() {
-        println!(
-            "option name {} type {}",
-            name,
-            match opt {
-                UCIOption::Str { default, .. } => format!("string default {}", default),
-                UCIOption::Spin {
-                    default, min, max, ..
-                } => format!("spin default {} min {} max {}", default, min, max),
-                UCIOption::Check { default, .. } => format!("check default {}", default),
-                UCIOption::Button => format!("button"),
-                UCIOption::Combo { default, .. } => format!("combo default {}", default),
-            }
-        );
     }
 }

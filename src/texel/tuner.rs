@@ -17,7 +17,7 @@ pub struct Tuner<'a> {
 }
 
 impl<'a> Tuner<'a> {
-    pub fn new(filename: String) -> Self {
+    pub fn new(filename: &str) -> Self {
         let file = File::open(filename).unwrap();
         let reader = BufReader::new(file);
 

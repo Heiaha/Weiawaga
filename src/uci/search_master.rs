@@ -10,6 +10,8 @@ use std::sync::atomic::*;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
+// A lot of this nice uci implementation was inspired by Asymptote
+
 pub struct SearchMaster {
     stop: Arc<AtomicBool>,
     num_threads: u16,
@@ -18,20 +20,11 @@ pub struct SearchMaster {
 
 impl SearchMaster {
     pub fn new(stop: Arc<AtomicBool>) -> Self {
-        let mut tt_size = 0;
-        let mut num_threads = 1;
-        for (name, option) in get_option_defaults() {
-            match (name, option) {
-                ("Hash", UCIOption::Spin { default, .. }) => tt_size = default as usize,
-                ("Threads", UCIOption::Spin { default, .. }) => num_threads = default as u16,
-                _ => {}
-            }
-        }
-
+        let search_defaults = SearchDefaults::default();
         Self {
             stop,
-            num_threads,
-            tt: TT::new(tt_size),
+            num_threads: search_defaults.threads.0 as u16,
+            tt: TT::new(search_defaults.hash.0 as usize),
         }
     }
 
@@ -76,6 +69,22 @@ impl SearchMaster {
                 UCICommand::UCINewGame => {
                     board = Board::new();
                 }
+                UCICommand::UCI => {
+                    let default_options = SearchDefaults::default();
+                    println!("id name Weiawaga v{}", env!("CARGO_PKG_VERSION"));
+                    println!("id author {}", env!("CARGO_PKG_AUTHORS"));
+                    println!(
+                        "option name Hash type spin default {} min {} max {}",
+                        default_options.hash.0, default_options.hash.1, default_options.hash.2
+                    );
+                    println!(
+                        "option name Threads type spin default {} min {} max {}",
+                        default_options.threads.0,
+                        default_options.threads.1,
+                        default_options.threads.2
+                    );
+                    println!("uciok");
+                }
                 UCICommand::Position(new_board, moves) => {
                     let last_board = board;
                     board = new_board;
@@ -84,53 +93,78 @@ impl SearchMaster {
                             Ok(_) => {}
                             Err(e) => {
                                 board = last_board.clone();
-                                println!("{}", e);
+                                eprintln!("{}", e);
                             }
                         }
                     }
                 }
                 UCICommand::Go(time_control) => {
+                    self.stop.store(false, Ordering::SeqCst);
                     self.go(&board, time_control);
                 }
                 UCICommand::Perft(depth) => {
                     print_perft(&mut board, depth);
                 }
-                UCICommand::Option(name, value) => match name.as_ref() {
-                    "Hash" => {
-                        if let Ok(mb_size) = value.parse::<usize>() {
-                            self.tt = TT::new(mb_size);
-                            println!("info string set Hash to {}MB", self.tt.mb_size());
-                        } else {
-                            println!(
-                                "Error parsing Hash value. Size remains at {}MB",
-                                self.tt.mb_size()
-                            );
+                UCICommand::Option(name, value) => {
+                    let search_defaults = SearchDefaults::default();
+                    match name.as_ref() {
+                        "Hash" => {
+                            if let Ok(mut mb_size) = value.parse::<i128>() {
+                                mb_size = mb_size
+                                    .max(search_defaults.hash.1)
+                                    .min(search_defaults.hash.2);
+                                self.tt = TT::new(mb_size as usize);
+                                println!("info string set Hash to {}MB", self.tt.mb_size());
+                            } else {
+                                eprintln!(
+                                    "info string ERROR: error parsing Hash value; value remains at {}MB",
+                                    self.tt.mb_size()
+                                );
+                            }
                         }
-                    }
-                    "Threads" => {
-                        if let Ok(num_threads) = value.parse::<u16>() {
-                            self.num_threads = num_threads;
-                            println!("info string set Threads to {}", self.num_threads);
-                        } else {
-                            println!(
-                                "Error parsing Threads value. Number remains at {}.",
-                                self.num_threads
-                            );
+                        "Threads" => {
+                            if let Ok(mut num_threads) = value.parse::<i128>() {
+                                num_threads = num_threads
+                                    .max(search_defaults.threads.1)
+                                    .min(search_defaults.threads.2);
+                                self.num_threads = num_threads as u16;
+                                println!("info string set Threads to {}", self.num_threads);
+                            } else {
+                                eprintln!(
+                                    "info string ERROR: error parsing Threads value; value remains at {}.",
+                                    self.num_threads
+                                );
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
-                },
+                }
                 UCICommand::Tune(filename) => {
-                    let mut tuner = Tuner::new(filename);
+                    let mut tuner = Tuner::new(&filename);
                     tuner.tune();
                 }
                 UCICommand::Eval => {
                     println!("{}", board.eval());
                 }
                 _ => {
-                    println!("Unexpected UCI Command.");
+                    eprintln!("Unexpected UCI Command.");
                 }
             }
+        }
+    }
+}
+
+struct SearchDefaults {
+    // default, min, max
+    hash: (i128, i128, i128),
+    threads: (i128, i128, i128),
+}
+
+impl Default for SearchDefaults {
+    fn default() -> Self {
+        Self {
+            hash: (16, 1, 128 * 1024),
+            threads: (1, 1, 512),
         }
     }
 }
