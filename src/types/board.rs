@@ -168,24 +168,18 @@ impl Board {
     }
 
     pub fn diagonal_sliders(&self, color: Color) -> BitBoard {
-        match color {
-            Color::White => {
-                self.piece_bb[Piece::WhiteBishop.index()] | self.piece_bb[Piece::WhiteQueen.index()]
-            }
-            Color::Black => {
-                self.piece_bb[Piece::BlackBishop.index()] | self.piece_bb[Piece::BlackQueen.index()]
-            }
+        if color == Color::White {
+            self.piece_bb[Piece::WhiteBishop.index()] | self.piece_bb[Piece::WhiteQueen.index()]
+        } else {
+            self.piece_bb[Piece::BlackBishop.index()] | self.piece_bb[Piece::BlackQueen.index()]
         }
     }
 
     pub fn orthogonal_sliders(&self, color: Color) -> BitBoard {
-        match color {
-            Color::White => {
-                self.piece_bb[Piece::WhiteRook.index()] | self.piece_bb[Piece::WhiteQueen.index()]
-            }
-            Color::Black => {
-                self.piece_bb[Piece::BlackRook.index()] | self.piece_bb[Piece::BlackQueen.index()]
-            }
+        if color == Color::White {
+            self.piece_bb[Piece::WhiteRook.index()] | self.piece_bb[Piece::WhiteQueen.index()]
+        } else {
+            self.piece_bb[Piece::BlackRook.index()] | self.piece_bb[Piece::BlackQueen.index()]
         }
     }
 
@@ -200,25 +194,20 @@ impl Board {
     }
 
     pub fn attackers_from_color(&self, sq: SQ, occ: BitBoard, color: Color) -> BitBoard {
-        match color {
-            Color::White => {
-                (self.piece_bb[Piece::WhitePawn.index()]
-                    & attacks::pawn_attacks_sq(sq, Color::Black))
-                    | (self.piece_bb[Piece::WhiteKnight.index()] & attacks::knight_attacks(sq))
-                    | (self.piece_bb[Piece::WhiteBishop.index()] & attacks::bishop_attacks(sq, occ))
-                    | (self.piece_bb[Piece::WhiteRook.index()] & attacks::rook_attacks(sq, occ))
-                    | (self.piece_bb[Piece::WhiteQueen.index()]
-                        & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
-            }
-            Color::Black => {
-                (self.piece_bb[Piece::BlackPawn.index()]
-                    & attacks::pawn_attacks_sq(sq, Color::White))
-                    | (self.piece_bb[Piece::BlackKnight.index()] & attacks::knight_attacks(sq))
-                    | (self.piece_bb[Piece::BlackBishop.index()] & attacks::bishop_attacks(sq, occ))
-                    | (self.piece_bb[Piece::BlackRook.index()] & attacks::rook_attacks(sq, occ))
-                    | (self.piece_bb[Piece::BlackQueen.index()]
-                        & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
-            }
+        if color == Color::White {
+            (self.piece_bb[Piece::WhitePawn.index()] & attacks::pawn_attacks_sq(sq, Color::Black))
+                | (self.piece_bb[Piece::WhiteKnight.index()] & attacks::knight_attacks(sq))
+                | (self.piece_bb[Piece::WhiteBishop.index()] & attacks::bishop_attacks(sq, occ))
+                | (self.piece_bb[Piece::WhiteRook.index()] & attacks::rook_attacks(sq, occ))
+                | (self.piece_bb[Piece::WhiteQueen.index()]
+                    & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
+        } else {
+            (self.piece_bb[Piece::BlackPawn.index()] & attacks::pawn_attacks_sq(sq, Color::White))
+                | (self.piece_bb[Piece::BlackKnight.index()] & attacks::knight_attacks(sq))
+                | (self.piece_bb[Piece::BlackBishop.index()] & attacks::bishop_attacks(sq, occ))
+                | (self.piece_bb[Piece::BlackRook.index()] & attacks::rook_attacks(sq, occ))
+                | (self.piece_bb[Piece::BlackQueen.index()]
+                    & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
         }
     }
 
