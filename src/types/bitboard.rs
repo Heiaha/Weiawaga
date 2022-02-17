@@ -52,21 +52,18 @@ impl BitBoard {
     }
 
     pub fn shift(self, dir: Direction) -> Self {
-        let mut result = self;
-
         match dir {
-            Direction::North => result <<= 8,
-            Direction::South => result >>= 8,
-            Direction::NorthNorth => result <<= 16,
-            Direction::SouthSouth => result >>= 16,
-            Direction::East => result = (result << 1) & !File::A.bb(),
-            Direction::West => result = (result >> 1) & !File::H.bb(),
-            Direction::NorthEast => result = (result & !File::H.bb()) << 9,
-            Direction::NorthWest => result = (result & !File::A.bb()) << 7,
-            Direction::SouthEast => result = (result & !File::H.bb()) >> 7,
-            Direction::SouthWest => result = (result & !File::A.bb()) >> 9,
+            Direction::North => self << 8,
+            Direction::South => self >> 8,
+            Direction::NorthNorth => self << 16,
+            Direction::SouthSouth => self >> 16,
+            Direction::East =>  (self << 1) & !File::A.bb(),
+            Direction::West => (self >> 1) & !File::H.bb(),
+            Direction::NorthEast =>  (self & !File::H.bb()) << 9,
+            Direction::NorthWest =>  (self & !File::A.bb()) << 7,
+            Direction::SouthEast => (self & !File::H.bb()) >> 7,
+            Direction::SouthWest => (self & !File::A.bb()) >> 9,
         }
-        result
     }
 
     #[inline(always)]
