@@ -266,17 +266,16 @@ impl Board {
 
     #[inline(always)]
     fn is_insufficient_material(&self) -> bool {
-        (self.bitboard_of_piecetype(PieceType::Pawn)
-            | self.bitboard_of_piecetype(PieceType::Rook)
-            | self.bitboard_of_piecetype(PieceType::Queen))
-            == BitBoard::ZERO
-            && (!self.all_pieces_color(Color::White).is_several()
-                || !self.all_pieces_color(Color::Black).is_several())
-            && (!(self.bitboard_of_piecetype(PieceType::Knight)
-                | self.bitboard_of_piecetype(PieceType::Bishop))
-            .is_several()
-                || (self.bitboard_of_piecetype(PieceType::Bishop) == BitBoard::ZERO
-                    && self.bitboard_of_piecetype(PieceType::Knight).pop_count() <= 2))
+        match self.all_pieces().pop_count() {
+            2 => true,
+            3 => {
+                (self.bitboard_of_piecetype(PieceType::Rook)
+                    | self.bitboard_of_piecetype(PieceType::Queen)
+                    | self.bitboard_of_piecetype(PieceType::Pawn))
+                    == BitBoard::ZERO
+            }
+            _ => false,
+        }
     }
 
     #[inline(always)]
@@ -284,6 +283,7 @@ impl Board {
         self.history[self.game_ply].half_move_counter() >= 100
     }
 
+    #[inline(always)]
     fn is_threefold(&self) -> bool {
         let lookback = min(
             self.history[self.game_ply].plies_from_null(),
@@ -315,7 +315,7 @@ impl Board {
         self.game_ply += 1;
         self.history[self.game_ply] = UndoInfo::new(
             self.history[self.game_ply - 1].entry(),
-            Move::NULL,
+            Move::default(),
             self.history[self.game_ply - 1].half_move_counter() + 1,
             0,
             Piece::None,
@@ -1236,7 +1236,7 @@ impl Board {
             promo = None;
         }
 
-        let mut m = Move::NULL;
+        let mut m = Move::default();
         if self.piece_at(to_sq) != Piece::None {
             match promo {
                 Some(PieceType::Queen) => {

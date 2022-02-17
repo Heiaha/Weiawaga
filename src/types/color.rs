@@ -33,11 +33,11 @@ impl TryFrom<char> for Color {
     type Error = &'static str;
 
     fn try_from(value: char) -> Result<Self, Self::Error> {
-        return match value {
+        match value {
             'w' => Ok(Self::White),
             'b' => Ok(Self::Black),
             _ => Err("Color must be either 'w' or 'b'."),
-        };
+        }
     }
 }
 

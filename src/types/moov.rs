@@ -47,7 +47,7 @@ impl Move {
     }
 
     #[inline(always)]
-    pub fn moove(&self) -> MoveInt {
+    pub fn move_int(&self) -> MoveInt {
         self.m
     }
 
@@ -68,13 +68,13 @@ impl Move {
 
     #[inline(always)]
     pub fn promotion(&self) -> PieceType {
-        return match self.flags() {
+        match self.flags() {
             MoveFlags::PrKnight | MoveFlags::PcKnight => PieceType::Knight,
             MoveFlags::PrBishop | MoveFlags::PcBishop => PieceType::Bishop,
             MoveFlags::PrRook | MoveFlags::PcRook => PieceType::Rook,
             MoveFlags::PrQueen | MoveFlags::PcQueen => PieceType::Queen,
             _ => PieceType::None,
-        };
+        }
     }
 
     #[inline(always)]
@@ -116,10 +116,6 @@ impl PartialEq for Move {
     fn eq(&self, other: &Self) -> bool {
         self.m == other.m
     }
-}
-
-impl Move {
-    pub const NULL: Self = Self { m: 4160, score: 0 };
 }
 
 #[derive(Debug, PartialEq)]

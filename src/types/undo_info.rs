@@ -26,7 +26,7 @@ impl UndoInfo {
     ) -> Self {
         Self {
             entry,
-            moove: moove.moove(),
+            moove: moove.move_int(),
             half_move_counter,
             plies_from_null,
             captured,
