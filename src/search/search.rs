@@ -570,7 +570,7 @@ impl<'a> Search<'a> {
     const NULL_MIN_DEPTH_REDUCTION: Depth = 3;
     const NULL_DEPTH_DIVIDER: Depth = 4;
     const LMR_MOVE_WO_REDUCTION: usize = 2;
-    const LMR_MIN_DEPTH: Depth = 3;
+    const LMR_MIN_DEPTH: Depth = 2;
     const LMR_BASE_REDUCTION: f32 = 0.75;
     const LMR_MOVE_DIVIDER: f32 = 2.25;
 }
