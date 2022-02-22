@@ -51,6 +51,10 @@ impl MoveList {
         self.len
     }
 
+    pub fn contains(&self, m: &Move) -> bool {
+        self.list.contains(m)
+    }
+
     #[inline(always)]
     pub fn push(&mut self, m: Move) {
         self.list[self.len] = m;

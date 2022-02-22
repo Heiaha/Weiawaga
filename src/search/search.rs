@@ -504,24 +504,20 @@ impl<'a> Search<'a> {
         if depth == 0 {
             return "".to_owned();
         }
-        let hash_move: Option<Move>;
-        let tt_entry = self.tt.probe(board.hash());
-        match tt_entry {
-            Some(tt_entry) => {
-                hash_move = tt_entry.best_move();
-                if hash_move.is_none() {
-                    return "".to_owned();
+
+        if let Some(tt_entry) = self.tt.probe(board.hash()) {
+            if let Some(hash_move) = tt_entry.best_move() {
+                let mut pv= "".to_owned();
+                if MoveList::from(board).contains(&hash_move) {
+                    board.push(hash_move);
+                    pv = hash_move.to_string() + " " + &*self.get_pv(board, depth - 1);
+                    board.pop();
                 }
-            }
-            None => {
-                return "".to_owned();
+                return pv;
             }
         }
 
-        board.push(hash_move.unwrap());
-        let pv = hash_move.unwrap().to_string() + " " + &*self.get_pv(board, depth - 1);
-        board.pop();
-        pv
+        "".to_owned()
     }
 
     fn print_info(&self, board: &mut Board, depth: Depth, m: Option<Move>, score: Value) {
