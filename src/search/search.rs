@@ -507,7 +507,7 @@ impl<'a> Search<'a> {
 
         if let Some(tt_entry) = self.tt.probe(board.hash()) {
             if let Some(hash_move) = tt_entry.best_move() {
-                let mut pv= "".to_owned();
+                let mut pv = "".to_owned();
                 if MoveList::from(board).contains(&hash_move) {
                     board.push(hash_move);
                     pv = hash_move.to_string() + " " + &*self.get_pv(board, depth - 1);
