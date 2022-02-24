@@ -5,7 +5,7 @@ use crate::types::moov::*;
 use crate::types::piece::*;
 use std::cmp::max;
 
-const SEE_PIECE_TYPE: [SortScore; 6] = [100, 375, 375, 500, 1025, 10000];
+const SEE_PIECE_TYPE: [SortScore; PieceType::N_PIECE_TYPES] = [100, 375, 375, 500, 1025, 10000];
 
 // https://www.chessprogramming.org/SEE_-_The_Swap_Algorithm
 // Implementation adapted from Black Marlin
