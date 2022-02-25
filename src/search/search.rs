@@ -118,7 +118,7 @@ impl<'a> Search<'a> {
         // position, primarily for move ordering.
         ///////////////////////////////////////////////////////////////////
         let mut hash_move = None;
-        if let Some(tt_entry) = self.tt.probe(board.hash()) {
+        if let Some(tt_entry) = self.tt.probe(board) {
             hash_move = tt_entry.best_move();
         }
 
@@ -155,13 +155,12 @@ impl<'a> Search<'a> {
             if value > alpha {
                 best_move = Some(m);
                 if value >= beta {
-                    self.tt
-                        .insert(board.hash(), depth, beta, best_move, TTFlag::Lower);
+                    self.tt.insert(board, depth, beta, best_move, TTFlag::Lower);
                     return (best_move, beta);
                 }
                 alpha = value;
                 self.tt
-                    .insert(board.hash(), depth, alpha, best_move, TTFlag::Upper);
+                    .insert(board, depth, alpha, best_move, TTFlag::Upper);
             }
             idx += 1;
         }
@@ -172,7 +171,7 @@ impl<'a> Search<'a> {
 
         if !self.stop {
             self.tt
-                .insert(board.hash(), depth, alpha, best_move, TTFlag::Exact);
+                .insert(board, depth, alpha, best_move, TTFlag::Exact);
         }
         (best_move, alpha)
     }
@@ -232,7 +231,7 @@ impl<'a> Search<'a> {
         // If appropriate, produce a cutoff.
         ///////////////////////////////////////////////////////////////////
         let mut hash_move: Option<Move> = None;
-        if let Some(tt_entry) = self.tt.probe(board.hash()) {
+        if let Some(tt_entry) = self.tt.probe(board) {
             if tt_entry.depth() >= depth {
                 self.stats.tt_hits += 1;
                 match tt_entry.flag() {
@@ -386,8 +385,7 @@ impl<'a> Search<'a> {
         }
 
         if !self.stop {
-            self.tt
-                .insert(board.hash(), depth, alpha, best_move, tt_flag);
+            self.tt.insert(board, depth, alpha, best_move, tt_flag);
         }
         alpha
     }
@@ -415,7 +413,7 @@ impl<'a> Search<'a> {
         alpha = max(alpha, value);
 
         let mut hash_move: Option<Move> = None;
-        if let Some(tt_entry) = self.tt.probe(board.hash()) {
+        if let Some(tt_entry) = self.tt.probe(board) {
             hash_move = tt_entry.best_move();
         }
 
@@ -499,7 +497,7 @@ impl<'a> Search<'a> {
             return String::new();
         }
 
-        if let Some(tt_entry) = self.tt.probe(board.hash()) {
+        if let Some(tt_entry) = self.tt.probe(board) {
             if let Some(hash_move) = tt_entry.best_move() {
                 let mut pv = "".to_owned();
                 if MoveList::from(board).contains(&hash_move) {

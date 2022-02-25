@@ -296,7 +296,7 @@ impl Sub for BitBoard {
 impl Iterator for BitBoard {
     type Item = SQ;
 
-    fn next(&mut self) -> Option<SQ> {
+    fn next(&mut self) -> Option<Self::Item> {
         if *self == Self::ZERO {
             return None;
         }

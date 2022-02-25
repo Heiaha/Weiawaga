@@ -1,6 +1,7 @@
 use super::search::*;
 use crate::evaluation::score::*;
 use crate::types::bitboard::*;
+use crate::types::board::*;
 use crate::types::moov::*;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -106,18 +107,18 @@ impl TT {
 
     pub fn insert(
         &self,
-        hash: Hash,
+        board: &Board,
         depth: Depth,
         value: Value,
         best_move: Option<Move>,
         flag: TTFlag,
     ) {
         let entry = TTEntry::new(value, best_move, depth, flag);
-        self.table[(hash & self.bitmask).0 as usize].write(hash, &entry)
+        self.table[(board.hash() & self.bitmask).0 as usize].write(board.hash(), &entry)
     }
 
-    pub fn probe(&self, hash: Hash) -> Option<TTEntry> {
-        self.table[(hash & self.bitmask).0 as usize].read(hash)
+    pub fn probe(&self, board: &Board) -> Option<TTEntry> {
+        self.table[(board.hash() & self.bitmask).0 as usize].read(board.hash())
     }
 
     pub fn clear(&mut self) {
