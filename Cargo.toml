@@ -5,6 +5,7 @@ repository = "https://github.com/Heiaha/Weiawaga"
 version = "4.0.0"
 edition = "2021"
 readme = "README.md"
+rust-version = "1.59"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
