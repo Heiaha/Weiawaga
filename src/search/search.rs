@@ -62,13 +62,7 @@ impl<'a> Search<'a> {
             && !Score::is_checkmate(final_score)
             && depth < Depth::MAX
         {
-            let (m, score) = self.search_root(&mut board, depth, alpha, beta);
-
-            // Use temporary variables m and score until destructuring assignment is made stable
-            // and we can just assign to them directly from search_root.
-            // https://github.com/rust-lang/rust/issues/71126
-            final_move = m;
-            final_score = score;
+            (final_move, final_score) = self.search_root(&mut board, depth, alpha, beta);
 
             ///////////////////////////////////////////////////////////////////
             // Update the clock if the score is changing
@@ -502,7 +496,7 @@ impl<'a> Search<'a> {
 
     fn get_pv(&self, board: &mut Board, depth: Depth) -> String {
         if depth == 0 {
-            return "".to_owned();
+            return String::new();
         }
 
         if let Some(tt_entry) = self.tt.probe(board.hash()) {
@@ -510,14 +504,18 @@ impl<'a> Search<'a> {
                 let mut pv = "".to_owned();
                 if MoveList::from(board).contains(&hash_move) {
                     board.push(hash_move);
-                    pv = hash_move.to_string() + " " + &*self.get_pv(board, depth - 1);
+                    pv = format!(
+                        "{} {}",
+                        hash_move.to_string(),
+                        self.get_pv(board, depth - 1)
+                    );
                     board.pop();
                 }
                 return pv;
             }
         }
 
-        "".to_owned()
+        String::new()
     }
 
     fn print_info(&self, board: &mut Board, depth: Depth, m: Option<Move>, score: Value) {

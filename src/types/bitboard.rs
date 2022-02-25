@@ -313,7 +313,7 @@ impl fmt::Debug for BitBoard {
         let mut result = String::new();
         for i in (0..=56).rev().step_by(8) {
             for j in 0..8 {
-                result.push_str(&*format!("{} ", self.0 >> (i + j) & 1));
+                result.push_str(format!("{} ", self.0 >> (i + j) & 1).as_ref());
             }
             result.push('\n');
         }

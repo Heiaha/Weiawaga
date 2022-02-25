@@ -3,7 +3,6 @@ use crate::search::timer::*;
 use crate::types::board::*;
 use crate::uci::search_master::*;
 use std::io::BufRead;
-use std::sync::atomic::Ordering;
 use std::{io, sync, thread};
 
 pub enum UCICommand {
@@ -25,25 +24,22 @@ impl UCICommand {
     pub fn run() {
         println!("Weiawaga v{}", env!("CARGO_PKG_VERSION"));
         println!("{}", env!("CARGO_PKG_REPOSITORY"));
-        let stdin = io::stdin();
-        let lock = stdin.lock();
 
-        let thread_abort = sync::Arc::new(sync::atomic::AtomicBool::new(false));
-        let abort = thread_abort.clone();
+        let abort = sync::Arc::new(sync::atomic::AtomicBool::new(false));
+        let thread_abort = abort.clone();
         let (main_tx, main_rx) = sync::mpsc::channel();
 
-        let _handle = thread::spawn(move || SearchMaster::new(abort).run_loop(main_rx));
+        let _handle = thread::spawn(move || SearchMaster::new(thread_abort).run_loop(main_rx));
 
-        for line in lock.lines() {
-            let cmd = UCICommand::try_from(&*line.unwrap());
-            match cmd {
+        for line in io::stdin().lock().lines() {
+            match UCICommand::try_from(line.unwrap().as_ref()) {
                 Ok(cmd) => match cmd {
                     UCICommand::Quit => return,
-                    UCICommand::Stop => thread_abort.store(true, Ordering::SeqCst),
+                    UCICommand::Stop => abort.store(true, sync::atomic::Ordering::SeqCst),
                     cmd => main_tx.send(cmd).unwrap(),
                 },
                 Err(e) => {
-                    println!("{}", e);
+                    eprintln!("{}", e);
                 }
             }
         }

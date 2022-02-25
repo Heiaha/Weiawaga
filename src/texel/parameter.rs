@@ -45,7 +45,7 @@ impl<'a> Parameter<'a> {
             .unwrap();
         let mut output = format!("Name: {}\n", self.name);
         for (i, value) in self.best_values.iter().enumerate() {
-            output.push_str(&*format!("S!({:>4}, {:>4}), ", value.mg(), value.eg()));
+            output.push_str(format!("S!({:>4}, {:>4}), ", value.mg(), value.eg()).as_ref());
             if (i + 1) % 8 == 0 {
                 output.push_str("\n");
             }
