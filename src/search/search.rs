@@ -499,7 +499,7 @@ impl<'a> Search<'a> {
 
         if let Some(tt_entry) = self.tt.probe(board) {
             if let Some(hash_move) = tt_entry.best_move() {
-                let mut pv = "".to_owned();
+                let mut pv = String::new();
                 if MoveList::from(board).contains(&hash_move) {
                     board.push(hash_move);
                     pv = format!(
@@ -512,7 +512,6 @@ impl<'a> Search<'a> {
                 return pv;
             }
         }
-
         String::new()
     }
 

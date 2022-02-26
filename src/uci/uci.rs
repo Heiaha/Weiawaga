@@ -6,11 +6,10 @@ use std::io::BufRead;
 use std::{io, sync, thread};
 
 pub enum UCICommand {
-    Unknown(String),
     UCINewGame,
     UCI,
     IsReady,
-    Position(Board, Vec<String>),
+    Position(Board),
     Go(TimeControl),
     Quit,
     Stop,
@@ -50,8 +49,44 @@ impl TryFrom<&str> for UCICommand {
     type Error = &'static str;
 
     fn try_from(line: &str) -> Result<Self, Self::Error> {
-        if line.starts_with("ucinewgame") {
-            return Ok(Self::UCINewGame);
+        if line.replace(" ", "") == "ucinewgame" {
+            Ok(Self::UCINewGame)
+        } else if line.replace(" ", "") == "stop" {
+            Ok(Self::Stop)
+        } else if line.replace(" ", "") == "uci" {
+            Ok(Self::UCI)
+        } else if line.replace(" ", "") == "eval" {
+            Ok(Self::Eval)
+        } else if line.replace(" ", "") == "quit" {
+            Ok(Self::Quit)
+        } else if line.replace(" ", "") == "isready" {
+            Ok(Self::IsReady)
+        } else if line.starts_with("go") {
+            let time_control = TimeControl::from(line);
+            Ok(Self::Go(time_control))
+        } else if line.starts_with("position") {
+            let mut board;
+            let fen = line.trim_start_matches("position ");
+            if fen.starts_with("startpos") {
+                board = Board::new();
+            } else {
+                board = Board::try_from(fen.trim_start_matches("fen"))?;
+            }
+            if line.contains("moves") {
+                if let Some(moves_str) = line.split_terminator("moves ").nth(1) {
+                    for mov in moves_str.split_whitespace() {
+                        board.push_str(mov)?;
+                    }
+                }
+            }
+            Ok(Self::Position(board))
+        } else if line.starts_with("perft") {
+            let depth = line
+                .split_whitespace()
+                .nth(1)
+                .and_then(|d| d.parse().ok())
+                .unwrap_or(6);
+            Ok(Self::Perft(depth))
         } else if line.starts_with("setoption") {
             let mut words = line.split_whitespace();
             let mut name_parts = Vec::new();
@@ -70,49 +105,12 @@ impl TryFrom<&str> for UCICommand {
             }
             let name = name_parts.last().unwrap();
             let value = value_parts.last().unwrap_or(&"");
-            return Ok(Self::Option(name.parse().unwrap(), value.parse().unwrap()));
-        } else if line.starts_with("uci") {
-            return Ok(Self::UCI);
-        } else if line.starts_with("isready") {
-            return Ok(Self::IsReady);
-        } else if line.starts_with("go") {
-            let time_control = TimeControl::from(line);
-            return Ok(Self::Go(time_control));
-        } else if line.starts_with("position") {
-            let pos;
-            let fen = line.trim_start_matches("position ");
-            if fen.starts_with("startpos") {
-                pos = Board::new();
-            } else {
-                pos = Board::try_from(fen.trim_start_matches("fen"))?;
-            }
-
-            let mut moves = Vec::new();
-            if line.contains("moves") {
-                if let Some(moves_str) = line.split_terminator("moves ").nth(1) {
-                    for mov in moves_str.split_whitespace() {
-                        moves.push(String::from(mov));
-                    }
-                }
-            }
-            return Ok(Self::Position(pos, moves));
-        } else if line.starts_with("quit") {
-            return Ok(Self::Quit);
-        } else if line.starts_with("perft") {
-            let depth = line
-                .split_whitespace()
-                .nth(1)
-                .and_then(|d| d.parse().ok())
-                .unwrap_or(6);
-            return Ok(Self::Perft(depth));
-        } else if line == "stop" {
-            return Ok(Self::Stop);
+            Ok(Self::Option(name.parse().unwrap(), value.parse().unwrap()))
         } else if line.starts_with("tune") {
             let filename = line.split_whitespace().nth(1).ok_or("Filename required.")?;
-            return Ok(Self::Tune(filename.to_string()));
-        } else if line.starts_with("eval") {
-            return Ok(Self::Eval);
+            Ok(Self::Tune(filename.to_string()))
+        } else {
+            Err("Unknown command.")
         }
-        Err("Unknown command.")
     }
 }

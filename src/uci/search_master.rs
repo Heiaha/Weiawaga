@@ -85,18 +85,8 @@ impl SearchMaster {
                     );
                     println!("uciok");
                 }
-                UCICommand::Position(new_board, moves) => {
-                    let last_board = board;
+                UCICommand::Position(new_board) => {
                     board = new_board;
-                    for m in moves {
-                        match board.push_str(&m) {
-                            Ok(_) => {}
-                            Err(e) => {
-                                board = last_board.clone();
-                                eprintln!("{}", e);
-                            }
-                        }
-                    }
                 }
                 UCICommand::Go(time_control) => {
                     self.stop.store(false, Ordering::SeqCst);
