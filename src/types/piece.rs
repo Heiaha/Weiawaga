@@ -52,7 +52,7 @@ impl Piece {
     pub fn iter(start: Self, end: Self) -> impl Iterator<Item = Self> {
         (start as u8..=end as u8)
             .filter(|n| !matches!(n, 0b0110 | 0b0111)) // Skip over 6 and 7, as they're not assigned to a piece so as to align color bits
-            .map(|n| Self::from(n))
+            .map(Self::from)
     }
 }
 

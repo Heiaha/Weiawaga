@@ -63,9 +63,9 @@ impl SQ {
     #[inline]
     pub fn forward_ranks_bb(self, color: Color) -> BitBoard {
         if color == Color::White {
-            !Rank::One.bb() << (8 * self.rank().relative(color) as u32)
+            !Rank::One.bb() << (8 * self.rank().relative(color) as u8)
         } else {
-            !Rank::Eight.bb() >> (8 * self.rank().relative(color) as u32)
+            !Rank::Eight.bb() >> (8 * self.rank().relative(color) as u8)
         }
     }
 
@@ -84,7 +84,7 @@ impl SQ {
 
     #[inline(always)]
     pub fn iter(start: Self, end: Self) -> impl Iterator<Item = Self> {
-        (start as u8..=end as u8).map(|n| Self::from(n))
+        (start as u8..=end as u8).map(Self::from)
     }
 }
 

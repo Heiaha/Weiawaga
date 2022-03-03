@@ -67,7 +67,7 @@ pub struct Magics {
     masks: [BitBoard; SQ::N_SQUARES],
     magics: [BitBoard; SQ::N_SQUARES],
     pub attacks: [&'static [BitBoard]; SQ::N_SQUARES],
-    shift: u32,
+    shift: u8,
 }
 
 impl Magics {

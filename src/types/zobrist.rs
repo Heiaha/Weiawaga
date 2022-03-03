@@ -39,7 +39,7 @@ fn init_zobrist_table(zobrist_table: &mut [[BitBoard; SQ::N_SQUARES]; Piece::N_P
 
 fn init_zobrist_ep(zobrist_ep: &mut [BitBoard; 8]) {
     let mut rng = rand::thread_rng();
-    for f in 0..8 {
+    for f in 0..File::N_FILES {
         zobrist_ep[f] = B!(rng.gen::<u64>());
     }
 }

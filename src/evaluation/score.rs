@@ -95,19 +95,25 @@ impl SubAssign for Score {
     }
 }
 
-impl Mul<Value> for Score {
+impl<T> Mul<T> for Score
+where
+    T: Into<Value>,
+{
     type Output = Self;
 
     #[inline(always)]
-    fn mul(self, rhs: Value) -> Self::Output {
-        Self(self.0.wrapping_mul(rhs))
+    fn mul(self, rhs: T) -> Self::Output {
+        Self(self.0.wrapping_mul(rhs.into()))
     }
 }
 
-impl MulAssign<Value> for Score {
+impl<T> MulAssign<T> for Score
+where
+    T: Into<Value>,
+{
     #[inline(always)]
-    fn mul_assign(&mut self, rhs: Value) {
-        self.0 = self.0.wrapping_mul(rhs);
+    fn mul_assign(&mut self, rhs: T) {
+        self.0 = self.0.wrapping_mul(rhs.into());
     }
 }
 
