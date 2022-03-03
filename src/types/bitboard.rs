@@ -185,7 +185,7 @@ where
 {
     #[inline(always)]
     fn shl_assign(&mut self, rhs: T) {
-        self.0 = self.0 << rhs.into();
+        self.0 <<= rhs.into();
     }
 }
 
@@ -207,7 +207,7 @@ where
 {
     #[inline(always)]
     fn shr_assign(&mut self, rhs: T) {
-        self.0 = self.0 >> rhs.into();
+        self.0 >>= rhs.into();
     }
 }
 
@@ -282,13 +282,6 @@ impl Mul for BitBoard {
     #[inline(always)]
     fn mul(self, rhs: Self) -> Self::Output {
         Self(self.0.wrapping_mul(rhs.0))
-    }
-}
-
-impl MulAssign for BitBoard {
-    #[inline(always)]
-    fn mul_assign(&mut self, rhs: Self) {
-        self.0 = self.0.wrapping_mul(rhs.0);
     }
 }
 
