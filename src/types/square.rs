@@ -106,16 +106,22 @@ impl Sub<Direction> for SQ {
     }
 }
 
-impl fmt::Display for SQ {
-    fn fmt(&self, f: &mut fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", Self::SQ_DISPLAY[*self as usize])
-    }
-}
-
 impl From<u8> for SQ {
     #[inline(always)]
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
+    }
+}
+
+impl Default for SQ {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl fmt::Display for SQ {
+    fn fmt(&self, f: &mut fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", Self::SQ_DISPLAY[*self as usize])
     }
 }
 

@@ -48,8 +48,8 @@ impl Board {
 
     pub fn clear(&mut self) {
         self.color_to_play = Color::White;
-        self.hash = BitBoard::ZERO;
-        self.material_hash = BitBoard::ZERO;
+        self.hash = Hash::ZERO;
+        self.material_hash = Hash::ZERO;
         self.phase = Score::TOTAL_PHASE;
         self.material_score = Score::ZERO;
         self.p_sq_score = Score::ZERO;
@@ -318,8 +318,8 @@ impl Board {
             Move::default(),
             self.history[self.game_ply - 1].half_move_counter() + 1,
             0,
-            Piece::None,
-            SQ::None,
+            Piece::default(),
+            SQ::default(),
             self.history[self.game_ply - 1].material_hash(),
         );
 

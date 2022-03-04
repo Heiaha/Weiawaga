@@ -3,12 +3,12 @@ use super::moov::*;
 use super::piece::*;
 use super::square::*;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct UndoInfo {
     entry: BitBoard,
     captured: Piece,
     epsq: SQ,
-    moove: MoveInt,
+    moov: MoveInt,
     material_hash: BitBoard,
     half_move_counter: u16,
     plies_from_null: u16,
@@ -17,7 +17,7 @@ pub struct UndoInfo {
 impl UndoInfo {
     pub fn new(
         entry: BitBoard,
-        moove: Move,
+        m: Move,
         half_move_counter: u16,
         plies_from_null: u16,
         captured: Piece,
@@ -26,7 +26,7 @@ impl UndoInfo {
     ) -> Self {
         Self {
             entry,
-            moove: moove.move_int(),
+            moov: m.into(),
             half_move_counter,
             plies_from_null,
             captured,
@@ -42,7 +42,7 @@ impl UndoInfo {
 
     #[inline(always)]
     pub fn moove(&self) -> Move {
-        Move::from(self.moove)
+        Move::from(self.moov)
     }
 
     #[inline(always)]
@@ -93,19 +93,5 @@ impl UndoInfo {
     #[inline(always)]
     pub fn set_material_hash(&mut self, material_hash: Hash) {
         self.material_hash = material_hash;
-    }
-}
-
-impl Default for UndoInfo {
-    fn default() -> Self {
-        Self {
-            entry: BitBoard::ZERO,
-            captured: Piece::None,
-            epsq: SQ::None,
-            moove: 0,
-            material_hash: BitBoard::ZERO,
-            half_move_counter: 0,
-            plies_from_null: 0,
-        }
     }
 }

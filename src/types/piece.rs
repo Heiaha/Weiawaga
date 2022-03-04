@@ -76,6 +76,12 @@ impl TryFrom<char> for Piece {
     }
 }
 
+impl Default for Piece {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
 impl fmt::Display for Piece {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -123,6 +129,12 @@ impl From<u8> for PieceType {
     #[inline(always)]
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
+    }
+}
+
+impl Default for PieceType {
+    fn default() -> Self {
+        Self::None
     }
 }
 

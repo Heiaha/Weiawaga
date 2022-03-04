@@ -1,7 +1,6 @@
 use super::square::*;
-use crate::types::piece::PieceType;
+use crate::types::piece::*;
 use std::fmt;
-use std::fmt::Formatter;
 
 pub type MoveInt = u16;
 
@@ -27,11 +26,6 @@ impl Move {
     #[inline(always)]
     pub fn flags(&self) -> MoveFlags {
         MoveFlags::from(((self.0 >> 12) & 0xf) as u8)
-    }
-
-    #[inline(always)]
-    pub fn move_int(&self) -> MoveInt {
-        self.0
     }
 
     #[inline(always)]
@@ -73,8 +67,15 @@ impl From<MoveInt> for Move {
     }
 }
 
+impl Into<MoveInt> for Move {
+    #[inline(always)]
+    fn into(self) -> MoveInt {
+        self.0
+    }
+}
+
 impl fmt::Display for Move {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
             "{}{}{}",

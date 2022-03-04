@@ -30,7 +30,7 @@ pub struct TTEntry {
 impl TTEntry {
     pub fn new(value: Value, best_move: Option<Move>, depth: Depth, flag: TTFlag) -> Self {
         TTEntry {
-            best_move: best_move.map(|m| m.move_int()),
+            best_move: best_move.map(|m| m.into()),
             depth,
             value: value as TTValue,
             flag,

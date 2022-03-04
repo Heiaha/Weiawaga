@@ -163,6 +163,12 @@ impl From<u64> for BitBoard {
     }
 }
 
+impl Default for BitBoard {
+    fn default() -> Self {
+        Self::ZERO
+    }
+}
+
 //////////////////////////////////////////////
 // Shifting Operations
 //////////////////////////////////////////////
