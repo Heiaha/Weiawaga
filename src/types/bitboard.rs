@@ -4,7 +4,6 @@ use super::file::*;
 use super::square::*;
 use crate::evaluation::score::*;
 use std::fmt;
-use std::fmt::Formatter;
 use std::ops::*;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -333,7 +332,7 @@ impl fmt::Debug for Bitboard {
 }
 
 impl fmt::Display for Bitboard {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:#x}", self.0)
     }
 }

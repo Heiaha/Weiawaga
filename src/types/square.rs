@@ -120,7 +120,7 @@ impl Default for SQ {
 }
 
 impl fmt::Display for SQ {
-    fn fmt(&self, f: &mut fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", Self::SQ_DISPLAY[*self as usize])
     }
 }

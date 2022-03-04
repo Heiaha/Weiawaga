@@ -5,7 +5,7 @@ use crate::types::board::*;
 use crate::types::color::*;
 use crate::types::moov::*;
 use crate::types::move_list::*;
-use crate::types::piece::PieceType;
+use crate::types::piece::*;
 use crate::types::square::*;
 
 const N_KILLER: usize = 3;
