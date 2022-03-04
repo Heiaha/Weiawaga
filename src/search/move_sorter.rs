@@ -98,8 +98,8 @@ impl MoveSorter {
         self.history_scores[from][to] += depth * depth;
 
         if self.history_scores[from][to] >= -Self::HISTORY_MOVE_OFFSET {
-            for sq1 in BitBoard::ALL {
-                for sq2 in BitBoard::ALL {
+            for sq1 in Bitboard::ALL {
+                for sq2 in Bitboard::ALL {
                     self.history_scores[sq1.index()][sq2.index()] >>= 1; // Divide by two
                 }
             }

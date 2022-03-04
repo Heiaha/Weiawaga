@@ -8,14 +8,14 @@ use std::cmp::max;
 // Fancy magic bitboard implementation inspired by Rustfish's port of Stockfish
 
 struct MagicInit {
-    magic: BitBoard,
+    magic: Bitboard,
     index: u32,
 }
 
 macro_rules! M {
     ($x:expr, $y:expr) => {
         MagicInit {
-            magic: BitBoard($x),
+            magic: Bitboard($x),
             index: $y,
         }
     };
@@ -61,32 +61,32 @@ const ROOK_MAGICS_INIT: [MagicInit; SQ::N_SQUARES] = [
     M!(0x0000020408001001, 72662), M!(0x0007fffeffff77fd, 56325), M!(0x0003ffffbf7dfeec, 66501), M!(0x0001ffff9dffa333, 14826),
 ];
 
-pub static mut ATTACKS_TABLE: [BitBoard; 88772] = [BitBoard::ZERO; 88772];
+pub static mut ATTACKS_TABLE: [Bitboard; 88772] = [Bitboard::ZERO; 88772];
 
 pub struct Magics {
-    masks: [BitBoard; SQ::N_SQUARES],
-    magics: [BitBoard; SQ::N_SQUARES],
-    pub attacks: [&'static [BitBoard]; SQ::N_SQUARES],
+    masks: [Bitboard; SQ::N_SQUARES],
+    magics: [Bitboard; SQ::N_SQUARES],
+    pub attacks: [&'static [Bitboard]; SQ::N_SQUARES],
     shift: u8,
 }
 
 impl Magics {
     #[inline(always)]
-    pub fn index(&self, sq: SQ, occ: BitBoard) -> usize {
+    pub fn index(&self, sq: SQ, occ: Bitboard) -> usize {
         (((occ & self.masks[sq as usize]) * self.magics[sq as usize]) >> self.shift).0 as usize
     }
 }
 
 pub static mut ROOK_MAGICS: Magics = Magics {
-    masks: [BitBoard::ZERO; SQ::N_SQUARES],
-    magics: [BitBoard::ZERO; SQ::N_SQUARES],
+    masks: [Bitboard::ZERO; SQ::N_SQUARES],
+    magics: [Bitboard::ZERO; SQ::N_SQUARES],
     attacks: [&[]; SQ::N_SQUARES],
     shift: 64 - 12,
 };
 
 pub static mut BISHOP_MAGICS: Magics = Magics {
-    masks: [BitBoard::ZERO; SQ::N_SQUARES],
-    magics: [BitBoard::ZERO; SQ::N_SQUARES],
+    masks: [Bitboard::ZERO; SQ::N_SQUARES],
+    magics: [Bitboard::ZERO; SQ::N_SQUARES],
     attacks: [&[]; SQ::N_SQUARES],
     shift: 64 - 9,
 };
@@ -96,7 +96,7 @@ pub static mut BISHOP_MAGICS: Magics = Magics {
 //////////////////////////////////////////////
 
 fn initialize_rook_magics(magics: &mut Magics) {
-    for sq in BitBoard::ALL {
+    for sq in Bitboard::ALL {
         let edges = ((Rank::One.bb() | Rank::Eight.bb()) & !sq.rank().bb())
             | ((File::A.bb() | File::H.bb()) & !sq.file().bb());
 
@@ -104,7 +104,7 @@ fn initialize_rook_magics(magics: &mut Magics) {
         magics.magics[sq.index()] = ROOK_MAGICS_INIT[sq.index()].magic;
 
         let base = ROOK_MAGICS_INIT[sq.index()].index as usize;
-        let mut subset = BitBoard::ZERO;
+        let mut subset = Bitboard::ZERO;
         let mut size = 0;
         loop {
             let index = magics.index(sq, subset);
@@ -114,7 +114,7 @@ fn initialize_rook_magics(magics: &mut Magics) {
 
             // Carry-Rippler for iterating through the subset
             subset = (subset - magics.masks[sq.index()]) & magics.masks[sq.index()];
-            if subset == BitBoard::ZERO {
+            if subset == Bitboard::ZERO {
                 break;
             }
         }
@@ -123,7 +123,7 @@ fn initialize_rook_magics(magics: &mut Magics) {
 }
 
 fn initialize_bishop_magics(magics: &mut Magics) {
-    for sq in BitBoard::ALL {
+    for sq in Bitboard::ALL {
         let edges = ((Rank::One.bb() | Rank::Eight.bb()) & !sq.rank().bb())
             | ((File::A.bb() | File::H.bb()) & !sq.file().bb());
 
@@ -131,7 +131,7 @@ fn initialize_bishop_magics(magics: &mut Magics) {
         magics.magics[sq.index()] = BISHOP_MAGICS_INIT[sq.index()].magic;
 
         let base = BISHOP_MAGICS_INIT[sq.index()].index as usize;
-        let mut subset = BitBoard::ZERO;
+        let mut subset = Bitboard::ZERO;
         let mut size = 0;
         loop {
             let index = magics.index(sq, subset);
@@ -141,7 +141,7 @@ fn initialize_bishop_magics(magics: &mut Magics) {
 
             // Carry-Rippler for iterating through the subset
             subset = (subset - magics.masks[sq.index()]) & magics.masks[sq.index()];
-            if subset == BitBoard::ZERO {
+            if subset == Bitboard::ZERO {
                 break;
             }
         }

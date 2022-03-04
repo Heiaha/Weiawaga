@@ -26,7 +26,7 @@ impl SQ {
     }
 
     #[inline(always)]
-    pub fn bb(self) -> BitBoard {
+    pub fn bb(self) -> Bitboard {
         Self::SQUARES_BB[self as usize]
     }
 
@@ -61,7 +61,7 @@ impl SQ {
     }
 
     #[inline]
-    pub fn forward_ranks_bb(self, color: Color) -> BitBoard {
+    pub fn forward_ranks_bb(self, color: Color) -> Bitboard {
         if color == Color::White {
             !Rank::One.bb() << (8 * self.rank().relative(color) as u8)
         } else {
@@ -69,7 +69,7 @@ impl SQ {
         }
     }
 
-    pub fn forward_files_bb(self, color: Color) -> BitBoard {
+    pub fn forward_files_bb(self, color: Color) -> Bitboard {
         self.file().bb() & self.forward_ranks_bb(color)
     }
 
@@ -142,7 +142,7 @@ impl SQ {
     pub const N_SQUARES: usize = 64;
 
     #[rustfmt::skip]
-    const SQUARES_BB: [BitBoard; Self::N_SQUARES + 1] = [
+    const SQUARES_BB: [Bitboard; Self::N_SQUARES + 1] = [
         B!(1 << 0),  B!(1 << 1),  B!(1 << 2),  B!(1 << 3),  B!(1 << 4),  B!(1 << 5),  B!(1 << 6),  B!(1 << 7),
         B!(1 << 8),  B!(1 << 9),  B!(1 << 10), B!(1 << 11), B!(1 << 12), B!(1 << 13), B!(1 << 14), B!(1 << 15),
         B!(1 << 16), B!(1 << 17), B!(1 << 18), B!(1 << 19), B!(1 << 20), B!(1 << 21), B!(1 << 22), B!(1 << 23),

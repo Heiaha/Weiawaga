@@ -65,28 +65,28 @@ impl MoveList {
         self.len += 1;
     }
 
-    pub fn make_q(&mut self, from_sq: SQ, to: BitBoard) {
+    pub fn make_q(&mut self, from_sq: SQ, to: Bitboard) {
         for to_sq in to {
             self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::Quiet);
             self.len += 1;
         }
     }
 
-    pub fn make_c(&mut self, from_sq: SQ, to: BitBoard) {
+    pub fn make_c(&mut self, from_sq: SQ, to: Bitboard) {
         for to_sq in to {
             self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::Capture);
             self.len += 1;
         }
     }
 
-    pub fn make_dp(&mut self, from_sq: SQ, to: BitBoard) {
+    pub fn make_dp(&mut self, from_sq: SQ, to: Bitboard) {
         for to_sq in to {
             self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::DoublePush);
             self.len += 1;
         }
     }
 
-    pub fn make_pc(&mut self, from_sq: SQ, to: BitBoard) {
+    pub fn make_pc(&mut self, from_sq: SQ, to: Bitboard) {
         for to_sq in to {
             self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::PcKnight);
             self.len += 1;

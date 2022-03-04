@@ -109,7 +109,7 @@ pub static mut PIECE_VALUES: [Score; Piece::N_PIECES] = [Score::ZERO; Piece::N_P
 pub static mut PIECE_TABLES: [[Score; SQ::N_SQUARES]; Piece::N_PIECES] = [[Score::ZERO; SQ::N_SQUARES]; Piece::N_PIECES];
 
 #[rustfmt::skip]
-pub static mut PAWN_SHIELD_MASKS: [[BitBoard; SQ::N_SQUARES]; Color::N_COLORS] = [[BitBoard::ZERO; SQ::N_SQUARES]; Color::N_COLORS];
+pub static mut PAWN_SHIELD_MASKS: [[Bitboard; SQ::N_SQUARES]; Color::N_COLORS] = [[Bitboard::ZERO; SQ::N_SQUARES]; Color::N_COLORS];
 
 #[inline(always)]
 pub fn tempo() -> Score {
@@ -157,12 +157,12 @@ pub fn piecetype_sq_value(pt: PieceType, sq: SQ) -> Score {
 }
 
 #[inline(always)]
-pub fn pawns_shield_mask(color: Color, sq: SQ) -> BitBoard {
+pub fn pawns_shield_mask(color: Color, sq: SQ) -> Bitboard {
     unsafe { PAWN_SHIELD_MASKS[color.index()][sq.index()] }
 }
 
-fn init_pawn_shields(pawn_shields: &mut [[BitBoard; SQ::N_SQUARES]; Color::N_COLORS]) {
-    for sq in BitBoard::ALL {
+fn init_pawn_shields(pawn_shields: &mut [[Bitboard; SQ::N_SQUARES]; Color::N_COLORS]) {
+    for sq in Bitboard::ALL {
         let sq_bb = sq.bb();
         pawn_shields[Color::White.index()][sq.index()] = sq_bb.shift(Direction::North)
             | sq_bb.shift(Direction::NorthEast)
@@ -181,7 +181,7 @@ fn init_piece_values(
         for pc in Piece::iter(Piece::WhitePawn, Piece::WhiteKing) {
             piece_values[pc.index()] = PIECE_TYPE_VALUES[pc.type_of().index()];
             piece_values[pc.flip().index()] = -PIECE_TYPE_VALUES[pc.type_of().index()];
-            for sq in BitBoard::ALL {
+            for sq in Bitboard::ALL {
                 piece_tables[pc.index()][sq.index()] = PIECE_TYPE_TABLES[pc.index()][sq.index()];
                 piece_tables[pc.flip().index()][sq.index()] =
                     -PIECE_TYPE_TABLES[pc.index()][sq.square_mirror().index()];

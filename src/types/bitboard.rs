@@ -8,17 +8,17 @@ use std::fmt::Formatter;
 use std::ops::*;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub struct BitBoard(pub u64);
+pub struct Bitboard(pub u64);
 
-pub type Hash = BitBoard;
+pub type Hash = Bitboard;
 
 macro_rules! B {
     ($x:expr) => {
-        BitBoard($x)
+        Bitboard($x)
     };
 }
 
-impl BitBoard {
+impl Bitboard {
     #[inline(always)]
     pub fn lsb(&self) -> SQ {
         SQ::from(self.0.trailing_zeros() as u8)
@@ -101,7 +101,7 @@ impl BitBoard {
 // Static
 //////////////////////////////////////////////
 
-impl BitBoard {
+impl Bitboard {
     #[inline(always)]
     pub fn line(sq1: SQ, sq2: SQ) -> Self {
         unsafe { LINES_BB[sq1.index()][sq2.index()] }
@@ -157,13 +157,13 @@ impl BitBoard {
     }
 }
 
-impl From<u64> for BitBoard {
+impl From<u64> for Bitboard {
     fn from(value: u64) -> Self {
         Self(value)
     }
 }
 
-impl Default for BitBoard {
+impl Default for Bitboard {
     fn default() -> Self {
         Self::ZERO
     }
@@ -173,7 +173,7 @@ impl Default for BitBoard {
 // Shifting Operations
 //////////////////////////////////////////////
 
-impl<T> Shl<T> for BitBoard
+impl<T> Shl<T> for Bitboard
 where
     T: Into<u8>,
 {
@@ -185,7 +185,7 @@ where
     }
 }
 
-impl<T> ShlAssign<T> for BitBoard
+impl<T> ShlAssign<T> for Bitboard
 where
     T: Into<u8>,
 {
@@ -195,7 +195,7 @@ where
     }
 }
 
-impl<T> Shr<T> for BitBoard
+impl<T> Shr<T> for Bitboard
 where
     T: Into<u8>,
 {
@@ -207,7 +207,7 @@ where
     }
 }
 
-impl<T> ShrAssign<T> for BitBoard
+impl<T> ShrAssign<T> for Bitboard
 where
     T: Into<u8>,
 {
@@ -221,7 +221,7 @@ where
 // Bitwise Operations
 //////////////////////////////////////////////
 
-impl BitAnd for BitBoard {
+impl BitAnd for Bitboard {
     type Output = Self;
 
     #[inline(always)]
@@ -230,14 +230,14 @@ impl BitAnd for BitBoard {
     }
 }
 
-impl BitAndAssign for BitBoard {
+impl BitAndAssign for Bitboard {
     #[inline(always)]
     fn bitand_assign(&mut self, rhs: Self) {
         self.0 &= rhs.0;
     }
 }
 
-impl BitOr for BitBoard {
+impl BitOr for Bitboard {
     type Output = Self;
 
     #[inline(always)]
@@ -246,14 +246,14 @@ impl BitOr for BitBoard {
     }
 }
 
-impl BitOrAssign for BitBoard {
+impl BitOrAssign for Bitboard {
     #[inline(always)]
     fn bitor_assign(&mut self, rhs: Self) {
         self.0 |= rhs.0;
     }
 }
 
-impl BitXor for BitBoard {
+impl BitXor for Bitboard {
     type Output = Self;
 
     #[inline(always)]
@@ -262,14 +262,14 @@ impl BitXor for BitBoard {
     }
 }
 
-impl BitXorAssign for BitBoard {
+impl BitXorAssign for Bitboard {
     #[inline(always)]
     fn bitxor_assign(&mut self, rhs: Self) {
         self.0 ^= rhs.0;
     }
 }
 
-impl Not for BitBoard {
+impl Not for Bitboard {
     type Output = Self;
 
     #[inline(always)]
@@ -282,7 +282,7 @@ impl Not for BitBoard {
 // Arithmetic for Magic BitBoards
 //////////////////////////////////////////////
 
-impl Mul for BitBoard {
+impl Mul for Bitboard {
     type Output = Self;
 
     #[inline(always)]
@@ -291,7 +291,7 @@ impl Mul for BitBoard {
     }
 }
 
-impl Sub for BitBoard {
+impl Sub for Bitboard {
     type Output = Self;
 
     #[inline(always)]
@@ -304,7 +304,7 @@ impl Sub for BitBoard {
 // Iterator
 //////////////////////////////////////////////
 
-impl Iterator for BitBoard {
+impl Iterator for Bitboard {
     type Item = SQ;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -319,7 +319,7 @@ impl Iterator for BitBoard {
 // Display
 //////////////////////////////////////////////
 
-impl fmt::Debug for BitBoard {
+impl fmt::Debug for Bitboard {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut result = String::new();
         for i in (0..=56).rev().step_by(8) {
@@ -332,7 +332,7 @@ impl fmt::Debug for BitBoard {
     }
 }
 
-impl fmt::Display for BitBoard {
+impl fmt::Display for Bitboard {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{:#x}", self.0)
     }
@@ -342,7 +342,7 @@ impl fmt::Display for BitBoard {
 // Constants
 //////////////////////////////////////////////
 
-impl BitBoard {
+impl Bitboard {
     pub const ALL: Self = B!(0xffffffffffffffff);
     pub const ZERO: Self = B!(0);
     pub const ONE: Self = B!(1);
@@ -368,14 +368,14 @@ impl BitBoard {
     pub const CENTER: Self = B!(0x1818000000);
 }
 
-static mut BETWEEN_BB: [[BitBoard; SQ::N_SQUARES]; SQ::N_SQUARES] =
+static mut BETWEEN_BB: [[Bitboard; SQ::N_SQUARES]; SQ::N_SQUARES] =
     [[B!(0); SQ::N_SQUARES]; SQ::N_SQUARES];
-static mut LINES_BB: [[BitBoard; SQ::N_SQUARES]; SQ::N_SQUARES] =
+static mut LINES_BB: [[Bitboard; SQ::N_SQUARES]; SQ::N_SQUARES] =
     [[B!(0); SQ::N_SQUARES]; SQ::N_SQUARES];
 
-fn init_between(between_bb: &mut [[BitBoard; SQ::N_SQUARES]; SQ::N_SQUARES]) {
-    for sq1 in BitBoard::ALL {
-        for sq2 in BitBoard::ALL {
+fn init_between(between_bb: &mut [[Bitboard; SQ::N_SQUARES]; SQ::N_SQUARES]) {
+    for sq1 in Bitboard::ALL {
+        for sq2 in Bitboard::ALL {
             let sqs = sq1.bb() | sq2.bb();
             if sq1.file() == sq2.file() || sq1.rank() == sq2.rank() {
                 between_bb[sq1.index()][sq2.index()] = attacks::rook_attacks_for_init(sq1, sqs)
@@ -388,19 +388,19 @@ fn init_between(between_bb: &mut [[BitBoard; SQ::N_SQUARES]; SQ::N_SQUARES]) {
     }
 }
 
-fn init_lines(lines_bb: &mut [[BitBoard; SQ::N_SQUARES]; SQ::N_SQUARES]) {
-    for sq1 in BitBoard::ALL {
-        for sq2 in BitBoard::ALL {
+fn init_lines(lines_bb: &mut [[Bitboard; SQ::N_SQUARES]; SQ::N_SQUARES]) {
+    for sq1 in Bitboard::ALL {
+        for sq2 in Bitboard::ALL {
             if sq1.file() == sq2.file() || sq1.rank() == sq2.rank() {
                 lines_bb[sq1.index()][sq2.index()] =
-                    attacks::rook_attacks_for_init(sq1, BitBoard::ZERO)
-                        & attacks::rook_attacks_for_init(sq2, BitBoard::ZERO)
+                    attacks::rook_attacks_for_init(sq1, Bitboard::ZERO)
+                        & attacks::rook_attacks_for_init(sq2, Bitboard::ZERO)
                         | sq1.bb()
                         | sq2.bb();
             } else if sq1.diagonal() == sq2.diagonal() || sq1.antidiagonal() == sq2.antidiagonal() {
                 lines_bb[sq1.index()][sq2.index()] =
-                    attacks::bishop_attacks_for_init(sq1, BitBoard::ZERO)
-                        & attacks::bishop_attacks_for_init(sq2, BitBoard::ZERO)
+                    attacks::bishop_attacks_for_init(sq1, Bitboard::ZERO)
+                        & attacks::bishop_attacks_for_init(sq2, Bitboard::ZERO)
                         | sq1.bb()
                         | sq2.bb();
             }

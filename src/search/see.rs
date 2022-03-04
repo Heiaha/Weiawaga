@@ -36,7 +36,7 @@ pub fn see(board: &Board, m: Move) -> SortValue {
             } else {
                 attacks::attacks(pt, to_sq, blockers) & defenders & board.bitboard_of_piecetype(pt)
             };
-            if piece_bb != BitBoard::ZERO {
+            if piece_bb != Bitboard::ZERO {
                 blockers &= !piece_bb.lsb().bb();
                 color = !color;
                 continue 'depth_loop;

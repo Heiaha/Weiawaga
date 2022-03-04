@@ -15,7 +15,7 @@ pub enum File {
 
 impl File {
     #[inline(always)]
-    pub fn bb(self) -> BitBoard {
+    pub fn bb(self) -> Bitboard {
         Self::FILE_BB[self as usize]
     }
 
@@ -52,7 +52,7 @@ impl Sub for File {
 
 impl File {
     pub const N_FILES: usize = 8;
-    const FILE_BB: [BitBoard; Self::N_FILES] = [
+    const FILE_BB: [Bitboard; Self::N_FILES] = [
         B!(0x0101_0101_0101_0101),
         B!(0x0202_0202_0202_0202),
         B!(0x0404_0404_0404_0404),

@@ -5,7 +5,7 @@ use super::piece::*;
 use super::square::*;
 
 #[rustfmt::skip]
-const KNIGHT_ATTACKS: [BitBoard; SQ::N_SQUARES] = [
+const KNIGHT_ATTACKS: [Bitboard; SQ::N_SQUARES] = [
     B!(0x0000000000020400), B!(0x0000000000050800), B!(0x00000000000a1100), B!(0x0000000000142200),
     B!(0x0000000000284400), B!(0x0000000000508800), B!(0x0000000000a01000), B!(0x0000000000402000),
     B!(0x0000000002040004), B!(0x0000000005080008), B!(0x000000000a110011), B!(0x0000000014220022),
@@ -25,7 +25,7 @@ const KNIGHT_ATTACKS: [BitBoard; SQ::N_SQUARES] = [
 ];
 
 #[rustfmt::skip]
-const ADJACENT_ATTACKS: [BitBoard; SQ::N_SQUARES] = [
+const ADJACENT_ATTACKS: [Bitboard; SQ::N_SQUARES] = [
     B!(0x0000000000000302), B!(0x0000000000000705), B!(0x0000000000000e0a), B!(0x0000000000001c14),
     B!(0x0000000000003828), B!(0x0000000000007050), B!(0x000000000000e0a0), B!(0x000000000000c040),
     B!(0x0000000000030203), B!(0x0000000000070507), B!(0x00000000000e0a0e), B!(0x00000000001c141c),
@@ -45,7 +45,7 @@ const ADJACENT_ATTACKS: [BitBoard; SQ::N_SQUARES] = [
 ];
 
 #[rustfmt::skip]
-const PAWN_ATTACKS: [[BitBoard; SQ::N_SQUARES]; Color::N_COLORS] = [
+const PAWN_ATTACKS: [[Bitboard; SQ::N_SQUARES]; Color::N_COLORS] = [
     [
         B!(0x0000000000000200), B!(0x0000000000000500), B!(0x0000000000000a00), B!(0x0000000000001400),
         B!(0x0000000000002800), B!(0x0000000000005000), B!(0x000000000000a000), B!(0x0000000000004000),
@@ -85,27 +85,27 @@ const PAWN_ATTACKS: [[BitBoard; SQ::N_SQUARES]; Color::N_COLORS] = [
 ];
 
 #[inline(always)]
-pub fn rook_attacks(sq: SQ, occ: BitBoard) -> BitBoard {
+pub fn rook_attacks(sq: SQ, occ: Bitboard) -> Bitboard {
     unsafe { ROOK_MAGICS.attacks[sq.index()][ROOK_MAGICS.index(sq, occ)] }
 }
 
 #[inline(always)]
-pub fn bishop_attacks(sq: SQ, occ: BitBoard) -> BitBoard {
+pub fn bishop_attacks(sq: SQ, occ: Bitboard) -> Bitboard {
     unsafe { BISHOP_MAGICS.attacks[sq.index()][BISHOP_MAGICS.index(sq, occ)] }
 }
 
 #[inline(always)]
-pub fn knight_attacks(sq: SQ) -> BitBoard {
+pub fn knight_attacks(sq: SQ) -> Bitboard {
     KNIGHT_ATTACKS[sq.index()]
 }
 
 #[inline(always)]
-pub fn king_attacks(sq: SQ) -> BitBoard {
+pub fn king_attacks(sq: SQ) -> Bitboard {
     ADJACENT_ATTACKS[sq.index()]
 }
 
 #[inline(always)]
-pub fn pawn_attacks_bb(bb: BitBoard, color: Color) -> BitBoard {
+pub fn pawn_attacks_bb(bb: Bitboard, color: Color) -> Bitboard {
     if color == Color::White {
         bb.shift(Direction::NorthWest) | bb.shift(Direction::NorthEast)
     } else {
@@ -114,25 +114,25 @@ pub fn pawn_attacks_bb(bb: BitBoard, color: Color) -> BitBoard {
 }
 
 #[inline(always)]
-pub fn pawn_attacks_sq(sq: SQ, color: Color) -> BitBoard {
+pub fn pawn_attacks_sq(sq: SQ, color: Color) -> Bitboard {
     PAWN_ATTACKS[color.index()][sq.index()]
 }
 
 #[inline(always)]
-pub fn sliding_attacks(sq: SQ, occ: BitBoard, mask: BitBoard) -> BitBoard {
-    (((mask & occ) - sq.bb() * BitBoard::TWO)
-        ^ ((mask & occ).reverse() - sq.bb().reverse() * BitBoard::TWO).reverse())
+pub fn sliding_attacks(sq: SQ, occ: Bitboard, mask: Bitboard) -> Bitboard {
+    (((mask & occ) - sq.bb() * Bitboard::TWO)
+        ^ ((mask & occ).reverse() - sq.bb().reverse() * Bitboard::TWO).reverse())
         & mask
 }
 
-pub fn attacks(pt: PieceType, sq: SQ, occ: BitBoard) -> BitBoard {
+pub fn attacks(pt: PieceType, sq: SQ, occ: Bitboard) -> Bitboard {
     match pt {
         PieceType::Knight => knight_attacks(sq),
         PieceType::Bishop => bishop_attacks(sq, occ),
         PieceType::Rook => rook_attacks(sq, occ),
         PieceType::Queen => bishop_attacks(sq, occ) | rook_attacks(sq, occ),
         PieceType::King => king_attacks(sq),
-        _ => BitBoard::ZERO,
+        _ => Bitboard::ZERO,
     }
 }
 
@@ -140,11 +140,11 @@ pub fn attacks(pt: PieceType, sq: SQ, occ: BitBoard) -> BitBoard {
 // Inits
 //////////////////////////////////////////////
 
-pub fn rook_attacks_for_init(sq: SQ, blockers: BitBoard) -> BitBoard {
+pub fn rook_attacks_for_init(sq: SQ, blockers: Bitboard) -> Bitboard {
     sliding_attacks(sq, blockers, sq.file().bb()) | sliding_attacks(sq, blockers, sq.rank().bb())
 }
 
-pub fn bishop_attacks_for_init(sq: SQ, blockers: BitBoard) -> BitBoard {
+pub fn bishop_attacks_for_init(sq: SQ, blockers: Bitboard) -> Bitboard {
     sliding_attacks(sq, blockers, sq.diagonal().bb())
         | sliding_attacks(sq, blockers, sq.antidiagonal().bb())
 }

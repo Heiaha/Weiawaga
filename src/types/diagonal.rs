@@ -21,7 +21,7 @@ pub enum Diagonal {
 
 impl Diagonal {
     #[inline(always)]
-    pub fn bb(self) -> BitBoard {
+    pub fn bb(self) -> Bitboard {
         Self::DIAGONAL_BB[self as usize]
     }
 }
@@ -35,7 +35,7 @@ impl From<u8> for Diagonal {
 
 impl Diagonal {
     pub const N_DIAGONALS: usize = 15;
-    const DIAGONAL_BB: [BitBoard; Self::N_DIAGONALS] = [
+    const DIAGONAL_BB: [Bitboard; Self::N_DIAGONALS] = [
         B!(0x0000_0000_0000_0080),
         B!(0x0000_0000_0000_8040),
         B!(0x0000_0000_0080_4020),
@@ -75,7 +75,7 @@ pub enum AntiDiagonal {
 
 impl AntiDiagonal {
     #[inline(always)]
-    pub fn bb(self) -> BitBoard {
+    pub fn bb(self) -> Bitboard {
         Self::ANTIDIAGONAL_BB[self as usize]
     }
 }
@@ -89,7 +89,7 @@ impl From<u8> for AntiDiagonal {
 
 impl AntiDiagonal {
     pub const N_ANTIDIAGONALS: usize = 15;
-    const ANTIDIAGONAL_BB: [BitBoard; Self::N_ANTIDIAGONALS] = [
+    const ANTIDIAGONAL_BB: [Bitboard; Self::N_ANTIDIAGONALS] = [
         B!(0x0000_0000_0000_0001),
         B!(0x0000_0000_0000_0102),
         B!(0x0000_0000_0001_0204),

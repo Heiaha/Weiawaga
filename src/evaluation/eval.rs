@@ -12,9 +12,9 @@ pub struct Evaluator<'a> {
     board: &'a Board,
     color: Color,
     our_king: SQ,
-    our_pawns: BitBoard,
-    their_pawns: BitBoard,
-    all_pieces: BitBoard,
+    our_pawns: Bitboard,
+    their_pawns: Bitboard,
+    all_pieces: Bitboard,
 }
 
 impl<'a> Evaluator<'a> {
@@ -34,7 +34,7 @@ impl<'a> Evaluator<'a> {
     ////////////////////////////////////////////////////////////////
 
     fn n_passed_pawns(&self) -> Value {
-        let mut fill = BitBoard::ZERO;
+        let mut fill = Bitboard::ZERO;
         fill |= self
             .their_pawns
             .shift(Direction::SouthWest.relative(self.color));
@@ -70,17 +70,17 @@ impl<'a> Evaluator<'a> {
     // BISHOP
     ////////////////////////////////////////////////////////////////
 
-    fn has_bishop_pair(&self, bishop_bb: BitBoard) -> bool {
-        (bishop_bb & BitBoard::LIGHT_SQUARES) != BitBoard::ZERO
-            && (bishop_bb & BitBoard::DARK_SQUARES) != BitBoard::ZERO
+    fn has_bishop_pair(&self, bishop_bb: Bitboard) -> bool {
+        (bishop_bb & Bitboard::LIGHT_SQUARES) != Bitboard::ZERO
+            && (bishop_bb & Bitboard::DARK_SQUARES) != Bitboard::ZERO
     }
 
     fn pawns_on_same_color_square(&self, sq: SQ) -> Value {
         (self.board.bitboard_of(self.color, PieceType::Pawn)
-            & if sq.bb() & BitBoard::DARK_SQUARES != BitBoard::ZERO {
-                BitBoard::DARK_SQUARES
+            & if sq.bb() & Bitboard::DARK_SQUARES != Bitboard::ZERO {
+                Bitboard::DARK_SQUARES
             } else {
-                BitBoard::LIGHT_SQUARES
+                Bitboard::LIGHT_SQUARES
             })
         .pop_count()
     }
@@ -93,10 +93,10 @@ impl<'a> Evaluator<'a> {
             score += bishop_score(IX_BISHOP_PAIR_VALUE);
         }
 
-        let mut attacks: BitBoard;
+        let mut attacks: Bitboard;
         for sq in bishops_bb {
             attacks = attacks::bishop_attacks(sq, self.all_pieces) & !self.all_pieces;
-            if (attacks & BitBoard::CENTER).pop_count() == 2 {
+            if (attacks & Bitboard::CENTER).pop_count() == 2 {
                 score += bishop_score(IX_BISHOP_ATTACKS_CENTER);
             }
             score += bishop_score(IX_BISHOP_SAME_COLOR_PAWN_PENALTY)
@@ -113,13 +113,13 @@ impl<'a> Evaluator<'a> {
         let mut score = Score::ZERO;
         let rooks_bb = self.board.bitboard_of(self.color, PieceType::Rook);
 
-        let mut rook_file_bb: BitBoard;
+        let mut rook_file_bb: Bitboard;
         let mut piece_mobility: Value;
         for sq in rooks_bb {
             rook_file_bb = sq.file().bb();
 
-            if self.our_pawns & rook_file_bb == BitBoard::ZERO {
-                if self.their_pawns & rook_file_bb == BitBoard::ZERO {
+            if self.our_pawns & rook_file_bb == Bitboard::ZERO {
+                if self.their_pawns & rook_file_bb == Bitboard::ZERO {
                     score += rook_score(IX_ROOK_ON_OPEN_FILE);
                 } else {
                     score += rook_score(IX_ROOK_ON_SEMIOPEN_FILE);

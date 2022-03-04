@@ -16,7 +16,7 @@ pub enum Rank {
 
 impl Rank {
     #[inline(always)]
-    pub fn bb(self) -> BitBoard {
+    pub fn bb(self) -> Bitboard {
         Self::RANK_BB[self as usize]
     }
 
@@ -58,7 +58,7 @@ impl Sub for Rank {
 
 impl Rank {
     pub const N_RANKS: usize = 8;
-    const RANK_BB: [BitBoard; Self::N_RANKS] = [
+    const RANK_BB: [Bitboard; Self::N_RANKS] = [
         B!(0x0000_0000_0000_00FF),
         B!(0x0000_0000_0000_FF00),
         B!(0x0000_0000_00FF_0000),

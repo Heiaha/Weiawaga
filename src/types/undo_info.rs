@@ -5,24 +5,24 @@ use super::square::*;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct UndoInfo {
-    entry: BitBoard,
+    entry: Bitboard,
     captured: Piece,
     epsq: SQ,
     moov: MoveInt,
-    material_hash: BitBoard,
+    material_hash: Bitboard,
     half_move_counter: u16,
     plies_from_null: u16,
 }
 
 impl UndoInfo {
     pub fn new(
-        entry: BitBoard,
+        entry: Bitboard,
         m: Move,
         half_move_counter: u16,
         plies_from_null: u16,
         captured: Piece,
         epsq: SQ,
-        material_hash: BitBoard,
+        material_hash: Bitboard,
     ) -> Self {
         Self {
             entry,
@@ -36,7 +36,7 @@ impl UndoInfo {
     }
 
     #[inline(always)]
-    pub fn entry(&self) -> BitBoard {
+    pub fn entry(&self) -> Bitboard {
         self.entry
     }
 
@@ -66,7 +66,7 @@ impl UndoInfo {
     }
 
     #[inline(always)]
-    pub fn material_hash(&self) -> BitBoard {
+    pub fn material_hash(&self) -> Bitboard {
         self.material_hash
     }
 
@@ -81,7 +81,7 @@ impl UndoInfo {
     }
 
     #[inline(always)]
-    pub fn set_entry(&mut self, entry: BitBoard) {
+    pub fn set_entry(&mut self, entry: Bitboard) {
         self.entry = entry;
     }
 

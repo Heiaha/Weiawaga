@@ -27,9 +27,9 @@ const N_HISTORIES: usize = 1;
 
 #[derive(Clone)]
 pub struct Board {
-    piece_bb: [BitBoard; Piece::N_PIECES],
+    piece_bb: [Bitboard; Piece::N_PIECES],
     board: [Piece; SQ::N_SQUARES],
-    color_bb: [BitBoard; Color::N_COLORS],
+    color_bb: [Bitboard; Color::N_COLORS],
     color_to_play: Color,
     hash: Hash,
     material_hash: Hash,
@@ -55,14 +55,14 @@ impl Board {
         self.p_sq_score = Score::ZERO;
         self.history = [UndoInfo::default(); N_HISTORIES];
 
-        self.color_bb[Color::White.index()] = BitBoard::ZERO;
-        self.color_bb[Color::Black.index()] = BitBoard::ZERO;
+        self.color_bb[Color::White.index()] = Bitboard::ZERO;
+        self.color_bb[Color::Black.index()] = Bitboard::ZERO;
 
         for pc in Piece::iter(Piece::WhitePawn, Piece::BlackKing) {
-            self.piece_bb[pc.index()] = BitBoard::ZERO;
+            self.piece_bb[pc.index()] = Bitboard::ZERO;
         }
 
-        for sq in BitBoard::ALL {
+        for sq in Bitboard::ALL {
             self.board[sq.index()] = Piece::None;
         }
 
@@ -152,22 +152,22 @@ impl Board {
     }
 
     #[inline(always)]
-    pub fn bitboard_of_piece(&self, pc: Piece) -> BitBoard {
+    pub fn bitboard_of_piece(&self, pc: Piece) -> Bitboard {
         self.piece_bb[pc.index()]
     }
 
     #[inline(always)]
-    pub fn bitboard_of(&self, c: Color, pt: PieceType) -> BitBoard {
+    pub fn bitboard_of(&self, c: Color, pt: PieceType) -> Bitboard {
         self.piece_bb[Piece::make_piece(c, pt).index()]
     }
 
     #[inline(always)]
-    pub fn bitboard_of_piecetype(&self, pt: PieceType) -> BitBoard {
+    pub fn bitboard_of_piecetype(&self, pt: PieceType) -> Bitboard {
         self.piece_bb[Piece::make_piece(Color::White, pt).index()]
             | self.piece_bb[Piece::make_piece(Color::Black, pt).index()]
     }
 
-    pub fn diagonal_sliders(&self, color: Color) -> BitBoard {
+    pub fn diagonal_sliders(&self, color: Color) -> Bitboard {
         if color == Color::White {
             self.piece_bb[Piece::WhiteBishop.index()] | self.piece_bb[Piece::WhiteQueen.index()]
         } else {
@@ -175,7 +175,7 @@ impl Board {
         }
     }
 
-    pub fn orthogonal_sliders(&self, color: Color) -> BitBoard {
+    pub fn orthogonal_sliders(&self, color: Color) -> Bitboard {
         if color == Color::White {
             self.piece_bb[Piece::WhiteRook.index()] | self.piece_bb[Piece::WhiteQueen.index()]
         } else {
@@ -184,16 +184,16 @@ impl Board {
     }
 
     #[inline(always)]
-    pub fn all_pieces(&self) -> BitBoard {
+    pub fn all_pieces(&self) -> Bitboard {
         self.color_bb[Color::White.index()] | self.color_bb[Color::Black.index()]
     }
 
     #[inline(always)]
-    pub fn all_pieces_color(&self, color: Color) -> BitBoard {
+    pub fn all_pieces_color(&self, color: Color) -> Bitboard {
         self.color_bb[color.index()]
     }
 
-    pub fn attackers_from_color(&self, sq: SQ, occ: BitBoard, color: Color) -> BitBoard {
+    pub fn attackers_from_color(&self, sq: SQ, occ: Bitboard, color: Color) -> Bitboard {
         if color == Color::White {
             (self.piece_bb[Piece::WhitePawn.index()] & attacks::pawn_attacks_sq(sq, Color::Black))
                 | (self.piece_bb[Piece::WhiteKnight.index()] & attacks::knight_attacks(sq))
@@ -211,7 +211,7 @@ impl Board {
         }
     }
 
-    pub fn attackers_to_square(&self, sq: SQ, occ: BitBoard) -> BitBoard {
+    pub fn attackers_to_square(&self, sq: SQ, occ: Bitboard) -> Bitboard {
         (self.piece_bb[Piece::WhitePawn.index()] & attacks::pawn_attacks_sq(sq, Color::Black))
             | (self.piece_bb[Piece::WhiteKnight.index()] & attacks::knight_attacks(sq))
             | (self.piece_bb[Piece::WhiteBishop.index()] & attacks::bishop_attacks(sq, occ))
@@ -232,23 +232,23 @@ impl Board {
         let our_king = self.bitboard_of(us, PieceType::King).lsb();
 
         if attacks::knight_attacks(our_king) & self.bitboard_of(them, PieceType::Knight)
-            != BitBoard::ZERO
+            != Bitboard::ZERO
         {
             return true;
         }
 
         if attacks::pawn_attacks_sq(our_king, us) & self.bitboard_of(them, PieceType::Pawn)
-            != BitBoard::ZERO
+            != Bitboard::ZERO
         {
             return true;
         }
 
         let all = self.all_pieces_color(us) | self.all_pieces_color(them);
-        if attacks::rook_attacks(our_king, all) & self.orthogonal_sliders(them) != BitBoard::ZERO {
+        if attacks::rook_attacks(our_king, all) & self.orthogonal_sliders(them) != Bitboard::ZERO {
             return true;
         }
 
-        if attacks::bishop_attacks(our_king, all) & self.diagonal_sliders(them) != BitBoard::ZERO {
+        if attacks::bishop_attacks(our_king, all) & self.diagonal_sliders(them) != Bitboard::ZERO {
             return true;
         }
         false
@@ -272,7 +272,7 @@ impl Board {
                 (self.bitboard_of_piecetype(PieceType::Rook)
                     | self.bitboard_of_piecetype(PieceType::Queen)
                     | self.bitboard_of_piecetype(PieceType::Pawn))
-                    == BitBoard::ZERO
+                    == Bitboard::ZERO
             }
             _ => false,
         }
@@ -304,7 +304,7 @@ impl Board {
 
     pub fn has_non_pawn_material(&self) -> bool {
         for pt in PieceType::iter(PieceType::Knight, PieceType::Queen) {
-            if self.bitboard_of(self.color_to_play, pt) != BitBoard::ZERO {
+            if self.bitboard_of(self.color_to_play, pt) != Bitboard::ZERO {
                 return true;
             }
         }
@@ -550,14 +550,14 @@ impl Board {
         // General purpose bitboards.
         ///////////////////////////////////////////////////////////////////
 
-        let mut b1: BitBoard;
-        let mut b2: BitBoard;
-        let mut b3: BitBoard;
+        let mut b1: Bitboard;
+        let mut b2: Bitboard;
+        let mut b3: Bitboard;
 
         ///////////////////////////////////////////////////////////////////
         // Danger squares for the king
         ///////////////////////////////////////////////////////////////////
-        let mut danger = BitBoard::ZERO;
+        let mut danger = Bitboard::ZERO;
 
         ///////////////////////////////////////////////////////////////////
         // Add each enemy attack to the danger bitboard
@@ -594,13 +594,13 @@ impl Board {
         // The capture mask consists of destination squares containing enemy
         // pieces that must be captured because they are checking the king.
         ///////////////////////////////////////////////////////////////////
-        let capture_mask: BitBoard;
+        let capture_mask: Bitboard;
 
         ///////////////////////////////////////////////////////////////////
         // The quiet mask consists of squares where pieces must be moved
         // to block an attack checking the king.
         ///////////////////////////////////////////////////////////////////
-        let quiet_mask: BitBoard;
+        let quiet_mask: Bitboard;
 
         ///////////////////////////////////////////////////////////////////
         // Checkers are identified by projecting attacks from the king
@@ -617,15 +617,15 @@ impl Board {
         let candidates = (attacks::rook_attacks(our_king, them_bb) & their_orth_sliders)
             | (attacks::bishop_attacks(our_king, them_bb) & their_diag_sliders);
 
-        let mut pinned = BitBoard::ZERO;
+        let mut pinned = Bitboard::ZERO;
         for sq in candidates {
-            b1 = BitBoard::between(our_king, sq) & us_bb;
+            b1 = Bitboard::between(our_king, sq) & us_bb;
 
             ///////////////////////////////////////////////////////////////////
             // Do the squares between an enemy slider and our king contain any
             // pieces? If yes, that piece is pinned. Otherwise, we are checked.
             ///////////////////////////////////////////////////////////////////
-            if b1 == BitBoard::ZERO {
+            if b1 == Bitboard::ZERO {
                 checkers ^= sq.bb();
             } else if b1.is_single() {
                 pinned ^= b1;
@@ -690,7 +690,7 @@ impl Board {
                         // a slider.
                         ///////////////////////////////////////////////////////////////////
                         capture_mask = checkers;
-                        quiet_mask = BitBoard::between(our_king, checker_square);
+                        quiet_mask = Bitboard::between(our_king, checker_square);
                     }
                 }
             }
@@ -734,7 +734,7 @@ impl Board {
                             our_king.rank().bb(),
                         );
 
-                        if (attacks & their_orth_sliders) == BitBoard::ZERO {
+                        if (attacks & their_orth_sliders) == Bitboard::ZERO {
                             moves.push(Move::new(
                                 sq,
                                 self.history[self.game_ply].epsq(),
@@ -746,8 +746,8 @@ impl Board {
                     // Pinned pawns can only capture ep if they are pinned diagonally
                     // and the ep square is in line with the king.
                     ///////////////////////////////////////////////////////////////////
-                    b1 = b2 & pinned & BitBoard::line(self.history[self.game_ply].epsq(), our_king);
-                    if b1 != BitBoard::ZERO {
+                    b1 = b2 & pinned & Bitboard::line(self.history[self.game_ply].epsq(), our_king);
+                    if b1 != Bitboard::ZERO {
                         moves.push(Move::new(
                             b1.lsb(),
                             self.history[self.game_ply].epsq(),
@@ -762,9 +762,9 @@ impl Board {
                 // 2. The king is not in check.
                 // 3. The relevant squares are not attacked.
                 ///////////////////////////////////////////////////////////////////
-                if ((self.history[self.game_ply].entry() & BitBoard::oo_mask(us))
-                    | ((all | danger) & BitBoard::oo_blockers_mask(us)))
-                    == BitBoard::ZERO
+                if ((self.history[self.game_ply].entry() & Bitboard::oo_mask(us))
+                    | ((all | danger) & Bitboard::oo_blockers_mask(us)))
+                    == Bitboard::ZERO
                 {
                     moves.push(if us == Color::White {
                         Move::new(SQ::E1, SQ::G1, MoveFlags::OO)
@@ -772,10 +772,10 @@ impl Board {
                         Move::new(SQ::E8, SQ::G8, MoveFlags::OO)
                     })
                 }
-                if ((self.history[self.game_ply].entry() & BitBoard::ooo_mask(us))
-                    | ((all | (danger & !BitBoard::ignore_ooo_danger(us)))
-                        & BitBoard::ooo_blockers_mask(us)))
-                    == BitBoard::ZERO
+                if ((self.history[self.game_ply].entry() & Bitboard::ooo_mask(us))
+                    | ((all | (danger & !Bitboard::ignore_ooo_danger(us)))
+                        & Bitboard::ooo_blockers_mask(us)))
+                    == Bitboard::ZERO
                 {
                     moves.push(if us == Color::White {
                         Move::new(SQ::E1, SQ::C1, MoveFlags::OOO)
@@ -790,7 +790,7 @@ impl Board {
                 b1 = !(not_pinned | self.bitboard_of(us, PieceType::Knight));
                 for sq in b1 {
                     b2 = attacks::attacks(self.piece_type_at(sq), sq, all)
-                        & BitBoard::line(our_king, sq);
+                        & Bitboard::line(our_king, sq);
                     moves.make_q(sq, b2 & quiet_mask);
                     moves.make_c(sq, b2 & capture_mask);
                 }
@@ -807,12 +807,12 @@ impl Board {
                     if sq.rank() == Rank::Seven.relative(us) {
                         b2 = attacks::pawn_attacks_sq(sq, us)
                             & capture_mask
-                            & BitBoard::line(our_king, sq);
+                            & Bitboard::line(our_king, sq);
                         moves.make_pc(sq, b2);
                     } else {
                         b2 = attacks::pawn_attacks_sq(sq, us)
                             & them_bb
-                            & BitBoard::line(sq, our_king);
+                            & Bitboard::line(sq, our_king);
                         moves.make_c(sq, b2);
 
                         ///////////////////////////////////////////////////////////////////
@@ -820,11 +820,11 @@ impl Board {
                         ///////////////////////////////////////////////////////////////////
                         b2 = sq.bb().shift(Direction::North.relative(us))
                             & !all
-                            & BitBoard::line(our_king, sq);
+                            & Bitboard::line(our_king, sq);
                         b3 = (b2 & Rank::Three.relative(us).bb())
                             .shift(Direction::North.relative(us))
                             & !all
-                            & BitBoard::line(our_king, sq);
+                            & Bitboard::line(our_king, sq);
 
                         moves.make_q(sq, b2);
                         moves.make_dp(sq, b3);
@@ -900,7 +900,7 @@ impl Board {
 
         b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & Rank::Seven.relative(us).bb();
 
-        if b1 != BitBoard::ZERO {
+        if b1 != Bitboard::ZERO {
             b2 = b1.shift(Direction::North.relative(us)) & quiet_mask;
             for sq in b2 {
                 moves.push(Move::new(
@@ -995,11 +995,11 @@ impl Board {
         let our_orth_sliders = self.orthogonal_sliders(us);
         let their_orth_sliders = self.orthogonal_sliders(them);
 
-        let mut b1: BitBoard;
-        let mut b2: BitBoard;
-        let mut b3: BitBoard;
+        let mut b1: Bitboard;
+        let mut b2: Bitboard;
+        let mut b3: Bitboard;
 
-        let mut danger = BitBoard::ZERO;
+        let mut danger = Bitboard::ZERO;
 
         danger |= attacks::pawn_attacks_bb(self.bitboard_of(them, PieceType::Pawn), them)
             | attacks::king_attacks(their_king);
@@ -1022,8 +1022,8 @@ impl Board {
         let king_attacks = attacks::king_attacks(our_king) & !(us_bb | danger);
         moves.make_c(our_king, king_attacks & them_bb);
 
-        let capture_mask: BitBoard;
-        let quiet_mask: BitBoard;
+        let capture_mask: Bitboard;
+        let quiet_mask: Bitboard;
 
         let mut checkers = (attacks::knight_attacks(our_king)
             & self.bitboard_of(them, PieceType::Knight))
@@ -1032,10 +1032,10 @@ impl Board {
         let candidates = (attacks::rook_attacks(our_king, them_bb) & their_orth_sliders)
             | (attacks::bishop_attacks(our_king, them_bb) & their_diag_sliders);
 
-        let mut pinned = BitBoard::ZERO;
+        let mut pinned = Bitboard::ZERO;
         for sq in candidates {
-            b1 = BitBoard::between(our_king, sq) & us_bb;
-            if b1 == BitBoard::ZERO {
+            b1 = Bitboard::between(our_king, sq) & us_bb;
+            if b1 == Bitboard::ZERO {
                 checkers ^= sq.bb();
             } else if b1.is_single() {
                 pinned ^= b1;
@@ -1094,7 +1094,7 @@ impl Board {
                         // a slider.
                         ///////////////////////////////////////////////////////////////////
                         capture_mask = checkers;
-                        quiet_mask = BitBoard::between(our_king, checker_square);
+                        quiet_mask = Bitboard::between(our_king, checker_square);
                     }
                 }
             }
@@ -1116,7 +1116,7 @@ impl Board {
                             our_king.rank().bb(),
                         );
 
-                        if (attacks & their_orth_sliders) == BitBoard::ZERO {
+                        if (attacks & their_orth_sliders) == Bitboard::ZERO {
                             moves.push(Move::new(
                                 sq,
                                 self.history[self.game_ply].epsq(),
@@ -1124,8 +1124,8 @@ impl Board {
                             ));
                         }
                     }
-                    b1 = b2 & pinned & BitBoard::line(self.history[self.game_ply].epsq(), our_king);
-                    if b1 != BitBoard::ZERO {
+                    b1 = b2 & pinned & Bitboard::line(self.history[self.game_ply].epsq(), our_king);
+                    if b1 != Bitboard::ZERO {
                         moves.push(Move::new(
                             b1.lsb(),
                             self.history[self.game_ply].epsq(),
@@ -1137,7 +1137,7 @@ impl Board {
                 b1 = !(not_pinned | self.bitboard_of(us, PieceType::Knight));
                 for sq in b1 {
                     b2 = attacks::attacks(self.piece_type_at(sq), sq, all)
-                        & BitBoard::line(our_king, sq);
+                        & Bitboard::line(our_king, sq);
                     moves.make_c(sq, b2 & capture_mask);
                 }
 
@@ -1146,7 +1146,7 @@ impl Board {
                     if from_sq.rank() == Rank::Seven.relative(us) {
                         b2 = attacks::pawn_attacks_sq(from_sq, us)
                             & capture_mask
-                            & BitBoard::line(our_king, from_sq);
+                            & Bitboard::line(our_king, from_sq);
                         for to_sq in b2 {
                             moves.push(Move::new(from_sq, to_sq, MoveFlags::PcQueen))
                         }
@@ -1194,7 +1194,7 @@ impl Board {
         }
 
         b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & Rank::Seven.relative(us).bb();
-        if b1 != BitBoard::ZERO {
+        if b1 != Bitboard::ZERO {
             b2 = b1.shift(Direction::North.relative(us)) & quiet_mask;
             for sq in b2 {
                 moves.push(Move::new(
@@ -1339,12 +1339,12 @@ impl Board {
 impl Default for Board {
     fn default() -> Self {
         Self {
-            piece_bb: [BitBoard::ZERO; Piece::N_PIECES],
-            color_bb: [BitBoard::ZERO; Color::N_COLORS],
+            piece_bb: [Bitboard::ZERO; Piece::N_PIECES],
+            color_bb: [Bitboard::ZERO; Color::N_COLORS],
             board: [Piece::None; SQ::N_SQUARES],
             color_to_play: Color::White,
-            hash: BitBoard::ZERO,
-            material_hash: BitBoard::ZERO,
+            hash: Bitboard::ZERO,
+            material_hash: Bitboard::ZERO,
             game_ply: 0,
             phase: Score::TOTAL_PHASE,
             material_score: Score::ZERO,
@@ -1424,12 +1424,12 @@ impl TryFrom<&str> for Board {
             }
         }
 
-        board.history[board.game_ply].set_entry(BitBoard::ALL_CASTLING_MASK);
+        board.history[board.game_ply].set_entry(Bitboard::ALL_CASTLING_MASK);
         for (symbol, mask) in "KQkq".chars().zip([
-            BitBoard::WHITE_OO_MASK,
-            BitBoard::WHITE_OOO_MASK,
-            BitBoard::BLACK_OO_MASK,
-            BitBoard::BLACK_OOO_MASK,
+            Bitboard::WHITE_OO_MASK,
+            Bitboard::WHITE_OOO_MASK,
+            Bitboard::BLACK_OO_MASK,
+            Bitboard::BLACK_OOO_MASK,
         ]) {
             if castling_ability.contains(symbol) {
                 board.history[board.game_ply]
@@ -1483,12 +1483,12 @@ impl fmt::Display for Board {
 
         let mut castling_rights = String::new();
         for (symbol, mask) in "KQkq".chars().zip([
-            BitBoard::WHITE_OO_MASK,
-            BitBoard::WHITE_OOO_MASK,
-            BitBoard::BLACK_OO_MASK,
-            BitBoard::BLACK_OOO_MASK,
+            Bitboard::WHITE_OO_MASK,
+            Bitboard::WHITE_OOO_MASK,
+            Bitboard::BLACK_OO_MASK,
+            Bitboard::BLACK_OOO_MASK,
         ]) {
-            if mask & self.history[self.game_ply].entry() == BitBoard::ZERO {
+            if mask & self.history[self.game_ply].entry() == Bitboard::ZERO {
                 castling_rights.push(symbol);
             }
         }
