@@ -132,7 +132,7 @@ impl<'a> Search<'a> {
 
         let mut moves = MoveList::from(board);
         self.move_sorter
-            .score_moves(&mut moves, board, ply, &hash_move);
+            .score_moves(&mut moves, board, ply, hash_move);
 
         while let Some(m) = moves.next_best() {
             if self.id == 0 && self.timer.elapsed() >= Self::PRINT_CURRMOVENUMBER_TIME_MILLIS {
@@ -294,7 +294,7 @@ impl<'a> Search<'a> {
 
         let mut moves = MoveList::from(board);
         self.move_sorter
-            .score_moves(&mut moves, board, ply, &hash_move);
+            .score_moves(&mut moves, board, ply, hash_move);
 
         while let Some(m) = moves.next_best() {
             ///////////////////////////////////////////////////////////////////
@@ -359,8 +359,8 @@ impl<'a> Search<'a> {
                 best_move = Some(m);
                 if value >= beta {
                     if m.is_quiet() {
-                        self.move_sorter.add_killer(&board, &m, ply);
-                        self.move_sorter.add_history(&m, depth);
+                        self.move_sorter.add_killer(&board, m, ply);
+                        self.move_sorter.add_history(m, depth);
                     }
                     self.stats.beta_cutoffs += 1;
                     tt_flag = TTFlag::Lower;
@@ -419,15 +419,16 @@ impl<'a> Search<'a> {
 
         let mut moves = MoveList::from_q(board);
         self.move_sorter
-            .score_moves(&mut moves, &board, ply, &hash_move);
+            .score_moves(&mut moves, &board, ply, hash_move);
 
+        let mut idx = 0;
         while let Some(m) = moves.next_best() {
             ///////////////////////////////////////////////////////////////////
             // Effectively a SEE check. Bad captures will have a score < 0
             // given by the SEE + the bad capture offset,
             // and here we skip bad captures.
             ///////////////////////////////////////////////////////////////////
-            if m.score() < 0 {
+            if moves.scores[idx] < 0 {
                 break;
             }
 
@@ -446,6 +447,7 @@ impl<'a> Search<'a> {
                 }
                 alpha = value;
             }
+            idx += 1;
         }
         alpha
     }
@@ -500,7 +502,7 @@ impl<'a> Search<'a> {
         if let Some(tt_entry) = self.tt.probe(board) {
             if let Some(hash_move) = tt_entry.best_move() {
                 let mut pv = String::new();
-                if MoveList::from(board).contains(&hash_move) {
+                if MoveList::from(board).contains(hash_move) {
                     board.push(hash_move);
                     pv = format!(
                         "{} {}",
@@ -521,10 +523,8 @@ impl<'a> Search<'a> {
         }
 
         let score_str = if Score::is_checkmate(score) {
-            let mut mate_score = ((Score::INF - score.abs()) as f64 / 2.).ceil() as i32;
-            if score < 0 {
-                mate_score *= -1;
-            }
+            let mate_score =
+                score.signum() * (((Score::INF - score.abs()) as f64 / 2.).ceil()) as i32;
             format!("mate {}", mate_score)
         } else {
             format!("cp {}", score)

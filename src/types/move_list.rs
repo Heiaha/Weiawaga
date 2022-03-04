@@ -3,7 +3,9 @@ use super::board::*;
 use super::moov::*;
 use super::square::*;
 use std::fmt;
-use std::ops::{Index, IndexMut};
+use std::ops::Index;
+
+pub type SortValue = i16;
 
 // Cache size consideration idea originally found in Pleco
 
@@ -14,14 +16,15 @@ use std::ops::{Index, IndexMut};
 #[cfg(target_pointer_width = "128")]
 const MAX_MOVES: usize = 248;
 #[cfg(target_pointer_width = "64")]
-const MAX_MOVES: usize = 252;
+pub const MAX_MOVES: usize = 252;
 #[cfg(target_pointer_width = "32")]
 const MAX_MOVES: usize = 254;
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "8",))]
 const MAX_MOVES: usize = 255;
 
 pub struct MoveList {
-    list: [Move; MAX_MOVES],
+    moves: [Move; MAX_MOVES],
+    pub scores: [SortValue; MAX_MOVES],
     idx: usize,
     len: usize,
 }
@@ -29,7 +32,8 @@ pub struct MoveList {
 impl MoveList {
     pub fn new() -> Self {
         Self {
-            list: [Move::empty(); MAX_MOVES],
+            moves: [Move::default(); MAX_MOVES],
+            scores: [0; MAX_MOVES],
             idx: 0,
             len: 0,
         }
@@ -51,49 +55,49 @@ impl MoveList {
         self.len
     }
 
-    pub fn contains(&self, m: &Move) -> bool {
-        self.list.contains(m)
+    pub fn contains(&self, m: Move) -> bool {
+        self.moves.contains(&m)
     }
 
     #[inline(always)]
     pub fn push(&mut self, m: Move) {
-        self.list[self.len] = m;
+        self.moves[self.len] = m;
         self.len += 1;
     }
 
     pub fn make_q(&mut self, from_sq: SQ, to: BitBoard) {
         for to_sq in to {
-            self.list[self.len] = Move::new(from_sq, to_sq, MoveFlags::Quiet);
+            self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::Quiet);
             self.len += 1;
         }
     }
 
     pub fn make_c(&mut self, from_sq: SQ, to: BitBoard) {
         for to_sq in to {
-            self.list[self.len] = Move::new(from_sq, to_sq, MoveFlags::Capture);
+            self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::Capture);
             self.len += 1;
         }
     }
 
     pub fn make_dp(&mut self, from_sq: SQ, to: BitBoard) {
         for to_sq in to {
-            self.list[self.len] = Move::new(from_sq, to_sq, MoveFlags::DoublePush);
+            self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::DoublePush);
             self.len += 1;
         }
     }
 
     pub fn make_pc(&mut self, from_sq: SQ, to: BitBoard) {
         for to_sq in to {
-            self.list[self.len] = Move::new(from_sq, to_sq, MoveFlags::PcKnight);
+            self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::PcKnight);
             self.len += 1;
 
-            self.list[self.len] = Move::new(from_sq, to_sq, MoveFlags::PcBishop);
+            self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::PcBishop);
             self.len += 1;
 
-            self.list[self.len] = Move::new(from_sq, to_sq, MoveFlags::PcRook);
+            self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::PcRook);
             self.len += 1;
 
-            self.list[self.len] = Move::new(from_sq, to_sq, MoveFlags::PcQueen);
+            self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::PcQueen);
             self.len += 1;
         }
     }
@@ -103,18 +107,19 @@ impl MoveList {
             return None;
         }
 
-        let mut max = SortScore::MIN;
-        let mut max_index = self.idx;
+        let mut max_score = SortValue::MIN;
+        let mut max_idx = self.idx;
 
         for i in self.idx..self.len() {
-            if self.list[i].score() > max {
-                max = self.list[i].score();
-                max_index = i;
+            if self.scores[i] > max_score {
+                max_idx = i;
+                max_score = self.scores[i];
             }
         }
-        self.list.swap(self.idx, max_index);
+        self.moves.swap(self.idx, max_idx);
+        self.scores.swap(self.idx, max_idx);
         self.idx += 1;
-        Some(self.list[self.idx - 1])
+        Some(self.moves[self.idx - 1])
     }
 }
 
@@ -127,7 +132,7 @@ impl Iterator for MoveList {
             return None;
         }
         self.idx += 1;
-        Some(self.list[self.idx - 1])
+        Some(self.moves[self.idx - 1])
     }
 }
 
@@ -135,13 +140,7 @@ impl Index<usize> for MoveList {
     type Output = Move;
 
     fn index(&self, i: usize) -> &Self::Output {
-        &self.list[i]
-    }
-}
-
-impl IndexMut<usize> for MoveList {
-    fn index_mut(&mut self, i: usize) -> &mut Self::Output {
-        &mut self.list[i]
+        &self.moves[i]
     }
 }
 
@@ -149,7 +148,7 @@ impl fmt::Debug for MoveList {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut result = String::from('[');
         for i in 0..self.len {
-            result.push_str(format!("{}, ", self.list[i].to_string()).as_ref());
+            result.push_str(format!("{}, ", self.moves[i].to_string()).as_ref());
         }
         result.push(']');
         write!(f, "{}", result)

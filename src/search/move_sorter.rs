@@ -12,14 +12,14 @@ const N_KILLER: usize = 3;
 
 #[derive(Clone)]
 pub struct MoveSorter {
-    killer_moves: [[[Option<Move>; N_KILLER]; 256]; Color::N_COLORS],
-    history_scores: [[SortScore; SQ::N_SQUARES]; SQ::N_SQUARES],
+    killer_moves: [[[Option<Move>; N_KILLER]; MAX_MOVES]; Color::N_COLORS],
+    history_scores: [[SortValue; SQ::N_SQUARES]; SQ::N_SQUARES],
 }
 
 impl MoveSorter {
     pub fn new() -> Self {
         Self {
-            killer_moves: [[[None; N_KILLER]; 256]; Color::N_COLORS],
+            killer_moves: [[[None; N_KILLER]; MAX_MOVES]; Color::N_COLORS],
             history_scores: [[0; SQ::N_SQUARES]; SQ::N_SQUARES],
         }
     }
@@ -29,70 +29,70 @@ impl MoveSorter {
         moves: &mut MoveList,
         board: &Board,
         ply: Ply,
-        hash_move: &Option<Move>,
+        hash_move: Option<Move>,
     ) {
-        let mut m: &mut Move;
+        let mut m: Move;
         for idx in 0..moves.len() {
-            m = &mut moves[idx];
+            m = moves[idx];
 
             if let Some(hash_move) = hash_move {
                 if m == hash_move {
-                    m.add_to_score(Self::HASH_MOVE_SCORE);
+                    moves.scores[idx] += Self::HASH_MOVE_SCORE;
                     continue;
                 }
             }
 
             if m.is_quiet() {
                 if self.is_killer(board, m, ply) {
-                    m.add_to_score(Self::KILLER_MOVE_SCORE);
+                    moves.scores[idx] += Self::KILLER_MOVE_SCORE;
                     continue;
                 }
 
                 if m.is_castling() {
-                    m.add_to_score(Self::CASTLING_SCORE);
+                    moves.scores[idx] += Self::CASTLING_SCORE;
                     continue;
                 }
 
-                m.add_to_score(Self::HISTORY_MOVE_OFFSET + self.history_score(m));
+                moves.scores[idx] += Self::HISTORY_MOVE_OFFSET + self.history_score(m);
                 continue;
             }
 
             if m.is_capture() {
                 if m.is_ep() {
-                    m.add_to_score(Self::WINNING_CAPTURES_OFFSET);
+                    moves.scores[idx] += Self::WINNING_CAPTURES_OFFSET;
                     continue;
                 }
 
                 let capture_value = see(board, m);
 
                 if capture_value >= 0 {
-                    m.add_to_score(capture_value + Self::WINNING_CAPTURES_OFFSET);
+                    moves.scores[idx] += capture_value + Self::WINNING_CAPTURES_OFFSET;
                 } else {
-                    m.add_to_score(capture_value + Self::LOSING_CAPTURES_OFFSET);
+                    moves.scores[idx] += capture_value + Self::LOSING_CAPTURES_OFFSET;
                 }
             }
 
-            m.add_to_score(match m.promotion() {
+            moves.scores[idx] += match m.promotion() {
                 PieceType::Knight => Self::KNIGHT_PROMOTION_SCORE,
                 PieceType::Bishop => Self::BISHOP_PROMOTION_SCORE,
                 PieceType::Rook => Self::ROOK_PROMOTION_SCORE,
                 PieceType::Queen => Self::QUEEN_PROMOTION_SCORE,
                 PieceType::None => 0,
                 _ => unreachable!(),
-            });
+            };
         }
     }
 
-    pub fn add_killer(&mut self, board: &Board, m: &Move, ply: Ply) {
+    pub fn add_killer(&mut self, board: &Board, m: Move, ply: Ply) {
         let color = board.color_to_play() as usize;
         self.killer_moves[color][ply].rotate_right(1);
-        self.killer_moves[color][ply][0] = Some(*m);
+        self.killer_moves[color][ply][0] = Some(m);
     }
 
-    pub fn add_history(&mut self, m: &Move, depth: Depth) {
+    pub fn add_history(&mut self, m: Move, depth: Depth) {
         debug_assert!(depth >= 0, "Depth is less than 0 in the history heuristic!");
 
-        let depth = depth as SortScore;
+        let depth = depth as SortValue;
         let from = m.from_sq().index();
         let to = m.to_sq().index();
         self.history_scores[from][to] += depth * depth;
@@ -106,10 +106,9 @@ impl MoveSorter {
         }
     }
 
-    fn is_killer(&self, board: &Board, m: &Move, ply: usize) -> bool {
-        let color = board.color_to_play().index();
-        for i in 0..self.killer_moves[color][ply].len() {
-            if Some(*m) == self.killer_moves[color][ply][i] {
+    fn is_killer(&self, board: &Board, m: Move, ply: usize) -> bool {
+        for killer_move in self.killer_moves[board.color_to_play().index()][ply] {
+            if Some(m) == killer_move {
                 return true;
             }
         }
@@ -117,20 +116,20 @@ impl MoveSorter {
     }
 
     #[inline(always)]
-    fn history_score(&self, m: &Move) -> SortScore {
+    fn history_score(&self, m: Move) -> SortValue {
         self.history_scores[m.from_sq().index()][m.to_sq().index()]
     }
 }
 
 impl MoveSorter {
-    const HASH_MOVE_SCORE: SortScore = 25000;
-    const WINNING_CAPTURES_OFFSET: SortScore = 10;
-    const QUEEN_PROMOTION_SCORE: SortScore = 8;
-    const ROOK_PROMOTION_SCORE: SortScore = 7;
-    const BISHOP_PROMOTION_SCORE: SortScore = 6;
-    const KNIGHT_PROMOTION_SCORE: SortScore = 5;
-    const KILLER_MOVE_SCORE: SortScore = 2;
-    const CASTLING_SCORE: SortScore = 1;
-    const HISTORY_MOVE_OFFSET: SortScore = -30000;
-    const LOSING_CAPTURES_OFFSET: SortScore = -30001;
+    const HASH_MOVE_SCORE: SortValue = 25000;
+    const WINNING_CAPTURES_OFFSET: SortValue = 10;
+    const QUEEN_PROMOTION_SCORE: SortValue = 8;
+    const ROOK_PROMOTION_SCORE: SortValue = 7;
+    const BISHOP_PROMOTION_SCORE: SortValue = 6;
+    const KNIGHT_PROMOTION_SCORE: SortValue = 5;
+    const KILLER_MOVE_SCORE: SortValue = 2;
+    const CASTLING_SCORE: SortValue = 1;
+    const HISTORY_MOVE_OFFSET: SortValue = -30000;
+    const LOSING_CAPTURES_OFFSET: SortValue = -30001;
 }

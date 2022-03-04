@@ -4,61 +4,44 @@ use std::fmt;
 use std::fmt::Formatter;
 
 pub type MoveInt = u16;
-pub type SortScore = i16;
 
-#[derive(Copy, Clone, Default, Debug)]
-pub struct Move {
-    m: MoveInt,
-    score: SortScore,
-}
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
+pub struct Move(MoveInt);
 
 impl Move {
     #[inline(always)]
     pub fn new(from_sq: SQ, to_square: SQ, flags: MoveFlags) -> Self {
-        Self {
-            m: ((flags as MoveInt) << 12) | ((from_sq as MoveInt) << 6) | (to_square as MoveInt),
-            score: 0,
-        }
-    }
-
-    #[inline(always)]
-    pub fn empty() -> Self {
-        Self { m: 0, score: 0 }
+        Self(((flags as MoveInt) << 12) | ((from_sq as MoveInt) << 6) | (to_square as MoveInt))
     }
 
     #[inline(always)]
     pub fn to_sq(&self) -> SQ {
-        SQ::from((self.m & 0x3f) as u8)
+        SQ::from((self.0 & 0x3f) as u8)
     }
 
     #[inline(always)]
     pub fn from_sq(&self) -> SQ {
-        SQ::from(((self.m >> 6) & 0x3f) as u8)
+        SQ::from(((self.0 >> 6) & 0x3f) as u8)
     }
 
     #[inline(always)]
     pub fn flags(&self) -> MoveFlags {
-        MoveFlags::from(((self.m >> 12) & 0xf) as u8)
-    }
-
-    #[inline(always)]
-    pub fn score(&self) -> SortScore {
-        self.score
+        MoveFlags::from(((self.0 >> 12) & 0xf) as u8)
     }
 
     #[inline(always)]
     pub fn move_int(&self) -> MoveInt {
-        self.m
+        self.0
     }
 
     #[inline(always)]
     pub fn is_quiet(&self) -> bool {
-        ((self.m >> 12) & 0b1100) == 0
+        (self.0 >> 12) & 0b1100 == 0
     }
 
     #[inline(always)]
     pub fn is_capture(&self) -> bool {
-        ((self.m >> 12) & 0b0100) != 0
+        ((self.0 >> 12) & 0b0100) != 0
     }
 
     #[inline(always)]
@@ -81,22 +64,12 @@ impl Move {
     pub fn is_castling(&self) -> bool {
         matches!(self.flags(), MoveFlags::OO | MoveFlags::OOO)
     }
-
-    #[inline(always)]
-    pub fn set_score(&mut self, score: SortScore) {
-        self.score = score;
-    }
-
-    #[inline(always)]
-    pub fn add_to_score(&mut self, score: SortScore) {
-        self.score += score;
-    }
 }
 
 impl From<MoveInt> for Move {
     #[inline(always)]
     fn from(m: MoveInt) -> Self {
-        Self { m, score: 0 }
+        Self(m)
     }
 }
 
@@ -109,12 +82,6 @@ impl fmt::Display for Move {
             self.to_sq().to_string(),
             self.promotion().to_string()
         )
-    }
-}
-
-impl PartialEq for Move {
-    fn eq(&self, other: &Self) -> bool {
-        self.m == other.m
     }
 }
 

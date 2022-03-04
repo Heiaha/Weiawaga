@@ -74,9 +74,9 @@ impl From<Hash> for TTEntry {
     }
 }
 
-impl From<&TTEntry> for Hash {
-    fn from(value: &TTEntry) -> Self {
-        unsafe { std::mem::transmute(*value) }
+impl From<TTEntry> for Hash {
+    fn from(value: TTEntry) -> Self {
+        unsafe { std::mem::transmute(value) }
     }
 }
 
@@ -105,6 +105,7 @@ impl TT {
         }
     }
 
+    #[inline(always)]
     pub fn insert(
         &self,
         board: &Board,
@@ -113,12 +114,13 @@ impl TT {
         best_move: Option<Move>,
         flag: TTFlag,
     ) {
-        let entry = TTEntry::new(value, best_move, depth, flag);
-        self.table[(board.hash() & self.bitmask).0 as usize].write(board.hash(), &entry)
+        self.table[self.index(board)]
+            .write(board.hash(), TTEntry::new(value, best_move, depth, flag))
     }
 
+    #[inline(always)]
     pub fn probe(&self, board: &Board) -> Option<TTEntry> {
-        self.table[(board.hash() & self.bitmask).0 as usize].read(board.hash())
+        self.table[self.index(board)].read(board.hash())
     }
 
     pub fn clear(&mut self) {
@@ -129,6 +131,11 @@ impl TT {
 
     pub fn mb_size(&self) -> usize {
         self.table.len() * std::mem::size_of::<AtomicEntry>() / 1024 / 1024
+    }
+
+    #[inline(always)]
+    fn index(&self, board: &Board) -> usize {
+        (board.hash() & self.bitmask).0 as usize
     }
 }
 
@@ -149,7 +156,7 @@ impl AtomicEntry {
         None
     }
 
-    fn write(&self, hash: Hash, entry: &TTEntry) {
+    fn write(&self, hash: Hash, entry: TTEntry) {
         let data = Hash::from(entry);
         self.0.store((hash ^ data).0, Ordering::Relaxed);
         self.1.store(data.0, Ordering::Relaxed);

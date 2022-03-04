@@ -2,14 +2,15 @@ use crate::types::attacks;
 use crate::types::bitboard::*;
 use crate::types::board::*;
 use crate::types::moov::*;
+use crate::types::move_list::*;
 use crate::types::piece::*;
 use std::cmp::max;
 
-const SEE_PIECE_TYPE: [SortScore; PieceType::N_PIECE_TYPES] = [100, 375, 375, 500, 1025, 10000];
+const SEE_PIECE_TYPE: [SortValue; PieceType::N_PIECE_TYPES] = [100, 375, 375, 500, 1025, 10000];
 
 // https://www.chessprogramming.org/SEE_-_The_Swap_Algorithm
 // Implementation adapted from Black Marlin
-pub fn see(board: &Board, m: &Move) -> SortScore {
+pub fn see(board: &Board, m: Move) -> SortValue {
     let mut max_depth = 0;
     let mut defenders;
     let mut piece_bb;
