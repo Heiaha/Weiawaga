@@ -41,7 +41,7 @@ impl UndoInfo {
     }
 
     #[inline(always)]
-    pub fn moove(&self) -> Move {
+    pub fn moov(&self) -> Move {
         Move::from(self.moov)
     }
 

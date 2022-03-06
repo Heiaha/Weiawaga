@@ -243,7 +243,7 @@ impl Board {
             return true;
         }
 
-        let all = self.all_pieces_color(us) | self.all_pieces_color(them);
+        let all = self.all_pieces();
         if attacks::rook_attacks(our_king, all) & self.orthogonal_sliders(them) != Bitboard::ZERO {
             return true;
         }
@@ -261,7 +261,7 @@ impl Board {
 
     #[inline(always)]
     pub fn peek(&self) -> Move {
-        self.history[self.game_ply].moove()
+        self.history[self.game_ply].moov()
     }
 
     #[inline(always)]
@@ -269,9 +269,9 @@ impl Board {
         match self.all_pieces().pop_count() {
             2 => true,
             3 => {
-                (self.bitboard_of_piecetype(PieceType::Rook)
+                self.bitboard_of_piecetype(PieceType::Rook)
                     | self.bitboard_of_piecetype(PieceType::Queen)
-                    | self.bitboard_of_piecetype(PieceType::Pawn))
+                    | self.bitboard_of_piecetype(PieceType::Pawn)
                     == Bitboard::ZERO
             }
             _ => false,
@@ -302,13 +302,11 @@ impl Board {
         self.is_fifty() || self.is_insufficient_material() || self.is_threefold()
     }
 
+    #[inline(always)]
     pub fn has_non_pawn_material(&self) -> bool {
-        for pt in PieceType::iter(PieceType::Knight, PieceType::Queen) {
-            if self.bitboard_of(self.color_to_play, pt) != Bitboard::ZERO {
-                return true;
-            }
-        }
-        false
+        self.bitboard_of(self.color_to_play, PieceType::Pawn)
+            | self.bitboard_of(self.color_to_play, PieceType::King)
+            != self.all_pieces_color(self.color_to_play)
     }
 
     pub fn push_null(&mut self) {
@@ -468,7 +466,7 @@ impl Board {
         self.color_to_play = !self.color_to_play;
         self.hash ^= zobrist::zobrist_color();
 
-        let m = self.history[self.game_ply].moove();
+        let m = self.history[self.game_ply].moov();
         match m.flags() {
             MoveFlags::Quiet => {
                 self.move_piece_quiet(m.to_sq(), m.from_sq());

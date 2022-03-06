@@ -35,7 +35,7 @@ impl Move {
 
     #[inline(always)]
     pub fn is_capture(&self) -> bool {
-        ((self.0 >> 12) & 0b0100) != 0
+        (self.0 >> 12) & 0b0100 != 0
     }
 
     #[inline(always)]
