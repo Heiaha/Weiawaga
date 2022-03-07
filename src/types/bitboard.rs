@@ -6,7 +6,7 @@ use crate::evaluation::score::*;
 use std::fmt;
 use std::ops::*;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct Bitboard(pub u64);
 
 pub type Hash = Bitboard;
@@ -25,7 +25,7 @@ impl Bitboard {
 
     #[inline(always)]
     pub fn msb(&self) -> SQ {
-        SQ::from(63_u8.wrapping_sub(self.0.leading_zeros() as u8))
+        SQ::from((63 - self.0.leading_zeros()) as u8)
     }
 
     #[inline(always)]
@@ -52,16 +52,16 @@ impl Bitboard {
 
     pub fn shift(self, dir: Direction) -> Self {
         match dir {
-            Direction::North => self << 8u8,
-            Direction::South => self >> 8u8,
-            Direction::NorthNorth => self << 16u8,
-            Direction::SouthSouth => self >> 16u8,
-            Direction::East => (self << 1u8) & !File::A.bb(),
-            Direction::West => (self >> 1u8) & !File::H.bb(),
-            Direction::NorthEast => (self & !File::H.bb()) << 9u8,
-            Direction::NorthWest => (self & !File::A.bb()) << 7u8,
-            Direction::SouthEast => (self & !File::H.bb()) >> 7u8,
-            Direction::SouthWest => (self & !File::A.bb()) >> 9u8,
+            Direction::North => self << 8,
+            Direction::South => self >> 8,
+            Direction::NorthNorth => self << 16,
+            Direction::SouthSouth => self >> 16,
+            Direction::East => (self << 1) & !File::A.bb(),
+            Direction::West => (self >> 1) & !File::H.bb(),
+            Direction::NorthEast => (self & !File::H.bb()) << 9,
+            Direction::NorthWest => (self & !File::A.bb()) << 7,
+            Direction::SouthEast => (self & !File::H.bb()) >> 7,
+            Direction::SouthWest => (self & !File::A.bb()) >> 9,
         }
     }
 
@@ -74,14 +74,14 @@ impl Bitboard {
         let mut result = self;
         match dir {
             Direction::North => {
-                result |= result << 8u8;
-                result |= result << 16u8;
-                result |= result << 32u8;
+                result |= result << 8;
+                result |= result << 16;
+                result |= result << 32;
             }
             Direction::South => {
-                result |= result >> 8u8;
-                result |= result >> 16u8;
-                result |= result >> 32u8;
+                result |= result >> 8;
+                result |= result >> 16;
+                result |= result >> 32;
             }
             _ => {
                 panic!("Filling a file by something other than North or South.")
@@ -162,57 +162,51 @@ impl From<u64> for Bitboard {
     }
 }
 
-impl Default for Bitboard {
-    fn default() -> Self {
-        Self::ZERO
-    }
-}
-
 //////////////////////////////////////////////
 // Shifting Operations
 //////////////////////////////////////////////
 
 impl<T> Shl<T> for Bitboard
 where
-    T: Into<u8>,
+    u64: Shl<T, Output = u64>,
 {
     type Output = Self;
 
     #[inline(always)]
     fn shl(self, rhs: T) -> Self::Output {
-        Self(self.0 << rhs.into())
+        Self(self.0 << rhs)
     }
 }
 
 impl<T> ShlAssign<T> for Bitboard
 where
-    T: Into<u8>,
+    u64: ShlAssign<T>,
 {
     #[inline(always)]
     fn shl_assign(&mut self, rhs: T) {
-        self.0 <<= rhs.into();
+        self.0 <<= rhs;
     }
 }
 
 impl<T> Shr<T> for Bitboard
 where
-    T: Into<u8>,
+    u64: Shr<T, Output = u64>,
 {
     type Output = Self;
 
     #[inline(always)]
     fn shr(self, rhs: T) -> Self::Output {
-        Self(self.0 >> rhs.into())
+        Self(self.0 >> rhs)
     }
 }
 
 impl<T> ShrAssign<T> for Bitboard
 where
-    T: Into<u8>,
+    u64: ShrAssign<T>,
 {
     #[inline(always)]
     fn shr_assign(&mut self, rhs: T) {
-        self.0 >>= rhs.into();
+        self.0 >>= rhs;
     }
 }
 

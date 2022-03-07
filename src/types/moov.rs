@@ -4,7 +4,7 @@ use std::fmt;
 
 pub type MoveInt = u16;
 
-#[derive(Copy, Clone, Default, Debug, PartialEq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Move(MoveInt);
 
 impl Move {
@@ -86,7 +86,11 @@ impl fmt::Display for Move {
     }
 }
 
-#[derive(Debug, PartialEq)]
+impl Move {
+    pub const NULL: Self = Self(0);
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum MoveFlags {
     Quiet = 0b0000,
     DoublePush = 0b0001,

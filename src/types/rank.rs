@@ -2,7 +2,7 @@ use super::bitboard::*;
 use super::color::*;
 use std::ops::*;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Rank {
     One,
     Two,

@@ -32,7 +32,7 @@ pub struct MoveList {
 impl MoveList {
     pub fn new() -> Self {
         Self {
-            moves: [Move::default(); MAX_MOVES],
+            moves: [Move::NULL; MAX_MOVES],
             scores: [0; MAX_MOVES],
             idx: 0,
             len: 0,

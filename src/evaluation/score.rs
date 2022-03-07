@@ -1,11 +1,10 @@
 use crate::types::piece::*;
-use std::fmt;
 use std::ops::*;
 
 pub type Value = i32;
 pub type Phase = i32;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq)]
 pub struct Score(i32);
 
 macro_rules! S {
@@ -97,39 +96,29 @@ impl SubAssign for Score {
 
 impl<T> Mul<T> for Score
 where
-    T: Into<Value>,
+    Value: Mul<T, Output = Value>,
 {
     type Output = Self;
 
     #[inline(always)]
     fn mul(self, rhs: T) -> Self::Output {
-        Self(self.0.wrapping_mul(rhs.into()))
+        Self(self.0 * rhs)
     }
 }
 
 impl<T> MulAssign<T> for Score
 where
-    T: Into<Value>,
+    Value: MulAssign<T>,
 {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: T) {
-        self.0 = self.0.wrapping_mul(rhs.into());
+        self.0 *= rhs;
     }
 }
 
 impl PartialEq for Score {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
-    }
-}
-
-//////////////////////////////////////////////
-// Display
-//////////////////////////////////////////////
-
-impl fmt::Display for Score {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Score(mg: {} eg: {})", self.mg(), self.eg())
     }
 }
 

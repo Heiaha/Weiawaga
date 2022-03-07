@@ -313,11 +313,11 @@ impl Board {
         self.game_ply += 1;
         self.history[self.game_ply] = UndoInfo::new(
             self.history[self.game_ply - 1].entry(),
-            Move::default(),
+            Move::NULL,
             self.history[self.game_ply - 1].half_move_counter() + 1,
             0,
-            Piece::default(),
-            SQ::default(),
+            Piece::None,
+            SQ::None,
             self.history[self.game_ply - 1].material_hash(),
         );
 
@@ -1234,7 +1234,7 @@ impl Board {
             promo = None;
         }
 
-        let mut m = Move::default();
+        let mut m = Move::NULL;
         if self.piece_at(to_sq) != Piece::None {
             match promo {
                 Some(PieceType::Queen) => {
