@@ -1,7 +1,6 @@
 use super::statistics::*;
 use super::timer::*;
 use super::tt::*;
-use crate::evaluation::eval::*;
 use crate::evaluation::score::*;
 use crate::search::move_sorter::*;
 use crate::types::board::*;
@@ -259,7 +258,7 @@ impl<'a> Search<'a> {
         // Reverse Futility Pruning
         ///////////////////////////////////////////////////////////////////
         if Self::can_apply_rfp(depth, in_check, is_pv, beta) {
-            let eval = eval(board);
+            let eval = board.eval();
             if eval - Self::rfp_margin(depth) >= beta {
                 return eval;
             }
@@ -464,7 +463,7 @@ impl<'a> Search<'a> {
             && !in_check
             && depth >= Self::NULL_MIN_DEPTH
             && board.has_non_pawn_material()
-            && eval(board) >= beta
+            && board.eval() >= beta
     }
 
     #[inline(always)]
