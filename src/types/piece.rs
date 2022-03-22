@@ -121,7 +121,7 @@ impl PieceType {
 
     #[inline(always)]
     pub fn iter(start: Self, end: Self) -> impl Iterator<Item = Self> {
-        (start as u8..=end as u8).map(|n| Self::from(n))
+        (start as u8..=end as u8).map(Self::from)
     }
 }
 

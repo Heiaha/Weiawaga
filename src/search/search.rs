@@ -358,7 +358,7 @@ impl<'a> Search<'a> {
                 best_move = Some(m);
                 if value >= beta {
                     if m.is_quiet() {
-                        self.move_sorter.add_killer(&board, m, ply);
+                        self.move_sorter.add_killer(board, m, ply);
                         self.move_sorter.add_history(m, depth);
                     }
                     self.stats.beta_cutoffs += 1;
@@ -418,7 +418,7 @@ impl<'a> Search<'a> {
 
         let mut moves = MoveList::from_q(board);
         self.move_sorter
-            .score_moves(&mut moves, &board, ply, hash_move);
+            .score_moves(&mut moves, board, ply, hash_move);
 
         let mut idx = 0;
         while let Some(m) = moves.next_best() {
