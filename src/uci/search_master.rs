@@ -183,7 +183,7 @@ impl Default for SearchDefaults {
         Self {
             hash: (16, 1, 128 * 1024),
             threads: (1, 1, 512),
-            overhead: (10, 0, 5000),
+            overhead: (0, 0, 5000),
         }
     }
 }
