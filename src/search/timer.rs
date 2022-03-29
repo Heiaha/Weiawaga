@@ -34,14 +34,16 @@ pub struct Timer {
     times_checked: u64,
     time_target: Time,
     time_maximum: Time,
+    overhead: Time,
 }
 
 impl Timer {
-    pub fn new(board: &Board, control: TimeControl, stop: Arc<AtomicBool>) -> Self {
+    pub fn new(board: &Board, control: TimeControl, stop: Arc<AtomicBool>, overhead: Time) -> Self {
         let mut tm = Self {
             start_time: Instant::now(),
             stop,
             control,
+            overhead,
             times_checked: 0,
             time_target: 0,
             time_maximum: 0,
@@ -84,10 +86,10 @@ impl Timer {
 
         let start = match self.control {
             TimeControl::Infinite => true,
-            TimeControl::FixedMillis(millis) => self.elapsed() <= millis,
+            TimeControl::FixedMillis(millis) => self.elapsed() + self.overhead <= millis,
             TimeControl::FixedDepth(stop_depth) => depth <= stop_depth,
             TimeControl::FixedNodes(_) => true,
-            TimeControl::Variable { .. } => self.elapsed() <= self.time_target / 2,
+            TimeControl::Variable { .. } => self.elapsed() + self.overhead <= self.time_target / 2,
         };
 
         if !start {
@@ -108,14 +110,14 @@ impl Timer {
             TimeControl::Infinite => false,
             TimeControl::FixedMillis(millis) => {
                 if self.times_checked & Self::CHECK_FLAG == 0 {
-                    self.elapsed() >= millis
+                    self.elapsed() + self.overhead >= millis
                 } else {
                     false
                 }
             }
             TimeControl::Variable { .. } => {
                 if self.times_checked & Self::CHECK_FLAG == 0 {
-                    self.elapsed() >= self.time_maximum
+                    self.elapsed() + self.overhead >= self.time_maximum
                 } else {
                     false
                 }

@@ -16,6 +16,7 @@ pub struct SearchMaster {
     stop: Arc<AtomicBool>,
     num_threads: u16,
     tt: TT,
+    overhead: Time,
 }
 
 impl SearchMaster {
@@ -25,12 +26,13 @@ impl SearchMaster {
             stop,
             num_threads: search_defaults.threads.0 as u16,
             tt: TT::new(search_defaults.hash.0 as usize),
+            overhead: search_defaults.overhead.0 as Time,
         }
     }
 
     pub fn go(&mut self, board: &Board, time_control: TimeControl) {
         let mut main_search_thread = Search::new(
-            Timer::new(board, time_control, self.stop.clone()),
+            Timer::new(board, time_control, self.stop.clone(), self.overhead),
             &self.tt,
             0,
         );
@@ -38,7 +40,12 @@ impl SearchMaster {
         let (best_move, _best_value) = thread::scope(|s| {
             for id in 1..self.num_threads {
                 let mut helper_search_thread = Search::new(
-                    Timer::new(&board, TimeControl::Infinite, self.stop.clone()),
+                    Timer::new(
+                        &board,
+                        TimeControl::Infinite,
+                        self.stop.clone(),
+                        self.overhead,
+                    ),
                     &self.tt,
                     id,
                 );
@@ -83,6 +90,12 @@ impl SearchMaster {
                         default_options.threads.1,
                         default_options.threads.2
                     );
+                    println!(
+                        "option name Overhead type spin default {} min {} max {}",
+                        default_options.overhead.0,
+                        default_options.overhead.1,
+                        default_options.overhead.2
+                    );
                     println!("uciok");
                 }
                 UCICommand::Position(new_board) => {
@@ -126,6 +139,20 @@ impl SearchMaster {
                                 );
                             }
                         }
+                        "Overhead" => {
+                            if let Ok(mut overhead) = value.parse::<i128>() {
+                                overhead = overhead
+                                    .max(search_defaults.overhead.1)
+                                    .min(search_defaults.overhead.2);
+                                self.overhead = overhead as Time;
+                                println!("info string set Overhead to {}", self.overhead);
+                            } else {
+                                eprintln!(
+                                    "info string ERROR: error parsing Overhead value; value remains at {}.",
+                                    self.overhead
+                                );
+                            }
+                        }
                         _ => {}
                     }
                 }
@@ -148,6 +175,7 @@ struct SearchDefaults {
     // default, min, max
     hash: (i128, i128, i128),
     threads: (i128, i128, i128),
+    overhead: (i128, i128, i128),
 }
 
 impl Default for SearchDefaults {
@@ -155,6 +183,7 @@ impl Default for SearchDefaults {
         Self {
             hash: (16, 1, 128 * 1024),
             threads: (1, 1, 512),
+            overhead: (10, 0, 5000),
         }
     }
 }

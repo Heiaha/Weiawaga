@@ -100,9 +100,11 @@ impl TryFrom<&str> for UCICommand {
                     name_parts.push(word);
                 }
             }
+
             for word in words {
                 value_parts.push(word);
             }
+
             let name = name_parts.last().unwrap();
             let value = value_parts.last().unwrap_or(&"");
             Ok(Self::Option(name.parse().unwrap(), value.parse().unwrap()))
