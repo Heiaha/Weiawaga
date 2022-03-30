@@ -1,4 +1,3 @@
-use super::statistics::*;
 use super::timer::*;
 use super::tt::*;
 use crate::evaluation::score::*;
@@ -18,7 +17,7 @@ pub struct Search<'a> {
     sel_depth: Ply,
     timer: Timer,
     tt: &'a TT,
-    stats: Statistics,
+    nodes: u64,
     move_sorter: MoveSorter,
 }
 
@@ -30,7 +29,7 @@ impl<'a> Search<'a> {
             sel_depth: 0,
             timer,
             tt,
-            stats: Statistics::new(),
+            nodes: 0,
             move_sorter: MoveSorter::new(),
         }
     }
@@ -87,15 +86,15 @@ impl<'a> Search<'a> {
                 alpha = final_score - Self::ASPIRATION_WINDOW;
                 beta = final_score + Self::ASPIRATION_WINDOW;
                 depth += 1;
-                self.stats = Statistics::new();
+                self.nodes = 0;
                 self.sel_depth = 0;
             }
         }
 
-        if final_move.is_none() {
-            return (moves[0], 0);
+        match final_move {
+            Some(m) => (m, final_score),
+            None => (moves[0], 0),
         }
-        (final_move.unwrap(), final_score)
     }
 
     fn search_root(
@@ -198,7 +197,7 @@ impl<'a> Search<'a> {
         alpha = max(alpha, -mate_value);
         beta = min(beta, mate_value - 1);
         if alpha >= beta {
-            self.stats.leafs += 1;
+            self.nodes += 1;
             return alpha;
         }
 
@@ -218,10 +217,10 @@ impl<'a> Search<'a> {
         if depth <= 0 {
             return self.q_search(board, ply, alpha, beta);
         }
-        self.stats.nodes += 1;
+
+        self.nodes += 1;
 
         if board.is_draw() {
-            self.stats.leafs += 1;
             return 0;
         }
 
@@ -232,22 +231,12 @@ impl<'a> Search<'a> {
         let mut hash_move: Option<Move> = None;
         if let Some(tt_entry) = self.tt.probe(board) {
             if tt_entry.depth() >= depth {
-                self.stats.tt_hits += 1;
                 match tt_entry.flag() {
-                    TTFlag::Exact => {
-                        self.stats.leafs += 1;
-                        return tt_entry.value();
-                    }
-                    TTFlag::Lower => {
-                        alpha = max(alpha, tt_entry.value());
-                    }
-                    TTFlag::Upper => {
-                        beta = min(beta, tt_entry.value());
-                    }
+                    TTFlag::Exact => return tt_entry.value(),
+                    TTFlag::Lower => alpha = max(alpha, tt_entry.value()),
+                    TTFlag::Upper => beta = min(beta, tt_entry.value()),
                 }
                 if alpha >= beta {
-                    self.stats.leafs += 1;
-                    self.stats.beta_cutoffs += 1;
                     return tt_entry.value();
                 }
             }
@@ -276,7 +265,6 @@ impl<'a> Search<'a> {
                 return 0;
             }
             if value >= beta {
-                self.stats.beta_cutoffs += 1;
                 return beta;
             }
         }
@@ -308,7 +296,7 @@ impl<'a> Search<'a> {
                 // Late move reductions.
                 ///////////////////////////////////////////////////////////////////
                 reduced_depth = depth;
-                if Self::can_apply_lmr(&m, depth, idx) {
+                if Self::can_apply_lmr(m, depth, idx) {
                     reduced_depth -= Self::late_move_reduction(depth, idx);
                 }
                 loop {
@@ -337,7 +325,7 @@ impl<'a> Search<'a> {
                     // A reduced depth may bring us above alpha. This is relatively
                     // unusual, but if so we need the exact score so we do a full search.
                     ///////////////////////////////////////////////////////////////////
-                    if reduced_depth != depth && value > alpha {
+                    if reduced_depth < depth && value > alpha {
                         reduced_depth = depth;
                     } else {
                         break;
@@ -361,7 +349,6 @@ impl<'a> Search<'a> {
                         self.move_sorter.add_killer(board, m, ply);
                         self.move_sorter.add_history(m, depth);
                     }
-                    self.stats.beta_cutoffs += 1;
                     tt_flag = TTFlag::Lower;
                     alpha = beta;
                     break;
@@ -395,18 +382,17 @@ impl<'a> Search<'a> {
             return 0;
         }
 
+        self.nodes += 1;
+
         if board.is_draw() {
-            self.stats.qleafs += 1;
             return 0;
         }
 
         self.sel_depth = max(self.sel_depth, ply);
-        self.stats.qnodes += 1;
 
         let mut value = board.eval();
 
         if value >= beta {
-            self.stats.qleafs += 1;
             return beta;
         }
         alpha = max(alpha, value);
@@ -441,7 +427,6 @@ impl<'a> Search<'a> {
 
             if value > alpha {
                 if value >= beta {
-                    self.stats.qbeta_cutoffs += 1;
                     return beta;
                 }
                 alpha = value;
@@ -472,7 +457,7 @@ impl<'a> Search<'a> {
     }
 
     #[inline(always)]
-    fn can_apply_lmr(m: &Move, depth: Depth, move_index: usize) -> bool {
+    fn can_apply_lmr(m: Move, depth: Depth, move_index: usize) -> bool {
         depth >= Self::LMR_MIN_DEPTH && move_index >= Self::LMR_MOVE_WO_REDUCTION && m.is_quiet()
     }
 
@@ -535,8 +520,8 @@ impl<'a> Search<'a> {
                  sel_depth = self.sel_depth,
                  time = self.timer.elapsed(),
                  score_str = score_str,
-                 nodes = self.stats.total_nodes(),
-                 nps = 1000 * self.stats.total_nodes() / (self.timer.elapsed() + 1),
+                 nodes = self.nodes,
+                 nps = 1000 * self.nodes / (self.timer.elapsed() + 1),
                  pv = self.get_pv(board, depth));
     }
 
