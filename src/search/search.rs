@@ -25,10 +25,10 @@ impl<'a> Search<'a> {
     pub fn new(timer: Timer, tt: &'a TT, id: u16) -> Self {
         Self {
             id,
-            stop: false,
-            sel_depth: 0,
             timer,
             tt,
+            stop: false,
+            sel_depth: 0,
             nodes: 0,
             move_sorter: MoveSorter::new(),
         }
@@ -58,7 +58,7 @@ impl<'a> Search<'a> {
         while !self.stop
             && self.timer.start_check(depth)
             && !Score::is_checkmate(final_score)
-            && depth < Depth::MAX
+            && depth <= Depth::MAX
         {
             (final_move, final_score) = self.search_root(&mut board, depth, alpha, beta);
 
