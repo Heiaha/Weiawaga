@@ -35,11 +35,9 @@ impl MoveSorter {
         for idx in 0..moves.len() {
             m = moves[idx];
 
-            if let Some(hash_move) = hash_move {
-                if m == hash_move {
-                    moves.scores[idx] += Self::HASH_MOVE_SCORE;
-                    continue;
-                }
+            if Some(m) == hash_move {
+                moves.scores[idx] += Self::HASH_MOVE_SCORE;
+                continue;
             }
 
             if m.is_quiet() {
