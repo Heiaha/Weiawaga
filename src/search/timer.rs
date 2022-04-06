@@ -184,7 +184,7 @@ impl From<&str> for TimeControl {
                 moves_to_go = split.next().unwrap().parse().ok();
             }
         }
-        if wtime != None {
+        if wtime != None && btime != None {
             result = TimeControl::Variable {
                 wtime: wtime.unwrap(),
                 btime: btime.unwrap(),

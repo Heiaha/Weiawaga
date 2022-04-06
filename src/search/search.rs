@@ -138,10 +138,8 @@ impl<'a> Search<'a> {
             }
 
             board.push(m);
-            if idx == 0
-                || -self.search(board, depth - 1, ply + 1, -alpha - 1, -alpha, true, false) > alpha
-            {
-                value = -self.search(board, depth - 1, ply + 1, -beta, -alpha, true, true);
+            if idx == 0 || -self.search(board, depth - 1, ply + 1, -alpha - 1, -alpha) > alpha {
+                value = -self.search(board, depth - 1, ply + 1, -beta, -alpha);
             }
             board.pop();
 
@@ -181,8 +179,6 @@ impl<'a> Search<'a> {
         ply: Ply,
         mut alpha: Value,
         mut beta: Value,
-        can_apply_null: bool,
-        is_pv: bool,
     ) -> Value {
         if self.stop || self.timer.stop_check() {
             self.stop = true;
@@ -202,7 +198,7 @@ impl<'a> Search<'a> {
         }
 
         ///////////////////////////////////////////////////////////////////
-        // Extend search if position is in check.
+        // Extend search if position is in check. Check if we're in a pv
         ///////////////////////////////////////////////////////////////////
         let in_check = board.in_check();
         if in_check {
@@ -244,6 +240,11 @@ impl<'a> Search<'a> {
         }
 
         ///////////////////////////////////////////////////////////////////
+        // Check if we're in a pv node
+        ///////////////////////////////////////////////////////////////////
+        let is_pv = alpha != beta - 1;
+
+        ///////////////////////////////////////////////////////////////////
         // Reverse Futility Pruning
         ///////////////////////////////////////////////////////////////////
         if Self::can_apply_rfp(depth, in_check, is_pv, beta) {
@@ -256,10 +257,10 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         // Null move pruning.
         ///////////////////////////////////////////////////////////////////
-        if Self::can_apply_null(board, depth, beta, in_check, can_apply_null) {
+        if Self::can_apply_null(board, depth, beta, in_check, is_pv) {
             let r = Self::null_reduction(depth);
             board.push_null();
-            let value = -self.search(board, depth - r - 1, ply, -beta, -beta + 1, false, false);
+            let value = -self.search(board, depth - r - 1, ply, -beta, -beta + 1);
             board.pop_null();
             if self.stop {
                 return 0;
@@ -290,7 +291,7 @@ impl<'a> Search<'a> {
             board.push(m);
 
             if idx == 0 {
-                value = -self.search(board, depth - 1, ply + 1, -beta, -alpha, true, is_pv);
+                value = -self.search(board, depth - 1, ply + 1, -beta, -alpha);
             } else {
                 ///////////////////////////////////////////////////////////////////
                 // Late move reductions.
@@ -300,25 +301,9 @@ impl<'a> Search<'a> {
                     reduced_depth -= Self::late_move_reduction(depth, idx);
                 }
                 loop {
-                    value = -self.search(
-                        board,
-                        reduced_depth - 1,
-                        ply + 1,
-                        -alpha - 1,
-                        -alpha,
-                        true,
-                        false,
-                    );
+                    value = -self.search(board, reduced_depth - 1, ply + 1, -alpha - 1, -alpha);
                     if value > alpha {
-                        value = -self.search(
-                            board,
-                            reduced_depth - 1,
-                            ply + 1,
-                            -beta,
-                            -alpha,
-                            true,
-                            true,
-                        );
+                        value = -self.search(board, reduced_depth - 1, ply + 1, -beta, -alpha);
                     }
 
                     ///////////////////////////////////////////////////////////////////
@@ -442,9 +427,9 @@ impl<'a> Search<'a> {
         depth: Depth,
         beta: Value,
         in_check: bool,
-        can_apply_null: bool,
+        is_pv: bool,
     ) -> bool {
-        can_apply_null
+        !is_pv
             && !in_check
             && depth >= Self::NULL_MIN_DEPTH
             && board.has_non_pawn_material()
