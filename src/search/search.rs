@@ -34,7 +34,7 @@ impl<'a> Search<'a> {
         }
     }
 
-    pub fn go(&mut self, mut board: Board) -> (Move, Value) {
+    pub fn go(&mut self, mut board: Board) -> Move {
         ///////////////////////////////////////////////////////////////////
         // Start iterative deepening.
         ///////////////////////////////////////////////////////////////////
@@ -52,7 +52,7 @@ impl<'a> Search<'a> {
         // it instead of searching.
         ///////////////////////////////////////////////////////////////////
         if moves.len() == 1 {
-            return (moves[0], 0);
+            return moves[0];
         }
 
         while !self.stop
@@ -76,13 +76,13 @@ impl<'a> Search<'a> {
             ///////////////////////////////////////////////////////////////////
             if final_score <= alpha {
                 alpha = -Score::INF;
+                self.print_info(&mut board, depth, final_move, final_score, Bound::Upper);
             } else if final_score >= beta {
                 beta = Score::INF;
+                self.print_info(&mut board, depth, final_move, final_score, Bound::Lower);
             } else {
                 // Only print info if we're in the main thread
-                if self.id == 0 {
-                    self.print_info(&mut board, depth, final_move, final_score);
-                }
+                self.print_info(&mut board, depth, final_move, final_score, Bound::Exact);
                 alpha = final_score - Self::ASPIRATION_WINDOW;
                 beta = final_score + Self::ASPIRATION_WINDOW;
                 depth += 1;
@@ -92,8 +92,8 @@ impl<'a> Search<'a> {
         }
 
         match final_move {
-            Some(m) => (m, final_score),
-            None => (moves[0], 0),
+            Some(m) => m,
+            None => moves[0],
         }
     }
 
@@ -151,12 +151,11 @@ impl<'a> Search<'a> {
             if value > alpha {
                 best_move = Some(m);
                 if value >= beta {
-                    self.tt.insert(board, depth, beta, best_move, TTFlag::Lower);
+                    self.tt.insert(board, depth, beta, best_move, Bound::Lower);
                     return (best_move, beta);
                 }
                 alpha = value;
-                self.tt
-                    .insert(board, depth, alpha, best_move, TTFlag::Upper);
+                self.tt.insert(board, depth, alpha, best_move, Bound::Upper);
             }
             idx += 1;
         }
@@ -166,8 +165,7 @@ impl<'a> Search<'a> {
         }
 
         if !self.stop {
-            self.tt
-                .insert(board, depth, alpha, best_move, TTFlag::Exact);
+            self.tt.insert(board, depth, alpha, best_move, Bound::Exact);
         }
         (best_move, alpha)
     }
@@ -228,9 +226,9 @@ impl<'a> Search<'a> {
         if let Some(tt_entry) = self.tt.probe(board) {
             if tt_entry.depth() >= depth {
                 match tt_entry.flag() {
-                    TTFlag::Exact => return tt_entry.value(),
-                    TTFlag::Lower => alpha = max(alpha, tt_entry.value()),
-                    TTFlag::Upper => beta = min(beta, tt_entry.value()),
+                    Bound::Exact => return tt_entry.value(),
+                    Bound::Lower => alpha = max(alpha, tt_entry.value()),
+                    Bound::Upper => beta = min(beta, tt_entry.value()),
                 }
                 if alpha >= beta {
                     return tt_entry.value();
@@ -276,7 +274,7 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         let mut value: Value;
         let mut reduced_depth: Depth;
-        let mut tt_flag = TTFlag::Upper;
+        let mut tt_flag = Bound::Upper;
         let mut best_move: Option<Move> = None;
         let mut idx = 0;
 
@@ -334,11 +332,11 @@ impl<'a> Search<'a> {
                         self.move_sorter.add_killer(board, m, ply);
                         self.move_sorter.add_history(m, depth);
                     }
-                    tt_flag = TTFlag::Lower;
+                    tt_flag = Bound::Lower;
                     alpha = beta;
                     break;
                 }
-                tt_flag = TTFlag::Exact;
+                tt_flag = Bound::Exact;
                 alpha = value;
             }
             idx += 1;
@@ -473,11 +471,7 @@ impl<'a> Search<'a> {
                 let mut pv = String::new();
                 if MoveList::from(board).contains(hash_move) {
                     board.push(hash_move);
-                    pv = format!(
-                        "{} {}",
-                        hash_move.to_string(),
-                        self.get_pv(board, depth - 1)
-                    );
+                    pv = format!("{} {}", hash_move, self.get_pv(board, depth - 1));
                     board.pop();
                 }
                 return pv;
@@ -486,27 +480,44 @@ impl<'a> Search<'a> {
         String::new()
     }
 
-    fn print_info(&self, board: &mut Board, depth: Depth, m: Option<Move>, score: Value) {
-        if m.is_none() {
+    fn print_info(
+        &self,
+        board: &mut Board,
+        depth: Depth,
+        m: Option<Move>,
+        score: Value,
+        bound: Bound,
+    ) {
+        if m.is_none() || self.id != 0 || self.stop {
             return;
         }
 
-        let score_str = if Score::is_checkmate(score) {
-            let mate_score =
-                score.signum() * (((Score::INF - score.abs()) as f64 / 2.).ceil()) as i32;
+        let mut score_str = if Score::is_checkmate(score) {
+            let mate_score = if score > 0 {
+                (Score::INF - score + 1) / 2
+            } else {
+                -(score + Score::INF) / 2
+            };
             format!("mate {}", mate_score)
         } else {
             format!("cp {}", score)
         };
 
-        println!("info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} pv {pv}",
-                 m = m.unwrap().to_string(),
+        score_str = match bound {
+            Bound::Lower => format!("{} lowerbound", score_str),
+            Bound::Upper => format!("{} upperbound", score_str),
+            Bound::Exact => score_str,
+        };
+
+        println!("info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv}",
+                 m = m.unwrap(),
                  depth = depth,
                  sel_depth = self.sel_depth,
                  time = self.timer.elapsed(),
                  score_str = score_str,
                  nodes = self.nodes,
                  nps = 1000 * self.nodes / (self.timer.elapsed() + 1),
+                 hashfull = self.tt.hashfull(),
                  pv = self.get_pv(board, depth));
     }
 
@@ -514,7 +525,7 @@ impl<'a> Search<'a> {
         println!(
             "info depth {depth} currmove {currmove} currmovenumber {currmovenumber}",
             depth = depth,
-            currmove = m.to_string(),
+            currmove = m,
             currmovenumber = idx + 1,
         )
     }

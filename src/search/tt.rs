@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 type TTValue = i16;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum TTFlag {
+pub enum Bound {
     Exact,
     Lower,
     Upper,
@@ -24,11 +24,11 @@ pub struct TTEntry {
     value: TTValue,
     best_move: Option<MoveInt>,
     depth: Depth,
-    flag: TTFlag,
+    flag: Bound,
 }
 
 impl TTEntry {
-    pub fn new(value: Value, best_move: Option<Move>, depth: Depth, flag: TTFlag) -> Self {
+    pub fn new(value: Value, best_move: Option<Move>, depth: Depth, flag: Bound) -> Self {
         TTEntry {
             best_move: best_move.map(|m| m.into()),
             depth,
@@ -52,7 +52,7 @@ impl TTEntry {
     }
 
     #[inline(always)]
-    pub fn flag(&self) -> TTFlag {
+    pub fn flag(&self) -> Bound {
         self.flag
     }
 }
@@ -63,7 +63,7 @@ impl Default for TTEntry {
             best_move: None,
             depth: 0,
             value: 0,
-            flag: TTFlag::Exact,
+            flag: Bound::Exact,
         }
     }
 }
@@ -112,7 +112,7 @@ impl TT {
         depth: Depth,
         value: Value,
         best_move: Option<Move>,
-        flag: TTFlag,
+        flag: Bound,
     ) {
         self.table[self.index(board)]
             .write(board.hash(), TTEntry::new(value, best_move, depth, flag))
@@ -129,13 +129,22 @@ impl TT {
         }
     }
 
+    #[inline(always)]
+    fn index(&self, board: &Board) -> usize {
+        (board.hash() & self.bitmask).0 as usize
+    }
+
     pub fn mb_size(&self) -> usize {
         self.table.len() * std::mem::size_of::<AtomicEntry>() / 1024 / 1024
     }
 
-    #[inline(always)]
-    fn index(&self, board: &Board) -> usize {
-        (board.hash() & self.bitmask).0 as usize
+    pub fn hashfull(&self) -> usize {
+        // Sample the first 1000 entries to estimate how full the table is.
+        self.table
+            .iter()
+            .take(1000)
+            .filter(|&entry| entry.used())
+            .count()
     }
 }
 
@@ -160,5 +169,9 @@ impl AtomicEntry {
         let data = Hash::from(entry);
         self.0.store((hash ^ data).0, Ordering::Relaxed);
         self.1.store(data.0, Ordering::Relaxed);
+    }
+
+    fn used(&self) -> bool {
+        self.0.load(Ordering::Relaxed) != u64::default()
     }
 }

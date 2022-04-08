@@ -37,7 +37,7 @@ impl SearchMaster {
             0,
         );
 
-        let (best_move, _best_value) = thread::scope(|s| {
+        let best_move = thread::scope(|s| {
             for id in 1..self.num_threads {
                 let mut helper_search_thread = Search::new(
                     Timer::new(
@@ -60,12 +60,12 @@ impl SearchMaster {
         })
         .unwrap();
 
-        println!("bestmove {}", best_move.to_string());
+        println!("bestmove {}", best_move);
         self.stop.store(false, Ordering::SeqCst);
         self.tt.clear();
     }
 
-    pub fn run_loop(&mut self, rx: Receiver<UCICommand>) {
+    pub fn run(&mut self, rx: Receiver<UCICommand>) {
         let mut board = Board::new();
 
         for cmd in rx {

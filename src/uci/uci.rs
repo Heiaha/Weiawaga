@@ -28,7 +28,7 @@ impl UCICommand {
         let thread_abort = abort.clone();
         let (main_tx, main_rx) = sync::mpsc::channel();
 
-        let _handle = thread::spawn(move || SearchMaster::new(thread_abort).run_loop(main_rx));
+        let _handle = thread::spawn(move || SearchMaster::new(thread_abort).run(main_rx));
 
         for line in io::stdin().lock().lines() {
             match UCICommand::try_from(line.unwrap().as_ref()) {
