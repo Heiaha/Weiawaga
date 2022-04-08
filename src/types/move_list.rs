@@ -10,7 +10,7 @@ pub type SortValue = i16;
 // Cache size consideration idea originally found in Pleco
 
 // Make sure the move lists are aligned into lengths such that the memory is
-// in an integer number of cache chunks. The is for a 32 bit Move.
+// in an integer number of cache chunks. The is for a 16 bit Move.
 // https://www.youtube.com/watch?v=WDIkqP4JbkE
 
 #[cfg(target_pointer_width = "128")]
