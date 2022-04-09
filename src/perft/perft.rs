@@ -26,7 +26,7 @@ pub fn print_perft(board: &mut Board, depth: Depth) -> u128 {
     let moves: MoveList = MoveList::from(board);
     let mut nodes = 0;
     for m in moves {
-        print!("{}: ", m.to_string());
+        print!("{}: ", m);
         board.push(m);
         let move_nodes = perft(board, depth - 1);
         board.pop();

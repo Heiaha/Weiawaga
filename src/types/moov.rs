@@ -76,13 +76,7 @@ impl Into<MoveInt> for Move {
 
 impl fmt::Display for Move {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}{}{}",
-            self.from_sq().to_string(),
-            self.to_sq().to_string(),
-            self.promotion().to_string()
-        )
+        write!(f, "{}{}{}", self.from_sq(), self.to_sq(), self.promotion())
     }
 }
 
