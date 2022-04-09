@@ -546,6 +546,13 @@ impl<'a> Search<'a> {
     const LMR_MOVE_DIVIDER: f32 = 2.25;
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Bound {
+    Exact,
+    Lower,
+    Upper,
+}
+
 pub static mut LMR_TABLE: [[Depth; 64]; 64] = [[0; 64]; 64];
 
 fn init_lmr_table(lmr_table: &mut [[Depth; 64]; 64]) {

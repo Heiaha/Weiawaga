@@ -7,13 +7,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 type TTValue = i16;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Bound {
-    Exact,
-    Lower,
-    Upper,
-}
-
 ///////////////////////////////////////////////////////////////////
 // Transposition Table Entry
 ///////////////////////////////////////////////////////////////////
