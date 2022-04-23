@@ -5,7 +5,7 @@ pub type Value = i32;
 pub type Phase = i32;
 
 #[derive(Clone, Copy, Debug, Eq)]
-pub struct Score(i32);
+pub struct Score(Value);
 
 macro_rules! S {
     ($x:expr, $y:expr) => {
@@ -41,7 +41,7 @@ impl Score {
 
     #[inline(always)]
     pub fn is_checkmate(value: Value) -> bool {
-        2 * value.abs() >= Self::INF
+        value.abs() >> 1 >= Self::INF
     }
 
     pub fn scores(&self) -> (Value, Value) {

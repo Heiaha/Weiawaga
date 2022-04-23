@@ -24,6 +24,8 @@ https://lichess.org/@/Weiawaga
     - [Check extensions](https://www.chessprogramming.org/Check_Extensions)
 - Primary Evaluation
     - [NNUE](https://www.chessprogramming.org/NNUE)
+      - Incremental Updating 
+      - Buckets
 - Classical Evaluation
   - [Material imbalance](https://www.chessprogramming.org/Material)
   - [Piece square tables](https://www.chessprogramming.org/Piece-Square_Tables)
@@ -42,5 +44,6 @@ https://lichess.org/@/Weiawaga
     - [Zobrist hashing](https://www.chessprogramming.org/Zobrist_Hashing) / [Transposition table](https://en.wikipedia.org/wiki/Transposition_table)
 
 Move generation inspired by [surge](https://github.com/nkarve/surge). A previous version of this engine written in Java can be found [here](https://github.com/Heiaha/WeiawagaJ).
+The NNUE training code can be found [here](https://github.com/Heiaha/Mimir).
 
 **[What's a Weiawaga?](https://www.youtube.com/watch?v=7lRpoYGzx0o)**

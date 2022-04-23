@@ -2,7 +2,7 @@
 name = "Weiawaga"
 authors = ["Heiaha"]
 repository = "https://github.com/Heiaha/Weiawaga"
-version = "4.0.0"
+version = "5.0.0"
 edition = "2021"
 readme = "README.md"
 rust-version = "1.59"
