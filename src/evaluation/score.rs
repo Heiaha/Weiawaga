@@ -41,7 +41,7 @@ impl Score {
 
     #[inline(always)]
     pub fn is_checkmate(value: Value) -> bool {
-        value.abs() >> 1 >= Self::INF
+        value.abs() >= Self::INF >> 1
     }
 
     pub fn scores(&self) -> (Value, Value) {

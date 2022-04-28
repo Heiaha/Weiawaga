@@ -58,7 +58,7 @@ impl<'a> Search<'a> {
         while !self.stop
             && self.timer.start_check(depth)
             && !Score::is_checkmate(final_score)
-            && depth <= Depth::MAX
+            && depth < Depth::MAX
         {
             (final_move, final_score) = self.search_root(&mut board, depth, alpha, beta);
 
