@@ -4,7 +4,7 @@ use std::ops::*;
 pub type Value = i32;
 pub type Phase = i32;
 
-#[derive(Clone, Copy, Debug, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Score(Value);
 
 macro_rules! S {
@@ -43,10 +43,6 @@ impl Score {
     pub fn is_checkmate(value: Value) -> bool {
         value.abs() >= Self::INF >> 1
     }
-
-    pub fn scores(&self) -> (Value, Value) {
-        (self.mg(), self.eg())
-    }
 }
 
 //////////////////////////////////////////////
@@ -74,7 +70,7 @@ impl Add for Score {
 impl AddAssign for Score {
     #[inline(always)]
     fn add_assign(&mut self, rhs: Self) {
-        self.0 = self.0 + rhs.0;
+        self.0 += rhs.0;
     }
 }
 
@@ -90,7 +86,7 @@ impl Sub for Score {
 impl SubAssign for Score {
     #[inline(always)]
     fn sub_assign(&mut self, rhs: Self) {
-        self.0 = self.0 - rhs.0;
+        self.0 -= rhs.0;
     }
 }
 
@@ -113,12 +109,6 @@ where
     #[inline(always)]
     fn mul_assign(&mut self, rhs: T) {
         self.0 *= rhs;
-    }
-}
-
-impl PartialEq for Score {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
     }
 }
 
