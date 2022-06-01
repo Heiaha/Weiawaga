@@ -77,7 +77,6 @@ impl<'a> Tuner<'a> {
                 "King PST",
             ));
         }
-
         // Find the value of k that minimizes the MSE for the dataset.
         let k = Self::find_best_k(&boards, &results);
         Self {
