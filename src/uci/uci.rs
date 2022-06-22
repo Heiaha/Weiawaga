@@ -1,9 +1,10 @@
+use std::io::BufRead;
+use std::{io, sync, thread};
+
 use crate::search::search::*;
 use crate::search::timer::*;
 use crate::types::board::*;
 use crate::uci::search_master::*;
-use std::io::BufRead;
-use std::{io, sync, thread};
 
 pub enum UCICommand {
     UCINewGame,
@@ -15,7 +16,6 @@ pub enum UCICommand {
     Stop,
     Perft(Depth),
     Option(String, String),
-    Tune(String),
     Eval,
 }
 
@@ -108,9 +108,6 @@ impl TryFrom<&str> for UCICommand {
             let name = name_parts.last().unwrap();
             let value = value_parts.last().unwrap_or(&"");
             Ok(Self::Option(name.parse().unwrap(), value.parse().unwrap()))
-        } else if line.starts_with("tune") {
-            let filename = line.split_whitespace().nth(1).ok_or("Filename required.")?;
-            Ok(Self::Tune(filename.to_string()))
         } else {
             Err("Unknown command.")
         }

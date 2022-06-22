@@ -1,6 +1,7 @@
-use super::color::*;
 use std::convert::TryFrom;
 use std::fmt;
+
+use super::color::*;
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Debug)]
 pub enum Piece {

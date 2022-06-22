@@ -1,10 +1,11 @@
+use std::fmt;
+use std::ops::*;
+
 use super::bitboard::*;
 use super::color::*;
 use super::diagonal::*;
 use super::file::*;
 use super::rank::*;
-use std::fmt;
-use std::ops::*;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
 #[rustfmt::skip]

@@ -7,8 +7,6 @@ edition = "2021"
 readme = "README.md"
 rust-version = "1.59"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 rand = "0.8.4"
 crossbeam = "0.8"
@@ -21,7 +19,3 @@ debug-assertions = false
 codegen-units = 1
 lto = true
 panic = "abort"
-
-[features]
-tune = []
-classical = []

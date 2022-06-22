@@ -1,6 +1,7 @@
+use std::ops::*;
+
 use super::bitboard::*;
 use super::color::*;
-use std::ops::*;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Rank {

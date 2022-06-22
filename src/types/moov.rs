@@ -1,6 +1,8 @@
-use super::square::*;
-use crate::types::piece::*;
 use std::fmt;
+
+use crate::types::piece::*;
+
+use super::square::*;
 
 pub type MoveInt = u16;
 
@@ -9,8 +11,8 @@ pub struct Move(MoveInt);
 
 impl Move {
     #[inline(always)]
-    pub fn new(from_sq: SQ, to_square: SQ, flags: MoveFlags) -> Self {
-        Self(((flags as MoveInt) << 12) | ((from_sq as MoveInt) << 6) | (to_square as MoveInt))
+    pub fn new(from_sq: SQ, to_sq: SQ, flags: MoveFlags) -> Self {
+        Self(((flags as MoveInt) << 12) | ((from_sq as MoveInt) << 6) | (to_sq as MoveInt))
     }
 
     #[inline(always)]
@@ -100,6 +102,12 @@ pub enum MoveFlags {
     PcBishop = 0b1101,
     PcRook = 0b1110,
     PcQueen = 0b1111,
+}
+
+impl Default for MoveFlags {
+    fn default() -> Self {
+        MoveFlags::Quiet
+    }
 }
 
 impl From<u8> for MoveFlags {

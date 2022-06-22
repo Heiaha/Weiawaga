@@ -1,3 +1,10 @@
+use std::cmp::min;
+use std::convert::TryFrom;
+use std::fmt;
+
+use crate::evaluation::nnue::*;
+use crate::search::search::*;
+
 use super::attacks;
 use super::bitboard::*;
 use super::color::*;
@@ -9,21 +16,6 @@ use super::rank::*;
 use super::square::*;
 use super::undo_info::*;
 use super::zobrist;
-use crate::evaluation::e_constants;
-use crate::evaluation::nnue::*;
-use crate::evaluation::score::*;
-use std::cmp::min;
-use std::convert::TryFrom;
-use std::fmt;
-
-#[cfg(feature = "classical")]
-use crate::evaluation::eval::eval;
-
-#[cfg(not(feature = "tune"))]
-const N_HISTORIES: usize = 1000;
-
-#[cfg(feature = "tune")]
-const N_HISTORIES: usize = 1;
 
 #[derive(Clone)]
 pub struct Board {
@@ -34,10 +26,7 @@ pub struct Board {
     hash: Hash,
     material_hash: Hash,
     game_ply: usize,
-    phase: Phase,
-    material_score: Score,
-    p_sq_score: Score,
-    history: [UndoInfo; N_HISTORIES],
+    history: [UndoInfo; Self::N_HISTORIES],
     network: Network,
 }
 
@@ -50,10 +39,7 @@ impl Board {
         self.color_to_play = Color::White;
         self.hash = Hash::ZERO;
         self.material_hash = Hash::ZERO;
-        self.phase = Score::TOTAL_PHASE;
-        self.material_score = Score::ZERO;
-        self.p_sq_score = Score::ZERO;
-        self.history = [UndoInfo::default(); N_HISTORIES];
+        self.history = [UndoInfo::default(); Self::N_HISTORIES];
 
         self.color_bb[Color::White.index()] = Bitboard::ZERO;
         self.color_bb[Color::Black.index()] = Bitboard::ZERO;
@@ -80,12 +66,7 @@ impl Board {
     }
 
     pub fn set_piece_at(&mut self, pc: Piece, sq: SQ) {
-        if !cfg!(feature = "classical") {
-            self.network.activate(pc, sq);
-        }
-        self.phase -= Score::piece_phase(pc.type_of());
-        self.p_sq_score += e_constants::piece_sq_value(pc, sq);
-        self.material_score += e_constants::piece_score(pc);
+        self.network.activate(pc, sq);
 
         self.board[sq.index()] = pc;
         self.color_bb[pc.color_of().index()] |= sq.bb();
@@ -97,12 +78,7 @@ impl Board {
 
     pub fn remove_piece(&mut self, sq: SQ) {
         let pc = self.piece_at(sq);
-        if !cfg!(feature = "classical") {
-            self.network.deactivate(pc, sq);
-        }
-        self.phase += Score::piece_phase(pc.type_of());
-        self.p_sq_score -= e_constants::piece_sq_value(pc, sq);
-        self.material_score -= e_constants::piece_score(pc);
+        self.network.deactivate(pc, sq);
 
         self.hash ^= zobrist::zobrist_table(pc, sq);
         self.material_hash ^= zobrist::zobrist_table(pc, sq);
@@ -114,12 +90,8 @@ impl Board {
 
     pub fn move_piece_quiet(&mut self, from_sq: SQ, to_sq: SQ) {
         let pc = self.piece_at(from_sq);
-        if !cfg!(feature = "classical") {
-            self.network.deactivate(pc, from_sq);
-            self.network.activate(pc, to_sq);
-        }
-        self.p_sq_score +=
-            e_constants::piece_sq_value(pc, to_sq) - e_constants::piece_sq_value(pc, from_sq);
+        self.network.deactivate(pc, from_sq);
+        self.network.activate(pc, to_sq);
 
         let hash_update = zobrist::zobrist_table(pc, from_sq) ^ zobrist::zobrist_table(pc, to_sq);
         self.hash ^= hash_update;
@@ -137,12 +109,6 @@ impl Board {
         self.move_piece_quiet(from_sq, to_sq);
     }
 
-    #[cfg(feature = "classical")]
-    pub fn eval(&self) -> Value {
-        eval(&self)
-    }
-
-    #[cfg(not(feature = "classical"))]
     pub fn eval(&self) -> Value {
         if self.color_to_play == Color::White {
             self.network.eval(&self)
@@ -1223,78 +1189,72 @@ impl Board {
     }
 
     pub fn push_str(&mut self, move_str: &str) -> Result<(), &'static str> {
+        if move_str.len() < 4 {
+            return Err("Move string must be at least four characters long.");
+        }
         let from_sq = SQ::try_from(&move_str[..2])?;
         let to_sq = SQ::try_from(&move_str[2..4])?;
 
-        let promo: Option<PieceType>;
-
-        if move_str.len() == 5 {
-            promo = Some(Piece::try_from(move_str.chars().nth(4).unwrap())?.type_of());
-        } else {
-            promo = None;
+        let moved_pc = self.piece_at(from_sq);
+        if moved_pc == Piece::None {
+            return Err("No piece at the origin square.");
+        }
+        if moved_pc.color_of() != self.color_to_play {
+            return Err("Moved piece of the wrong color.");
         }
 
-        let mut m = Move::NULL;
-        if self.piece_at(to_sq) != Piece::None {
-            match promo {
-                Some(PieceType::Queen) => {
-                    m = Move::new(from_sq, to_sq, MoveFlags::PcQueen);
+        let promo_pt = if let Some(pt_char) = move_str.chars().nth(4) {
+            Piece::try_from(pt_char)?.type_of()
+        } else {
+            PieceType::None
+        };
+
+        let flag = if self.piece_at(to_sq) != Piece::None {
+            match promo_pt {
+                PieceType::Queen => MoveFlags::PcQueen,
+                PieceType::Knight => MoveFlags::PcKnight,
+                PieceType::Bishop => MoveFlags::PcBishop,
+                PieceType::Rook => MoveFlags::PcRook,
+                PieceType::None => MoveFlags::Capture,
+                _ => {
+                    unreachable!()
                 }
-                Some(PieceType::Knight) => {
-                    m = Move::new(from_sq, to_sq, MoveFlags::PcKnight);
-                }
-                Some(PieceType::Bishop) => {
-                    m = Move::new(from_sq, to_sq, MoveFlags::PcBishop);
-                }
-                Some(PieceType::Rook) => {
-                    m = Move::new(from_sq, to_sq, MoveFlags::PcRook);
-                }
-                None => {
-                    m = Move::new(from_sq, to_sq, MoveFlags::Capture);
-                }
-                _ => {}
             }
         } else {
-            match promo {
-                Some(PieceType::Queen) => {
-                    m = Move::new(from_sq, to_sq, MoveFlags::PrQueen);
-                }
-                Some(PieceType::Knight) => {
-                    m = Move::new(from_sq, to_sq, MoveFlags::PrKnight);
-                }
-                Some(PieceType::Bishop) => {
-                    m = Move::new(from_sq, to_sq, MoveFlags::PrBishop);
-                }
-                Some(PieceType::Rook) => {
-                    m = Move::new(from_sq, to_sq, MoveFlags::PrRook);
-                }
-                None => {
+            match promo_pt {
+                PieceType::Queen => MoveFlags::PrQueen,
+                PieceType::Knight => MoveFlags::PrKnight,
+                PieceType::Bishop => MoveFlags::PrBishop,
+                PieceType::Rook => MoveFlags::PrRook,
+                PieceType::None => {
                     if self.piece_type_at(from_sq) == PieceType::Pawn
                         && to_sq == self.history[self.game_ply].epsq()
                     {
-                        m = Move::new(from_sq, to_sq, MoveFlags::EnPassant);
+                        MoveFlags::EnPassant
                     } else if self.piece_type_at(from_sq) == PieceType::Pawn
-                        && i8::abs(from_sq as i8 - to_sq as i8) == 16
+                        && (from_sq as i8 - to_sq as i8).abs() == 16
                     {
-                        m = Move::new(from_sq, to_sq, MoveFlags::DoublePush);
+                        MoveFlags::DoublePush
                     } else if self.piece_type_at(from_sq) == PieceType::King
                         && from_sq.file() == File::E
                         && to_sq.file() == File::G
                     {
-                        m = Move::new(from_sq, to_sq, MoveFlags::OO);
+                        MoveFlags::OO
                     } else if self.piece_type_at(from_sq) == PieceType::King
                         && from_sq.file() == File::E
                         && to_sq.file() == File::C
                     {
-                        m = Move::new(from_sq, to_sq, MoveFlags::OOO);
+                        MoveFlags::OOO
                     } else {
-                        m = Move::new(from_sq, to_sq, MoveFlags::Quiet);
+                        MoveFlags::Quiet
                     }
                 }
-                _ => {}
+                _ => {
+                    unreachable!()
+                }
             }
-        }
-        self.push(m);
+        };
+        self.push(Move::new(from_sq, to_sq, flag));
         Ok(())
     }
 
@@ -1306,21 +1266,6 @@ impl Board {
     #[inline(always)]
     pub fn game_ply(&self) -> usize {
         self.game_ply
-    }
-
-    #[inline(always)]
-    pub fn material_score(&self) -> Score {
-        self.material_score
-    }
-
-    #[inline(always)]
-    pub fn p_sq_score(&self) -> Score {
-        self.p_sq_score
-    }
-
-    #[inline(always)]
-    pub fn phase(&self) -> Phase {
-        self.phase
     }
 
     #[inline(always)]
@@ -1344,10 +1289,7 @@ impl Default for Board {
             hash: Bitboard::ZERO,
             material_hash: Bitboard::ZERO,
             game_ply: 0,
-            phase: Score::TOTAL_PHASE,
-            material_score: Score::ZERO,
-            p_sq_score: Score::ZERO,
-            history: [UndoInfo::default(); N_HISTORIES],
+            history: [UndoInfo::default(); Self::N_HISTORIES],
             network: Network::new(),
         }
     }
@@ -1402,10 +1344,6 @@ impl TryFrom<&str> for Board {
         }
 
         board.game_ply = (fullmove_counter - 1) * 2;
-
-        if cfg!(feature = "tune") {
-            board.game_ply = 0;
-        }
 
         let ranks = pieces_placement.split("/");
         for (rank_idx, rank_fen) in ranks.enumerate() {
@@ -1473,12 +1411,6 @@ impl fmt::Display for Board {
             }
         }
 
-        let color_to_play = if self.color_to_play == Color::White {
-            "w"
-        } else {
-            "b"
-        };
-
         let mut castling_rights = String::new();
         for (symbol, mask) in "KQkq".chars().zip([
             Bitboard::WHITE_OO_MASK,
@@ -1504,7 +1436,7 @@ impl fmt::Display for Board {
             f,
             "{} {} {} {} {} {}",
             board_string,
-            color_to_play,
+            self.color_to_play,
             castling_rights,
             epsq,
             self.history[self.game_ply].half_move_counter(),
@@ -1536,4 +1468,8 @@ impl fmt::Debug for Board {
         }
         write!(f, "{}", s)
     }
+}
+
+impl Board {
+    const N_HISTORIES: usize = 1000;
 }

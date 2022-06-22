@@ -1,12 +1,13 @@
-use super::search::*;
-use crate::evaluation::score::*;
-use crate::types::board::*;
-use crate::types::color::*;
 use std::cmp::min;
 use std::sync;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Instant;
+
+use crate::types::board::*;
+use crate::types::color::*;
+
+use super::search::*;
 
 pub type Time = u64;
 

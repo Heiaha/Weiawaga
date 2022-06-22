@@ -1,5 +1,3 @@
-use super::search::*;
-use super::see::*;
 use crate::types::bitboard::*;
 use crate::types::board::*;
 use crate::types::color::*;
@@ -8,18 +6,18 @@ use crate::types::move_list::*;
 use crate::types::piece::*;
 use crate::types::square::*;
 
-const N_KILLER: usize = 3;
+use super::search::*;
+use super::see::*;
 
-#[derive(Clone)]
 pub struct MoveSorter {
-    killer_moves: [[[Option<Move>; N_KILLER]; MAX_MOVES]; Color::N_COLORS],
+    killer_moves: [[[Option<Move>; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],
     history_scores: [[SortValue; SQ::N_SQUARES]; SQ::N_SQUARES],
 }
 
 impl MoveSorter {
     pub fn new() -> Self {
         Self {
-            killer_moves: [[[None; N_KILLER]; MAX_MOVES]; Color::N_COLORS],
+            killer_moves: [[[None; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],
             history_scores: [[0; SQ::N_SQUARES]; SQ::N_SQUARES],
         }
     }
@@ -120,6 +118,7 @@ impl MoveSorter {
 }
 
 impl MoveSorter {
+    const N_KILLERS: usize = 3;
     const HASH_MOVE_SCORE: SortValue = 25000;
     const WINNING_CAPTURES_OFFSET: SortValue = 10;
     const QUEEN_PROMOTION_SCORE: SortValue = 8;

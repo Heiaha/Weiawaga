@@ -8,7 +8,7 @@ pub struct UndoInfo {
     entry: Bitboard,
     captured: Piece,
     epsq: SQ,
-    moov: MoveInt,
+    moov: Move,
     material_hash: Bitboard,
     half_move_counter: u16,
     plies_from_null: u16,
@@ -17,7 +17,7 @@ pub struct UndoInfo {
 impl UndoInfo {
     pub fn new(
         entry: Bitboard,
-        m: Move,
+        moov: Move,
         half_move_counter: u16,
         plies_from_null: u16,
         captured: Piece,
@@ -26,7 +26,7 @@ impl UndoInfo {
     ) -> Self {
         Self {
             entry,
-            moov: m.into(),
+            moov,
             half_move_counter,
             plies_from_null,
             captured,
@@ -42,7 +42,7 @@ impl UndoInfo {
 
     #[inline(always)]
     pub fn moov(&self) -> Move {
-        Move::from(self.moov)
+        self.moov
     }
 
     #[inline(always)]

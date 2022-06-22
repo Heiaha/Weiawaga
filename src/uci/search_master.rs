@@ -1,14 +1,15 @@
+use std::sync::atomic::*;
+use std::sync::mpsc::Receiver;
+use std::sync::Arc;
+
+use crossbeam::thread;
+
 use crate::perft::perft::*;
 use crate::search::search::*;
 use crate::search::timer::*;
 use crate::search::tt::*;
-use crate::texel::tuner::*;
 use crate::types::board::*;
 use crate::uci::uci::*;
-use crossbeam::thread;
-use std::sync::atomic::*;
-use std::sync::mpsc::Receiver;
-use std::sync::Arc;
 
 // A lot of this nice uci implementation was inspired by Asymptote
 
@@ -155,10 +156,6 @@ impl SearchMaster {
                         }
                         _ => {}
                     }
-                }
-                UCICommand::Tune(filename) => {
-                    let mut tuner = Tuner::new(&filename);
-                    tuner.tune();
                 }
                 UCICommand::Eval => {
                     println!("{}", board.eval());

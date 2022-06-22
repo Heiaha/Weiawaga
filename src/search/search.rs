@@ -1,16 +1,17 @@
-use super::timer::*;
-use super::tt::*;
-use crate::evaluation::score::*;
+use std::cmp::{max, min};
+
 use crate::search::move_sorter::*;
 use crate::types::board::*;
 use crate::types::moov::*;
 use crate::types::move_list::*;
-use std::cmp::{max, min};
+
+use super::timer::*;
+use super::tt::*;
 
 pub type Depth = i8;
 pub type Ply = usize;
+pub type Value = i32;
 
-#[derive(Clone)]
 pub struct Search<'a> {
     id: u16,
     stop: bool,
@@ -38,8 +39,8 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         // Start iterative deepening.
         ///////////////////////////////////////////////////////////////////
-        let mut alpha = -Score::INF;
-        let mut beta = Score::INF;
+        let mut alpha = -Value::MAX;
+        let mut beta = Value::MAX;
         let mut depth = 1;
         let mut final_move = None;
         let mut final_score = 0;
@@ -57,7 +58,7 @@ impl<'a> Search<'a> {
 
         while !self.stop
             && self.timer.start_check(depth)
-            && !Score::is_checkmate(final_score)
+            && !Self::is_checkmate(final_score)
             && depth < Depth::MAX
         {
             (final_move, final_score) = self.search_root(&mut board, depth, alpha, beta);
@@ -75,10 +76,10 @@ impl<'a> Search<'a> {
             // Widen aspiration windows.
             ///////////////////////////////////////////////////////////////////
             if final_score <= alpha {
-                alpha = -Score::INF;
+                alpha = -Value::MAX;
                 self.print_info(&mut board, depth, final_move, final_score, Bound::Upper);
             } else if final_score >= beta {
-                beta = Score::INF;
+                beta = Value::MAX;
                 self.print_info(&mut board, depth, final_move, final_score, Bound::Lower);
             } else {
                 // Only print info if we're in the main thread
@@ -124,7 +125,7 @@ impl<'a> Search<'a> {
         // Score moves and begin searching recursively.
         ///////////////////////////////////////////////////////////////////
         let ply: Ply = 0;
-        let mut value: Value = -Score::INF;
+        let mut value: Value = -Value::MAX;
         let mut best_move = None;
         let mut idx = 0;
 
@@ -187,7 +188,7 @@ impl<'a> Search<'a> {
         // Mate distance pruning - will help reduce
         // some nodes when checkmate is near.
         ///////////////////////////////////////////////////////////////////
-        let mate_value = Score::INF - (ply as Value);
+        let mate_value = Value::MAX - (ply as Value);
         alpha = max(alpha, -mate_value);
         beta = min(beta, mate_value - 1);
         if alpha >= beta {
@@ -436,7 +437,7 @@ impl<'a> Search<'a> {
 
     #[inline(always)]
     fn can_apply_rfp(depth: Depth, in_check: bool, is_pv: bool, beta: Value) -> bool {
-        depth <= Self::RFP_MAX_DEPTH && !in_check && !is_pv && !Score::is_checkmate(beta)
+        depth <= Self::RFP_MAX_DEPTH && !in_check && !is_pv && !Self::is_checkmate(beta)
     }
 
     #[inline(always)]
@@ -459,6 +460,10 @@ impl<'a> Search<'a> {
     fn late_move_reduction(depth: Depth, move_index: usize) -> Depth {
         // LMR table idea from Ethereal
         unsafe { LMR_TABLE[min(depth as usize, 63)][min(move_index, 63)] }
+    }
+
+    fn is_checkmate(value: Value) -> bool {
+        value.abs() >= Value::MAX >> 1
     }
 
     fn get_pv(&self, board: &mut Board, depth: Depth) -> String {
@@ -492,11 +497,11 @@ impl<'a> Search<'a> {
             return;
         }
 
-        let mut score_str = if Score::is_checkmate(score) {
+        let mut score_str = if Self::is_checkmate(score) {
             let mate_score = if score > 0 {
-                (Score::INF - score + 1) / 2
+                (Value::MAX - score + 1) / 2
             } else {
-                -(score + Score::INF) / 2
+                -(score + Value::MAX) / 2
             };
             format!("mate {}", mate_score)
         } else {

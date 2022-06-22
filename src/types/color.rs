@@ -1,3 +1,4 @@
+use std::fmt;
 use std::ops::Not;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -26,6 +27,12 @@ impl Not for Color {
     #[inline(always)]
     fn not(self) -> Self {
         Color::from((self as u8) ^ 1)
+    }
+}
+
+impl fmt::Display for Color {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", if *self == Self::White { "w" } else { "b" })
     }
 }
 

@@ -1,8 +1,9 @@
+use rand::Rng;
+
 use super::bitboard::*;
 use super::file::*;
 use super::piece::*;
 use super::square::*;
-use rand::Rng;
 
 static mut ZOBRIST_TABLE: [[Bitboard; SQ::N_SQUARES]; Piece::N_PIECES] =
     [[Bitboard::ZERO; SQ::N_SQUARES]; Piece::N_PIECES];

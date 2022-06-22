@@ -1,5 +1,6 @@
-use super::bitboard::*;
 use std::ops::*;
+
+use super::bitboard::*;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
 pub enum File {

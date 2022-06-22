@@ -1,9 +1,10 @@
-use super::search::*;
-use crate::evaluation::score::*;
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use crate::types::bitboard::*;
 use crate::types::board::*;
 use crate::types::moov::*;
-use std::sync::atomic::{AtomicU64, Ordering};
+
+use super::search::*;
 
 type TTValue = i16;
 

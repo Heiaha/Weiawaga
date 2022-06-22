@@ -1,5 +1,5 @@
 use crate::evaluation::nnue_weights::*;
-use crate::evaluation::score::*;
+use crate::search::search::Value;
 use crate::types::board::*;
 use crate::types::piece::*;
 use crate::types::square::*;

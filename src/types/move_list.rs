@@ -1,9 +1,10 @@
+use std::fmt;
+use std::ops::Index;
+
 use super::bitboard::*;
 use super::board::*;
 use super::moov::*;
 use super::square::*;
-use std::fmt;
-use std::ops::Index;
 
 pub type SortValue = i16;
 
