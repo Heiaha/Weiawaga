@@ -22,19 +22,9 @@ https://lichess.org/@/Weiawaga
     - [Reverse Futility Pruning](https://www.chessprogramming.org/Reverse_Futility_Pruning)
     - [Null move pruning](https://www.chessprogramming.org/Null_Move_Pruning)
     - [Check extensions](https://www.chessprogramming.org/Check_Extensions)
-- Primary Evaluation
-    - [NNUE](https://www.chessprogramming.org/NNUE)
-      - Incremental Updating 
-      - Buckets
-- Classical Evaluation
-  - [Material imbalance](https://www.chessprogramming.org/Material)
-  - [Piece square tables](https://www.chessprogramming.org/Piece-Square_Tables)
-  - [Pawn structure](https://www.chessprogramming.org/Pawn_Structure)
-  - [King safety](https://www.chessprogramming.org/King_Safety)
-  - [Bishop pairs](https://www.chessprogramming.org/Bishop_Pair)
-  - [Evaluation tapering](https://www.chessprogramming.org/Tapered_Eval)
-  - [Mobility](https://www.chessprogramming.org/Mobility)
-  - [Rooks on open file](https://www.chessprogramming.org/Rook_on_Open_File)
+- [NNUE](https://www.chessprogramming.org/NNUE) Evaluation
+    - Incremental Updating 
+    - Buckets
 - Move ordering
     - [Hash move](https://www.chessprogramming.org/Hash_Move)
     - [Static Exchange Evaluation](https://www.chessprogramming.org/Static_Exchange_Evaluation)
