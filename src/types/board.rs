@@ -250,7 +250,7 @@ impl Board {
     }
 
     #[inline(always)]
-    fn is_threefold(&self) -> bool {
+    fn is_repetition(&self) -> bool {
         let lookback = min(
             self.history[self.game_ply].plies_from_null(),
             self.history[self.game_ply].half_move_counter(),
@@ -265,7 +265,7 @@ impl Board {
 
     #[inline(always)]
     pub fn is_draw(&self) -> bool {
-        self.is_fifty() || self.is_insufficient_material() || self.is_threefold()
+        self.is_fifty() || self.is_insufficient_material() || self.is_repetition()
     }
 
     #[inline(always)]
@@ -1322,16 +1322,12 @@ impl TryFrom<&str> for Board {
         let castling_ability = parts.next().ok_or("Invalid castling.")?;
         let en_passant_square = parts.next().unwrap_or("-");
         let halfmove_clock = parts.next().unwrap_or("0").parse::<u16>().unwrap_or(0);
-        let fullmove_counter = parts.next().unwrap_or("1").parse::<usize>().unwrap_or(1);
-        if let Ok(fullmove_number) = parts.next().unwrap_or("1").parse::<usize>() {
-            if fullmove_number > 0 {
-                fullmove_number
-            } else {
-                fullmove_number + 1
-            }
-        } else {
-            1
-        };
+        let fullmove_counter = parts
+            .next()
+            .unwrap_or("1")
+            .parse::<usize>()
+            .unwrap_or(1)
+            .max(1);
 
         if pieces_placement.split("/").count() != Rank::N_RANKS {
             return Err("Pieces Placement FEN should have 8 ranks.");
@@ -1339,11 +1335,11 @@ impl TryFrom<&str> for Board {
 
         board.color_to_play = Color::try_from(color_to_play)?;
 
+        board.game_ply = (fullmove_counter - 1) * 2;
         if board.color_to_play == Color::Black {
+            board.game_ply += 1;
             board.hash ^= zobrist::zobrist_color();
         }
-
-        board.game_ply = (fullmove_counter - 1) * 2;
 
         let ranks = pieces_placement.split("/");
         for (rank_idx, rank_fen) in ranks.enumerate() {
