@@ -4,6 +4,7 @@ use std::fmt;
 
 use crate::evaluation::nnue::*;
 use crate::search::search::*;
+use crate::types::zobrist::*;
 
 use super::attacks;
 use super::bitboard::*;
@@ -15,7 +16,6 @@ use super::piece::*;
 use super::rank::*;
 use super::square::*;
 use super::undo_info::*;
-use super::zobrist;
 
 #[derive(Clone)]
 pub struct Board {
@@ -23,8 +23,7 @@ pub struct Board {
     board: [Piece; SQ::N_SQUARES],
     color_bb: [Bitboard; Color::N_COLORS],
     color_to_play: Color,
-    hash: Hash,
-    material_hash: Hash,
+    hasher: Hasher,
     game_ply: usize,
     history: [UndoInfo; Self::N_HISTORIES],
     network: Network,
@@ -37,8 +36,6 @@ impl Board {
 
     pub fn clear(&mut self) {
         self.color_to_play = Color::White;
-        self.hash = Hash::ZERO;
-        self.material_hash = Hash::ZERO;
         self.history = [UndoInfo::default(); Self::N_HISTORIES];
 
         self.color_bb[Color::White.index()] = Bitboard::ZERO;
@@ -52,6 +49,7 @@ impl Board {
             self.board[sq.index()] = Piece::None;
         }
 
+        self.hasher.clear();
         self.network = Network::new();
     }
 
@@ -67,21 +65,19 @@ impl Board {
 
     pub fn set_piece_at(&mut self, pc: Piece, sq: SQ) {
         self.network.activate(pc, sq);
+        self.hasher.update_piece(pc, sq);
 
         self.board[sq.index()] = pc;
         self.color_bb[pc.color_of().index()] |= sq.bb();
         self.piece_bb[pc.index()] |= sq.bb();
 
-        self.hash ^= zobrist::zobrist_table(pc, sq);
-        self.material_hash ^= zobrist::zobrist_table(pc, sq);
     }
 
     pub fn remove_piece(&mut self, sq: SQ) {
         let pc = self.piece_at(sq);
-        self.network.deactivate(pc, sq);
 
-        self.hash ^= zobrist::zobrist_table(pc, sq);
-        self.material_hash ^= zobrist::zobrist_table(pc, sq);
+        self.network.deactivate(pc, sq);
+        self.hasher.update_piece(pc, sq);
 
         self.piece_bb[pc.index()] &= !sq.bb();
         self.color_bb[pc.color_of().index()] &= !sq.bb();
@@ -90,12 +86,9 @@ impl Board {
 
     pub fn move_piece_quiet(&mut self, from_sq: SQ, to_sq: SQ) {
         let pc = self.piece_at(from_sq);
-        self.network.deactivate(pc, from_sq);
-        self.network.activate(pc, to_sq);
 
-        let hash_update = zobrist::zobrist_table(pc, from_sq) ^ zobrist::zobrist_table(pc, to_sq);
-        self.hash ^= hash_update;
-        self.material_hash ^= hash_update;
+        self.network.move_piece(pc, from_sq, to_sq);
+        self.hasher.move_piece(pc, from_sq, to_sq);
 
         let mask = from_sq.bb() | to_sq.bb();
         self.piece_bb[pc.index()] ^= mask;
@@ -118,17 +111,17 @@ impl Board {
     }
 
     #[inline(always)]
-    pub fn bitboard_of_piece(&self, pc: Piece) -> Bitboard {
-        self.piece_bb[pc.index()]
-    }
-
-    #[inline(always)]
     pub fn bitboard_of(&self, c: Color, pt: PieceType) -> Bitboard {
         self.piece_bb[Piece::make_piece(c, pt).index()]
     }
 
     #[inline(always)]
-    pub fn bitboard_of_piecetype(&self, pt: PieceType) -> Bitboard {
+    pub fn bitboard_of_pc(&self, pc: Piece) -> Bitboard {
+        self.piece_bb[pc.index()]
+    }
+
+    #[inline(always)]
+    pub fn bitboard_of_pt(&self, pt: PieceType) -> Bitboard {
         self.piece_bb[Piece::make_piece(Color::White, pt).index()]
             | self.piece_bb[Piece::make_piece(Color::Black, pt).index()]
     }
@@ -235,9 +228,9 @@ impl Board {
         match self.all_pieces().pop_count() {
             2 => true,
             3 => {
-                self.bitboard_of_piecetype(PieceType::Rook)
-                    | self.bitboard_of_piecetype(PieceType::Queen)
-                    | self.bitboard_of_piecetype(PieceType::Pawn)
+                self.bitboard_of_pt(PieceType::Rook)
+                    | self.bitboard_of_pt(PieceType::Queen)
+                    | self.bitboard_of_pt(PieceType::Pawn)
                     == Bitboard::ZERO
             }
             _ => false,
@@ -256,7 +249,7 @@ impl Board {
             self.history[self.game_ply].half_move_counter(),
         ) as usize;
         for i in (2..=lookback).step_by(2) {
-            if self.material_hash == self.history[self.game_ply - i].material_hash() {
+            if self.material_hash() == self.history[self.game_ply - i].material_hash() {
                 return true;
             }
         }
@@ -288,18 +281,20 @@ impl Board {
         );
 
         if self.history[self.game_ply - 1].epsq() != SQ::None {
-            self.hash ^= zobrist::zobrist_ep(self.history[self.game_ply - 1].epsq().file());
+            self.hasher
+                .update_ep(self.history[self.game_ply - 1].epsq().file());
         }
 
-        self.hash ^= zobrist::zobrist_color();
+        self.hasher.update_color();
         self.color_to_play = !self.color_to_play;
     }
 
     pub fn pop_null(&mut self) {
         self.game_ply -= 1;
-        self.hash ^= zobrist::zobrist_color();
+        self.hasher.update_color();
         if self.history[self.game_ply].epsq() != SQ::None {
-            self.hash ^= zobrist::zobrist_ep(self.history[self.game_ply].epsq().file());
+            self.hasher
+                .update_ep(self.history[self.game_ply].epsq().file());
         }
         self.color_to_play = !self.color_to_play;
     }
@@ -321,7 +316,7 @@ impl Board {
             MoveFlags::DoublePush => {
                 self.move_piece_quiet(m.from_sq(), m.to_sq());
                 epsq = m.from_sq() + Direction::North.relative(self.color_to_play);
-                self.hash ^= zobrist::zobrist_ep(epsq.file());
+                self.hasher.update_ep(epsq.file());
             }
             MoveFlags::OO => {
                 if self.color_to_play == Color::White {
@@ -422,15 +417,15 @@ impl Board {
             self.history[self.game_ply - 1].plies_from_null() + 1,
             captured,
             epsq,
-            self.material_hash,
+            self.material_hash(),
         );
         self.color_to_play = !self.color_to_play;
-        self.hash ^= zobrist::zobrist_color();
+        self.hasher.update_color();
     }
 
     pub fn pop(&mut self) -> Move {
         self.color_to_play = !self.color_to_play;
-        self.hash ^= zobrist::zobrist_color();
+        self.hasher.update_color();
 
         let m = self.history[self.game_ply].moov();
         match m.flags() {
@@ -439,7 +434,8 @@ impl Board {
             }
             MoveFlags::DoublePush => {
                 self.move_piece_quiet(m.to_sq(), m.from_sq());
-                self.hash ^= zobrist::zobrist_ep(self.history[self.game_ply].epsq().file());
+                self.hasher
+                    .update_ep(self.history[self.game_ply].epsq().file());
             }
             MoveFlags::OO => {
                 if self.color_to_play == Color::White {
@@ -499,10 +495,10 @@ impl Board {
         let all = us_bb | them_bb;
 
         let our_king = self
-            .bitboard_of_piece(Piece::make_piece(us, PieceType::King))
+            .bitboard_of_pc(Piece::make_piece(us, PieceType::King))
             .lsb();
         let their_king = self
-            .bitboard_of_piece(Piece::make_piece(them, PieceType::King))
+            .bitboard_of_pc(Piece::make_piece(them, PieceType::King))
             .lsb();
 
         let our_diag_sliders = self.diagonal_sliders(us);
@@ -948,10 +944,10 @@ impl Board {
         let all = us_bb | them_bb;
 
         let our_king = self
-            .bitboard_of_piece(Piece::make_piece(us, PieceType::King))
+            .bitboard_of_pc(Piece::make_piece(us, PieceType::King))
             .lsb();
         let their_king = self
-            .bitboard_of_piece(Piece::make_piece(them, PieceType::King))
+            .bitboard_of_pc(Piece::make_piece(them, PieceType::King))
             .lsb();
 
         let our_diag_sliders = self.diagonal_sliders(us);
@@ -1270,12 +1266,12 @@ impl Board {
 
     #[inline(always)]
     pub fn hash(&self) -> Hash {
-        self.hash
+        self.hasher.hash()
     }
 
     #[inline(always)]
     pub fn material_hash(&self) -> Hash {
-        self.material_hash
+        self.hasher.material_hash()
     }
 }
 
@@ -1286,11 +1282,10 @@ impl Default for Board {
             color_bb: [Bitboard::ZERO; Color::N_COLORS],
             board: [Piece::None; SQ::N_SQUARES],
             color_to_play: Color::White,
-            hash: Bitboard::ZERO,
-            material_hash: Bitboard::ZERO,
             game_ply: 0,
-            history: [UndoInfo::default(); Self::N_HISTORIES],
+            hasher: Hasher::new(),
             network: Network::new(),
+            history: [UndoInfo::default(); Self::N_HISTORIES],
         }
     }
 }
@@ -1338,7 +1333,7 @@ impl TryFrom<&str> for Board {
         board.game_ply = (fullmove_counter - 1) * 2;
         if board.color_to_play == Color::Black {
             board.game_ply += 1;
-            board.hash ^= zobrist::zobrist_color();
+            board.hasher.update_color();
         }
 
         let ranks = pieces_placement.split("/");
@@ -1372,7 +1367,7 @@ impl TryFrom<&str> for Board {
         if en_passant_square != "-" {
             let sq = SQ::try_from(en_passant_square)?;
             board.history[board.game_ply].set_epsq(sq);
-            board.hash ^= zobrist::zobrist_ep(sq.file());
+            board.hasher.update_ep(sq.file());
         }
         board.history[board.game_ply].set_half_move_counter(halfmove_clock);
         Ok(board)

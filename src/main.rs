@@ -4,7 +4,6 @@
 use crate::search::search::init_search;
 use crate::types::bitboard::init_bb;
 use crate::types::magics::init_magics;
-use crate::types::zobrist::init_zobrist;
 use crate::uci::uci::UCICommand;
 
 #[macro_use]
@@ -16,7 +15,6 @@ mod uci;
 
 fn main() {
     init_magics();
-    init_zobrist();
     init_bb();
     init_search();
 

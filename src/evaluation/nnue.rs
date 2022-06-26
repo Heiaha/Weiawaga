@@ -36,6 +36,18 @@ impl Network {
     }
 
     #[inline(always)]
+    pub fn move_piece(&mut self, piece: Piece, from_sq: SQ, to_sq: SQ) {
+        let pc_idx = piece.index() * SQ::N_SQUARES;
+        let from_idx = (pc_idx + from_sq.index()) * self.input_layer.activations.len();
+        let to_idx = (pc_idx + to_sq.index()) * self.input_layer.activations.len();
+
+        for j in 0..self.input_layer.activations.len() {
+            self.input_layer.activations[j] -= self.input_layer.weights[from_idx + j];
+            self.input_layer.activations[j] += self.input_layer.weights[to_idx + j];
+        }
+    }
+
+    #[inline(always)]
     pub fn activate(&mut self, piece: Piece, sq: SQ) {
         let feature_idx =
             (piece.index() * SQ::N_SQUARES + sq.index()) * self.input_layer.activations.len();

@@ -1,5 +1,5 @@
-use std::io::BufRead;
 use std::{io, sync, thread};
+use std::io::BufRead;
 
 use crate::search::search::*;
 use crate::search::timer::*;

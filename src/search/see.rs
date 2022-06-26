@@ -33,9 +33,9 @@ pub fn see(board: &Board, m: Move) -> SortValue {
             piece_bb = if pt == PieceType::Pawn {
                 attacks::pawn_attacks_sq(to_sq, !color)
                     & defenders
-                    & board.bitboard_of_piecetype(PieceType::Pawn)
+                    & board.bitboard_of_pt(PieceType::Pawn)
             } else {
-                attacks::attacks(pt, to_sq, blockers) & defenders & board.bitboard_of_piecetype(pt)
+                attacks::attacks(pt, to_sq, blockers) & defenders & board.bitboard_of_pt(pt)
             };
             if piece_bb != Bitboard::ZERO {
                 blockers &= !piece_bb.lsb().bb();
