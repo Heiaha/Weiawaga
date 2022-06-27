@@ -1,5 +1,3 @@
-use std::ops::*;
-
 use super::bitboard::*;
 use super::color::*;
 
@@ -36,24 +34,6 @@ impl From<u8> for Rank {
     #[inline(always)]
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
-    }
-}
-
-impl Add for Rank {
-    type Output = Self;
-
-    #[inline(always)]
-    fn add(self, other: Self) -> Self::Output {
-        Self::from(self as u8 + other as u8)
-    }
-}
-
-impl Sub for Rank {
-    type Output = Self;
-
-    #[inline(always)]
-    fn sub(self, other: Self) -> Self::Output {
-        Self::from(self as u8 - other as u8)
     }
 }
 

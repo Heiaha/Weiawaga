@@ -91,11 +91,6 @@ impl Bitboard {
         }
         result
     }
-
-    #[inline(always)]
-    pub fn file_fill(self) -> Self {
-        self.fill(Direction::North) | self.fill(Direction::South)
-    }
 }
 
 //////////////////////////////////////////////

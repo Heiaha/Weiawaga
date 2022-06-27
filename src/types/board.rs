@@ -169,21 +169,6 @@ impl Board {
         }
     }
 
-    pub fn attackers_to_square(&self, sq: SQ, occ: Bitboard) -> Bitboard {
-        (self.piece_bb[Piece::WhitePawn.index()] & attacks::pawn_attacks_sq(sq, Color::Black))
-            | (self.piece_bb[Piece::WhiteKnight.index()] & attacks::knight_attacks(sq))
-            | (self.piece_bb[Piece::WhiteBishop.index()] & attacks::bishop_attacks(sq, occ))
-            | (self.piece_bb[Piece::WhiteRook.index()] & attacks::rook_attacks(sq, occ))
-            | (self.piece_bb[Piece::WhiteQueen.index()]
-                & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
-            | (self.piece_bb[Piece::BlackPawn.index()] & attacks::pawn_attacks_sq(sq, Color::White))
-            | (self.piece_bb[Piece::BlackKnight.index()] & attacks::knight_attacks(sq))
-            | (self.piece_bb[Piece::BlackBishop.index()] & attacks::bishop_attacks(sq, occ))
-            | (self.piece_bb[Piece::BlackRook.index()] & attacks::rook_attacks(sq, occ))
-            | (self.piece_bb[Piece::BlackQueen.index()]
-                & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
-    }
-
     pub fn in_check(&self) -> bool {
         let us = self.color_to_play;
         let them = !self.color_to_play;
@@ -210,11 +195,6 @@ impl Board {
             return true;
         }
         false
-    }
-
-    #[inline(always)]
-    pub fn peek_capture(&self) -> PieceType {
-        self.history[self.game_ply].captured().type_of()
     }
 
     #[inline(always)]

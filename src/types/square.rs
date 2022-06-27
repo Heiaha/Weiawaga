@@ -61,19 +61,6 @@ impl SQ {
         Self::from(self as u8 ^ 0x38)
     }
 
-    #[inline]
-    pub fn forward_ranks_bb(self, color: Color) -> Bitboard {
-        if color == Color::White {
-            !Rank::One.bb() << (8 * self.rank().relative(color) as u8)
-        } else {
-            !Rank::Eight.bb() >> (8 * self.rank().relative(color) as u8)
-        }
-    }
-
-    pub fn forward_files_bb(self, color: Color) -> Bitboard {
-        self.file().bb() & self.forward_ranks_bb(color)
-    }
-
     #[inline(always)]
     pub fn relative(self, color: Color) -> Self {
         if color == Color::White {

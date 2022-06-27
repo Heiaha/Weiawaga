@@ -1,5 +1,3 @@
-use std::ops::*;
-
 use super::bitboard::*;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
@@ -30,24 +28,6 @@ impl From<u8> for File {
     #[inline(always)]
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
-    }
-}
-
-impl Add for File {
-    type Output = Self;
-
-    #[inline(always)]
-    fn add(self, other: Self) -> Self::Output {
-        Self::from(self as u8 + other as u8)
-    }
-}
-
-impl Sub for File {
-    type Output = Self;
-
-    #[inline(always)]
-    fn sub(self, other: Self) -> Self::Output {
-        Self::from(self as u8 - other as u8)
     }
 }
 
