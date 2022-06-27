@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use std::sync::atomic::*;
 use std::sync::mpsc::Receiver;
+use std::sync::Arc;
 
 use crossbeam::thread;
 

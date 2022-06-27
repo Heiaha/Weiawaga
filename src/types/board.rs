@@ -70,7 +70,6 @@ impl Board {
         self.board[sq.index()] = pc;
         self.color_bb[pc.color_of().index()] |= sq.bb();
         self.piece_bb[pc.index()] |= sq.bb();
-
     }
 
     pub fn remove_piece(&mut self, sq: SQ) {

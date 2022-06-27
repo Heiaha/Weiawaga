@@ -1,7 +1,7 @@
 use std::cmp::min;
 use std::sync;
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use std::time::Instant;
 
 use crate::types::board::*;
