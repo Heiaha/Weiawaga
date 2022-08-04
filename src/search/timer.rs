@@ -132,6 +132,10 @@ impl Timer {
         stop
     }
 
+    pub fn stop(&mut self) {
+        self.stop.store(true, sync::atomic::Ordering::SeqCst);
+    }
+
     #[inline(always)]
     pub fn elapsed(&self) -> Time {
         self.start_time.elapsed().as_millis() as Time

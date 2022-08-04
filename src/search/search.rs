@@ -92,6 +92,10 @@ impl<'a> Search<'a> {
             }
         }
 
+        if self.id == 0 {
+            self.timer.stop();
+        }
+
         match final_move {
             Some(m) => m,
             None => moves[0],
