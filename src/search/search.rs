@@ -41,51 +41,48 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         let mut alpha = -Value::MAX;
         let mut beta = Value::MAX;
+        let mut best_move = None;
+        let mut score = 0;
         let mut depth = 1;
-        let mut final_move = None;
-        let mut final_score = 0;
-        let mut last_score = 0;
-
-        let moves = MoveList::from(&board);
 
         ///////////////////////////////////////////////////////////////////
         // If there's only one legal move, just play
         // it instead of searching.
         ///////////////////////////////////////////////////////////////////
+        let moves = MoveList::from(&board);
         if moves.len() == 1 {
             return moves[0];
         }
 
         while !self.stop
             && self.timer.start_check(depth)
-            && !Self::is_checkmate(final_score)
+            && !Self::is_checkmate(score)
             && depth < Depth::MAX
         {
-            (final_move, final_score) = self.search_root(&mut board, depth, alpha, beta);
+            (best_move, score) = self.search_root(&mut board, depth, alpha, beta);
 
             ///////////////////////////////////////////////////////////////////
             // Update the clock if the score is changing
             // by a lot.
             ///////////////////////////////////////////////////////////////////
             if depth >= Self::SEARCHES_WO_TIMER_UPDATE {
-                self.timer.update(final_score - last_score);
+                self.timer.update(score);
             }
-            last_score = final_score;
 
             ///////////////////////////////////////////////////////////////////
             // Widen aspiration windows.
             ///////////////////////////////////////////////////////////////////
-            if final_score <= alpha {
+            if score <= alpha {
                 alpha = -Value::MAX;
-                self.print_info(&mut board, depth, final_move, final_score, Bound::Upper);
-            } else if final_score >= beta {
+            } else if score >= beta {
                 beta = Value::MAX;
-                self.print_info(&mut board, depth, final_move, final_score, Bound::Lower);
             } else {
                 // Only print info if we're in the main thread
-                self.print_info(&mut board, depth, final_move, final_score, Bound::Exact);
-                alpha = final_score - Self::ASPIRATION_WINDOW;
-                beta = final_score + Self::ASPIRATION_WINDOW;
+                if self.id == 0 && best_move.is_some() {
+                    self.print_info(&mut board, depth, best_move, score);
+                }
+                alpha = score - Self::ASPIRATION_WINDOW;
+                beta = score + Self::ASPIRATION_WINDOW;
                 depth += 1;
                 self.nodes = 0;
                 self.sel_depth = 0;
@@ -96,7 +93,7 @@ impl<'a> Search<'a> {
             self.timer.stop();
         }
 
-        match final_move {
+        match best_move {
             Some(m) => m,
             None => moves[0],
         }
@@ -489,19 +486,12 @@ impl<'a> Search<'a> {
         String::new()
     }
 
-    fn print_info(
-        &self,
-        board: &mut Board,
-        depth: Depth,
-        m: Option<Move>,
-        score: Value,
-        bound: Bound,
-    ) {
+    fn print_info(&self, board: &mut Board, depth: Depth, m: Option<Move>, score: Value) {
         if m.is_none() || self.id != 0 || self.stop {
             return;
         }
 
-        let mut score_str = if Self::is_checkmate(score) {
+        let score_str = if Self::is_checkmate(score) {
             let mate_score = if score > 0 {
                 (Value::MAX - score + 1) / 2
             } else {
@@ -510,12 +500,6 @@ impl<'a> Search<'a> {
             format!("mate {}", mate_score)
         } else {
             format!("cp {}", score)
-        };
-
-        score_str = match bound {
-            Bound::Lower => format!("{} lowerbound", score_str),
-            Bound::Upper => format!("{} upperbound", score_str),
-            Bound::Exact => score_str,
         };
 
         println!("info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv}",

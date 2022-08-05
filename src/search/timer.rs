@@ -36,6 +36,7 @@ pub struct Timer {
     time_target: Time,
     time_maximum: Time,
     overhead: Time,
+    last_score: Value,
 }
 
 impl Timer {
@@ -45,6 +46,7 @@ impl Timer {
             stop,
             control,
             overhead,
+            last_score: 0,
             times_checked: 0,
             time_target: 0,
             time_maximum: 0,
@@ -141,7 +143,10 @@ impl Timer {
         self.start_time.elapsed().as_millis() as Time
     }
 
-    pub fn update(&mut self, diff: Value) {
+    pub fn update(&mut self, score: Value) {
+        let diff = score - self.last_score;
+        self.last_score = score;
+
         if diff > -25 {
             return;
         }
