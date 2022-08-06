@@ -145,8 +145,7 @@ impl<'a> Search<'a> {
             }
             board.pop();
 
-            if self.stop || self.timer.stop_check() {
-                self.stop = true;
+            if self.stop {
                 break;
             }
 
