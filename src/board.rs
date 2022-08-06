@@ -2,20 +2,19 @@ use std::cmp::min;
 use std::convert::TryFrom;
 use std::fmt;
 
-use crate::evaluation::nnue::*;
-use crate::search::search::*;
-use crate::types::zobrist::*;
-
 use super::attacks;
 use super::bitboard::*;
 use super::color::*;
 use super::file::*;
+use super::history_entry::*;
 use super::moov::*;
 use super::move_list::*;
+use super::nnue::*;
 use super::piece::*;
 use super::rank::*;
 use super::square::*;
-use super::undo_info::*;
+use super::types::*;
+use super::zobrist::*;
 
 #[derive(Clone)]
 pub struct Board {
@@ -25,7 +24,7 @@ pub struct Board {
     color_to_play: Color,
     hasher: Hasher,
     game_ply: usize,
-    history: [UndoInfo; Self::N_HISTORIES],
+    history: [HistoryEntry; Self::N_HISTORIES],
     network: Network,
 }
 
@@ -36,7 +35,7 @@ impl Board {
 
     pub fn clear(&mut self) {
         self.color_to_play = Color::White;
-        self.history = [UndoInfo::default(); Self::N_HISTORIES];
+        self.history = [HistoryEntry::default(); Self::N_HISTORIES];
 
         self.color_bb[Color::White.index()] = Bitboard::ZERO;
         self.color_bb[Color::Black.index()] = Bitboard::ZERO;
@@ -249,7 +248,7 @@ impl Board {
 
     pub fn push_null(&mut self) {
         self.game_ply += 1;
-        self.history[self.game_ply] = UndoInfo::new(
+        self.history[self.game_ply] = HistoryEntry::new(
             self.history[self.game_ply - 1].entry(),
             Move::NULL,
             self.history[self.game_ply - 1].half_move_counter() + 1,
@@ -389,7 +388,7 @@ impl Board {
                 self.move_piece(m.from_sq(), m.to_sq());
             }
         };
-        self.history[self.game_ply] = UndoInfo::new(
+        self.history[self.game_ply] = HistoryEntry::new(
             self.history[self.game_ply - 1].entry() | m.to_sq().bb() | m.from_sq().bb(),
             m,
             half_move_counter,
@@ -1264,7 +1263,7 @@ impl Default for Board {
             game_ply: 0,
             hasher: Hasher::new(),
             network: Network::new(),
-            history: [UndoInfo::default(); Self::N_HISTORIES],
+            history: [HistoryEntry::default(); Self::N_HISTORIES],
         }
     }
 }

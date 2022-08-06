@@ -1,27 +1,25 @@
+use std::sync;
 use std::sync::atomic::*;
 use std::sync::mpsc::Receiver;
-use std::sync::Arc;
 
 use crossbeam::thread;
 
-use crate::perft::perft::*;
-use crate::search::search::*;
-use crate::search::timer::*;
-use crate::search::tt::*;
-use crate::types::board::*;
-use crate::uci::uci::*;
-
-// A lot of this nice uci implementation was inspired by Asymptote
+use super::board::*;
+use super::perft::*;
+use super::search::*;
+use super::timer::*;
+use super::tt::*;
+use super::uci::*;
 
 pub struct SearchMaster {
-    stop: Arc<AtomicBool>,
+    stop: sync::Arc<AtomicBool>,
     num_threads: u16,
     tt: TT,
     overhead: Time,
 }
 
 impl SearchMaster {
-    pub fn new(stop: Arc<AtomicBool>) -> Self {
+    pub fn new(stop: sync::Arc<AtomicBool>) -> Self {
         let search_defaults = SearchDefaults::default();
         Self {
             stop,
@@ -67,10 +65,10 @@ impl SearchMaster {
         self.tt.clear();
     }
 
-    pub fn run(&mut self, rx: Receiver<UCICommand>) {
+    pub fn run(&mut self, main_rx: Receiver<UCICommand>) {
         let mut board = Board::new();
 
-        for cmd in rx {
+        for cmd in main_rx {
             match cmd {
                 UCICommand::IsReady => {
                     println!("readyok");

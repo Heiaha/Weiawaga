@@ -4,6 +4,7 @@ use super::bitboard::*;
 use super::file::*;
 use super::piece::*;
 use super::square::*;
+use super::types::*;
 
 #[derive(Clone)]
 pub struct Hasher {

@@ -1,12 +1,10 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::types::bitboard::*;
-use crate::types::board::*;
-use crate::types::moov::*;
-
+use super::bitboard::*;
+use super::board::*;
+use super::moov::*;
 use super::search::*;
-
-type TTValue = i16;
+use super::types::*;
 
 ///////////////////////////////////////////////////////////////////
 // Transposition Table Entry

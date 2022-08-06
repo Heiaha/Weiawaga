@@ -1,10 +1,57 @@
 use std::io::BufRead;
 use std::{io, sync, thread};
 
-use crate::search::search::*;
-use crate::search::timer::*;
-use crate::types::board::*;
-use crate::uci::search_master::*;
+use super::board::*;
+use super::search_master::*;
+use super::timer::*;
+use super::types::*;
+
+// A lot of this nice uci implementation was inspired by Asymptote.
+
+pub struct UCI {
+    _main_thread: thread::JoinHandle<()>,
+    main_tx: sync::mpsc::Sender<UCICommand>,
+    stop: sync::Arc<sync::atomic::AtomicBool>,
+}
+
+impl UCI {
+    pub fn new() -> Self {
+        let (main_tx, main_rx) = sync::mpsc::channel();
+        let stop = sync::Arc::new(sync::atomic::AtomicBool::new(false));
+        Self {
+            main_tx,
+            stop: stop.clone(),
+            _main_thread: thread::spawn(move || SearchMaster::new(stop).run(main_rx)),
+        }
+    }
+
+    pub fn run(&self) {
+        println!("Weiawaga v{}", env!("CARGO_PKG_VERSION"));
+        println!("{}", env!("CARGO_PKG_REPOSITORY"));
+
+        let stdin = io::stdin();
+        let lock = stdin.lock();
+
+        for line in lock
+            .lines()
+            .map(|line| line.expect("Unable to parse line."))
+        {
+            match UCICommand::try_from(line.as_ref()) {
+                Ok(cmd) => match cmd {
+                    UCICommand::Quit => return,
+                    UCICommand::Stop => self.stop.store(true, sync::atomic::Ordering::SeqCst),
+                    cmd => self
+                        .main_tx
+                        .send(cmd)
+                        .expect("Unable to communicate with main thread."),
+                },
+                Err(e) => {
+                    eprintln!("{}", e);
+                }
+            }
+        }
+    }
+}
 
 pub enum UCICommand {
     UCINewGame,
@@ -17,32 +64,6 @@ pub enum UCICommand {
     Perft(Depth),
     Option(String, String),
     Eval,
-}
-
-impl UCICommand {
-    pub fn run() {
-        println!("Weiawaga v{}", env!("CARGO_PKG_VERSION"));
-        println!("{}", env!("CARGO_PKG_REPOSITORY"));
-
-        let abort = sync::Arc::new(sync::atomic::AtomicBool::new(false));
-        let thread_abort = abort.clone();
-        let (main_tx, main_rx) = sync::mpsc::channel();
-
-        let _handle = thread::spawn(move || SearchMaster::new(thread_abort).run(main_rx));
-
-        for line in io::stdin().lock().lines() {
-            match UCICommand::try_from(line.unwrap().as_ref()) {
-                Ok(cmd) => match cmd {
-                    UCICommand::Quit => return,
-                    UCICommand::Stop => abort.store(true, sync::atomic::Ordering::SeqCst),
-                    cmd => main_tx.send(cmd).unwrap(),
-                },
-                Err(e) => {
-                    eprintln!("{}", e);
-                }
-            }
-        }
-    }
 }
 
 impl TryFrom<&str> for UCICommand {

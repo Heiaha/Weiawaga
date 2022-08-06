@@ -1,13 +1,12 @@
-use crate::types::bitboard::*;
-use crate::types::board::*;
-use crate::types::color::*;
-use crate::types::moov::*;
-use crate::types::move_list::*;
-use crate::types::piece::*;
-use crate::types::square::*;
-
-use super::search::*;
+use super::bitboard::*;
+use super::board::*;
+use super::color::*;
+use super::moov::*;
+use super::move_list::*;
+use super::piece::*;
 use super::see::*;
+use super::square::*;
+use super::types::*;
 
 pub struct MoveSorter {
     killer_moves: [[[Option<Move>; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],

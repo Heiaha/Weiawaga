@@ -5,8 +5,7 @@ use super::bitboard::*;
 use super::board::*;
 use super::moov::*;
 use super::square::*;
-
-pub type SortValue = i16;
+use super::types::*;
 
 // Cache size consideration idea originally found in Pleco
 

@@ -1,8 +1,8 @@
 use std::time::Instant;
 
-use crate::search::search::*;
-use crate::types::board::*;
-use crate::types::move_list::*;
+use super::board::*;
+use super::move_list::*;
+use super::types::*;
 
 pub fn perft(board: &mut Board, depth: Depth) -> u128 {
     let moves: MoveList = MoveList::from(board);
@@ -49,10 +49,10 @@ pub fn print_perft(board: &mut Board, depth: Depth) -> u128 {
 
 #[cfg(test)]
 mod tests {
-    use crate::types::bitboard::init_bb;
-    use crate::types::magics::init_magics;
-
     use super::*;
+    use crate::bitboard::init_bb;
+    use crate::magics::init_magics;
+    use crate::perft::perft;
 
     #[test]
     fn test_perft() {

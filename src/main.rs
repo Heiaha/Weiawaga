@@ -1,22 +1,43 @@
 #![allow(dead_code)]
 #![allow(non_snake_case)] // Allow so we don't get a warning about the uppercase name.
 
-use crate::search::search::init_search;
-use crate::types::bitboard::init_bb;
-use crate::types::magics::init_magics;
-use crate::uci::uci::UCICommand;
+use crate::bitboard::*;
+use crate::magics::*;
+use crate::search::*;
+use crate::uci::*;
 
 #[macro_use]
-mod types;
-mod evaluation;
+mod bitboard;
+mod attacks;
+mod board;
+mod color;
+mod diagonal;
+mod file;
+mod history_entry;
+mod magics;
+mod moov;
+mod move_list;
+mod move_sorter;
+mod nnue;
+mod nnue_weights;
 mod perft;
+mod piece;
+mod rank;
 mod search;
+mod search_master;
+mod see;
+mod square;
+mod timer;
+mod tt;
+mod types;
 mod uci;
+mod zobrist;
 
 fn main() {
     init_magics();
     init_bb();
     init_search();
 
-    UCICommand::run();
+    let uci = UCI::new();
+    uci.run();
 }

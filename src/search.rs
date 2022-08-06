@@ -1,16 +1,12 @@
 use std::cmp::{max, min};
 
-use crate::search::move_sorter::*;
-use crate::types::board::*;
-use crate::types::moov::*;
-use crate::types::move_list::*;
-
+use super::board::*;
+use super::moov::*;
+use super::move_list::*;
+use super::move_sorter::*;
 use super::timer::*;
 use super::tt::*;
-
-pub type Depth = i8;
-pub type Ply = usize;
-pub type Value = i32;
+use super::types::*;
 
 pub struct Search<'a> {
     id: u16,

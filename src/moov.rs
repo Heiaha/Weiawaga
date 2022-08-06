@@ -1,7 +1,6 @@
 use std::fmt;
 
-use crate::types::piece::*;
-
+use super::piece::*;
 use super::square::*;
 
 pub type MoveInt = u16;

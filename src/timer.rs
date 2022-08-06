@@ -4,10 +4,9 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::types::board::*;
-use crate::types::color::*;
-
-use super::search::*;
+use super::board::*;
+use super::color::*;
+use super::types::*;
 
 pub type Time = u64;
 

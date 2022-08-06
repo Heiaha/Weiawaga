@@ -2,9 +2,10 @@ use super::bitboard::*;
 use super::moov::*;
 use super::piece::*;
 use super::square::*;
+use super::types::*;
 
 #[derive(Clone, Copy, Debug, Default)]
-pub struct UndoInfo {
+pub struct HistoryEntry {
     entry: Bitboard,
     captured: Piece,
     epsq: SQ,
@@ -14,7 +15,7 @@ pub struct UndoInfo {
     plies_from_null: u16,
 }
 
-impl UndoInfo {
+impl HistoryEntry {
     pub fn new(
         entry: Bitboard,
         moov: Move,

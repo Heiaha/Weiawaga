@@ -1,18 +1,16 @@
 use std::fmt;
 use std::ops::*;
 
-use crate::search::search::*;
-
 use super::attacks;
 use super::color::*;
 use super::file::*;
 use super::square::*;
+use super::types::*;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct Bitboard(pub u64);
 
-pub type Hash = Bitboard;
-
+#[macro_export]
 macro_rules! B {
     ($x:expr) => {
         Bitboard($x)

@@ -1,11 +1,11 @@
 use std::cmp::max;
 
-use crate::types::attacks;
-use crate::types::bitboard::*;
-use crate::types::board::*;
-use crate::types::moov::*;
-use crate::types::move_list::*;
-use crate::types::piece::*;
+use super::attacks;
+use super::bitboard::*;
+use super::board::*;
+use super::moov::*;
+use super::piece::*;
+use super::types::*;
 
 const SEE_PIECE_TYPE: [SortValue; PieceType::N_PIECE_TYPES] = [100, 375, 375, 500, 1025, 10000];
 
