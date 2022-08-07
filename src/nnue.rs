@@ -78,7 +78,7 @@ impl Network {
     }
 
     #[inline(always)]
-    pub fn clipped_relu(x: i16) -> Value {
+    fn clipped_relu(x: i16) -> Value {
         (x as Value).max(0).min(Self::SCALE)
     }
 }
