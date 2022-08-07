@@ -13,6 +13,7 @@ use super::uci::*;
 
 pub struct SearchMaster {
     stop: sync::Arc<AtomicBool>,
+    board: Board,
     num_threads: u16,
     tt: TT,
     overhead: Time,
@@ -22,6 +23,7 @@ impl SearchMaster {
     pub fn new(stop: sync::Arc<AtomicBool>) -> Self {
         Self {
             stop,
+            board: Board::new(),
             num_threads: 1,
             tt: TT::new(16),
             overhead: 0,
@@ -29,15 +31,13 @@ impl SearchMaster {
     }
 
     pub fn run(&mut self, main_rx: Receiver<UCICommand>) {
-        let mut board = Board::new();
-
         for cmd in main_rx {
             match cmd {
                 UCICommand::IsReady => {
                     println!("readyok");
                 }
                 UCICommand::UCINewGame => {
-                    board = Board::new();
+                    self.board = Board::new();
                 }
                 UCICommand::UCI => {
                     println!("id name Weiawaga v{}", env!("CARGO_PKG_VERSION"));
@@ -48,19 +48,19 @@ impl SearchMaster {
                     println!("uciok");
                 }
                 UCICommand::Position(new_board) => {
-                    board = new_board;
+                    self.board = new_board;
                 }
                 UCICommand::Go(time_control) => {
-                    self.go(&board, time_control);
+                    self.go(time_control);
                 }
                 UCICommand::Perft(depth) => {
-                    print_perft(&mut board, depth);
+                    print_perft(&mut self.board, depth);
                 }
                 UCICommand::Option(name, value) => {
                     self.set_option(&name, &value);
                 }
                 UCICommand::Eval => {
-                    println!("{}", board.eval());
+                    println!("{}", self.board.eval());
                 }
                 _ => {
                     eprintln!("Unexpected UCI Command.");
@@ -69,22 +69,23 @@ impl SearchMaster {
         }
     }
 
-    pub fn go(&mut self, board: &Board, time_control: TimeControl) {
+    pub fn go(&mut self, time_control: TimeControl) {
         self.stop.store(false, Ordering::SeqCst);
 
         let best_move = thread::scope(|s| {
             // Create main search thread with the actual time control. This thread controls self.stop.
             let mut main_search_thread = Search::new(
-                Timer::new(board, time_control, self.stop.clone(), self.overhead),
+                Timer::new(&self.board, time_control, self.stop.clone(), self.overhead),
                 &self.tt,
                 0,
             );
 
             // Create helper search threads which will stop when self.stop resolves to true.
             for id in 1..self.num_threads {
+                let thread_board = self.board.clone();
                 let mut helper_search_thread = Search::new(
                     Timer::new(
-                        &board,
+                        &thread_board,
                         TimeControl::Infinite,
                         self.stop.clone(),
                         self.overhead,
@@ -95,10 +96,10 @@ impl SearchMaster {
                 s.builder()
                     .name(format!("Search thread #{:>3}", id))
                     .stack_size(8 * 1024 * 1024)
-                    .spawn(move |_| helper_search_thread.go(board.clone()))
+                    .spawn(move |_| helper_search_thread.go(thread_board))
                     .unwrap();
             }
-            main_search_thread.go(board.clone())
+            main_search_thread.go(self.board.clone())
         })
         .unwrap();
         println!("bestmove {}", best_move);

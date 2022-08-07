@@ -34,6 +34,7 @@ impl Board {
     }
 
     pub fn clear(&mut self) {
+        self.game_ply = 0;
         self.color_to_play = Color::White;
         self.history = [HistoryEntry::default(); Self::N_HISTORIES];
 
@@ -143,10 +144,8 @@ impl Board {
     }
 
     pub fn attackers_from_color(&self, sq: SQ, occ: Bitboard, color: Color) -> Bitboard {
-        (self.bitboard_of(color, PieceType::Pawn)
-            & attacks::pawn_attacks_sq(sq, !color))
-            | (self.bitboard_of(color, PieceType::Knight)
-                & attacks::knight_attacks(sq))
+        (self.bitboard_of(color, PieceType::Pawn) & attacks::pawn_attacks_sq(sq, !color))
+            | (self.bitboard_of(color, PieceType::Knight) & attacks::knight_attacks(sq))
             | (self.diagonal_sliders(color) & attacks::bishop_attacks(sq, occ))
             | (self.orthogonal_sliders(color) & attacks::rook_attacks(sq, occ))
     }
