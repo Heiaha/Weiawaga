@@ -28,42 +28,6 @@ impl SearchMaster {
         }
     }
 
-    pub fn go(&mut self, board: &Board, time_control: TimeControl) {
-        self.stop.store(false, Ordering::SeqCst);
-
-        let best_move = thread::scope(|s| {
-            // Create main search thread with the actual time control. This thread controls self.stop.
-            let mut main_search_thread = Search::new(
-                Timer::new(board, time_control, self.stop.clone(), self.overhead),
-                &self.tt,
-                0,
-            );
-
-            // Create helper search threads which will stop when self.stop resolves to true.
-            for id in 1..self.num_threads {
-                let mut helper_search_thread = Search::new(
-                    Timer::new(
-                        &board,
-                        TimeControl::Infinite,
-                        self.stop.clone(),
-                        self.overhead,
-                    ),
-                    &self.tt,
-                    id,
-                );
-                s.builder()
-                    .name(format!("Search thread #{:>3}", id))
-                    .stack_size(8 * 1024 * 1024)
-                    .spawn(move |_| helper_search_thread.go(board.clone()))
-                    .unwrap();
-            }
-            main_search_thread.go(board.clone())
-        })
-        .unwrap();
-        println!("bestmove {}", best_move);
-        self.tt.clear();
-    }
-
     pub fn run(&mut self, main_rx: Receiver<UCICommand>) {
         let mut board = Board::new();
 
@@ -103,6 +67,42 @@ impl SearchMaster {
                 }
             }
         }
+    }
+
+    pub fn go(&mut self, board: &Board, time_control: TimeControl) {
+        self.stop.store(false, Ordering::SeqCst);
+
+        let best_move = thread::scope(|s| {
+            // Create main search thread with the actual time control. This thread controls self.stop.
+            let mut main_search_thread = Search::new(
+                Timer::new(board, time_control, self.stop.clone(), self.overhead),
+                &self.tt,
+                0,
+            );
+
+            // Create helper search threads which will stop when self.stop resolves to true.
+            for id in 1..self.num_threads {
+                let mut helper_search_thread = Search::new(
+                    Timer::new(
+                        &board,
+                        TimeControl::Infinite,
+                        self.stop.clone(),
+                        self.overhead,
+                    ),
+                    &self.tt,
+                    id,
+                );
+                s.builder()
+                    .name(format!("Search thread #{:>3}", id))
+                    .stack_size(8 * 1024 * 1024)
+                    .spawn(move |_| helper_search_thread.go(board.clone()))
+                    .unwrap();
+            }
+            main_search_thread.go(board.clone())
+        })
+        .unwrap();
+        println!("bestmove {}", best_move);
+        self.tt.clear();
     }
 
     fn set_option(&mut self, name: &str, value: &str) {
