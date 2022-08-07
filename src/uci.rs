@@ -40,7 +40,7 @@ impl UCI {
                 Ok(cmd) => match cmd {
                     UCICommand::Quit => return,
                     UCICommand::Stop => self.stop.store(true, sync::atomic::Ordering::SeqCst),
-                    cmd => self
+                    _ => self
                         .main_tx
                         .send(cmd)
                         .expect("Unable to communicate with main thread."),
