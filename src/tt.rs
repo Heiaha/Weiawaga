@@ -28,6 +28,7 @@ impl TTEntry {
             flag,
         }
     }
+
     #[inline(always)]
     pub fn best_move(&self) -> Option<Move> {
         self.best_move.map(Move::from)
