@@ -1,3 +1,4 @@
+use crate::types::Value;
 use std::fmt;
 use std::ops::Not;
 
@@ -11,6 +12,15 @@ impl Color {
     #[inline(always)]
     pub fn index(self) -> usize {
         self as usize
+    }
+
+    #[inline(always)]
+    pub fn factor(&self) -> Value {
+        if *self == Self::White {
+            1
+        } else {
+            -1
+        }
     }
 }
 

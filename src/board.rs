@@ -95,17 +95,15 @@ impl Board {
         self.board[from_sq.index()] = Piece::None;
     }
 
+    #[inline(always)]
     pub fn move_piece(&mut self, from_sq: SQ, to_sq: SQ) {
         self.remove_piece(to_sq);
         self.move_piece_quiet(from_sq, to_sq);
     }
 
+    #[inline(always)]
     pub fn eval(&self) -> Value {
-        if self.color_to_play == Color::White {
-            self.network.eval(&self)
-        } else {
-            -self.network.eval(&self)
-        }
+        self.network.eval(&self) * self.color_to_play.factor()
     }
 
     #[inline(always)]
@@ -125,19 +123,13 @@ impl Board {
     }
 
     pub fn diagonal_sliders(&self, color: Color) -> Bitboard {
-        if color == Color::White {
-            self.piece_bb[Piece::WhiteBishop.index()] | self.piece_bb[Piece::WhiteQueen.index()]
-        } else {
-            self.piece_bb[Piece::BlackBishop.index()] | self.piece_bb[Piece::BlackQueen.index()]
-        }
+        self.piece_bb[Piece::make_piece(color, PieceType::Bishop).index()]
+            | self.piece_bb[Piece::make_piece(color, PieceType::Queen).index()]
     }
 
     pub fn orthogonal_sliders(&self, color: Color) -> Bitboard {
-        if color == Color::White {
-            self.piece_bb[Piece::WhiteRook.index()] | self.piece_bb[Piece::WhiteQueen.index()]
-        } else {
-            self.piece_bb[Piece::BlackRook.index()] | self.piece_bb[Piece::BlackQueen.index()]
-        }
+        self.piece_bb[Piece::make_piece(color, PieceType::Rook).index()]
+            | self.piece_bb[Piece::make_piece(color, PieceType::Queen).index()]
     }
 
     #[inline(always)]
@@ -151,21 +143,12 @@ impl Board {
     }
 
     pub fn attackers_from_color(&self, sq: SQ, occ: Bitboard, color: Color) -> Bitboard {
-        if color == Color::White {
-            (self.piece_bb[Piece::WhitePawn.index()] & attacks::pawn_attacks_sq(sq, Color::Black))
-                | (self.piece_bb[Piece::WhiteKnight.index()] & attacks::knight_attacks(sq))
-                | (self.piece_bb[Piece::WhiteBishop.index()] & attacks::bishop_attacks(sq, occ))
-                | (self.piece_bb[Piece::WhiteRook.index()] & attacks::rook_attacks(sq, occ))
-                | (self.piece_bb[Piece::WhiteQueen.index()]
-                    & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
-        } else {
-            (self.piece_bb[Piece::BlackPawn.index()] & attacks::pawn_attacks_sq(sq, Color::White))
-                | (self.piece_bb[Piece::BlackKnight.index()] & attacks::knight_attacks(sq))
-                | (self.piece_bb[Piece::BlackBishop.index()] & attacks::bishop_attacks(sq, occ))
-                | (self.piece_bb[Piece::BlackRook.index()] & attacks::rook_attacks(sq, occ))
-                | (self.piece_bb[Piece::BlackQueen.index()]
-                    & (attacks::bishop_attacks(sq, occ) | attacks::rook_attacks(sq, occ)))
-        }
+        (self.bitboard_of(color, PieceType::Pawn)
+            & attacks::pawn_attacks_sq(sq, !color))
+            | (self.bitboard_of(color, PieceType::Knight)
+                & attacks::knight_attacks(sq))
+            | (self.diagonal_sliders(color) & attacks::bishop_attacks(sq, occ))
+            | (self.orthogonal_sliders(color) & attacks::rook_attacks(sq, occ))
     }
 
     pub fn in_check(&self) -> bool {
