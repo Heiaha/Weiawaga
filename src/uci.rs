@@ -56,7 +56,7 @@ pub enum UCICommand {
     UCINewGame,
     UCI,
     IsReady,
-    Board(Option<String>, Vec<String>),
+    Position(Option<String>, Vec<String>),
     Go(TimeControl),
     Quit,
     Stop,
@@ -101,7 +101,7 @@ impl TryFrom<&str> for UCICommand {
                         .for_each(|move_str| move_strs.push(move_str));
                 }
             }
-            Ok(Self::Board(fen, move_strs))
+            Ok(Self::Position(fen, move_strs))
         } else if line.starts_with("perft") {
             let depth = line
                 .split_whitespace()

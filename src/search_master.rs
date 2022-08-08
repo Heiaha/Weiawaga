@@ -47,7 +47,7 @@ impl SearchMaster {
                     println!("option name Move Overhead type spin default 0 min 0 max 5000");
                     println!("uciok");
                 }
-                UCICommand::Board(fen, move_strs) => {
+                UCICommand::Position(fen, move_strs) => {
                     self.set_board(fen, move_strs);
                 }
                 UCICommand::Go(time_control) => {
