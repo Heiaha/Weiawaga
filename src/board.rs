@@ -30,7 +30,11 @@ pub struct Board {
 
 impl Board {
     pub fn new() -> Self {
-        Self::try_from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap()
+        Self::try_from(Self::STARTING_FEN).unwrap()
+    }
+
+    pub fn reset(&mut self) {
+        self.set_fen(Self::STARTING_FEN).unwrap();
     }
 
     pub fn clear(&mut self) {
@@ -1214,6 +1218,89 @@ impl Board {
         Ok(())
     }
 
+    pub fn set_fen(&mut self, fen: &str) -> Result<(), &'static str> {
+        self.clear();
+        let fen = fen.trim();
+        if !fen.is_ascii() || fen.lines().count() != 1 {
+            return Err("FEN should be a single ASCII line.");
+        }
+        let mut parts = fen.split_ascii_whitespace();
+
+        if parts.clone().count() < 3 {
+            return Err(
+                "Fen must at include at least piece placement, color, and castling string.",
+            );
+        }
+
+        let pieces_placement = parts.next().ok_or("Invalid piece placement.")?;
+        let color_to_play = parts
+            .next()
+            .ok_or("Invalid color.")?
+            .chars()
+            .next()
+            .ok_or("Invalid color.")?;
+        let castling_ability = parts.next().ok_or("Invalid castling.")?;
+        let en_passant_square = parts.next().unwrap_or("-");
+        let halfmove_clock = parts
+            .next()
+            .unwrap_or("0")
+            .parse()
+            .or(Err("Unable to parse half move clock"))?;
+        let fullmove_counter = parts
+            .next()
+            .unwrap_or("1")
+            .parse::<usize>()
+            .or(Err("Unable to parse full move counter."))?
+            .max(1);
+
+        if pieces_placement.split("/").count() != Rank::N_RANKS {
+            return Err("Pieces Placement FEN should have 8 ranks.");
+        }
+
+        self.color_to_play = Color::try_from(color_to_play)?;
+
+        self.game_ply = 2 * (fullmove_counter - 1);
+        if self.color_to_play == Color::Black {
+            self.game_ply += 1;
+            self.hasher.update_color();
+        }
+
+        let ranks = pieces_placement.split("/");
+        for (rank_idx, rank_fen) in ranks.enumerate() {
+            let mut idx = (7 - rank_idx) * 8;
+
+            for ch in rank_fen.chars() {
+                if let Some(digit) = ch.to_digit(10) {
+                    idx += digit as usize;
+                } else {
+                    let sq = SQ::from(idx as u8);
+                    self.set_piece_at(Piece::try_from(ch)?, sq);
+                    idx += 1;
+                }
+            }
+        }
+
+        self.history[self.game_ply].set_entry(Bitboard::ALL_CASTLING_MASK);
+        for (symbol, mask) in "KQkq".chars().zip([
+            Bitboard::WHITE_OO_MASK,
+            Bitboard::WHITE_OOO_MASK,
+            Bitboard::BLACK_OO_MASK,
+            Bitboard::BLACK_OOO_MASK,
+        ]) {
+            if castling_ability.contains(symbol) {
+                self.history[self.game_ply].set_entry(self.history[self.game_ply].entry() & !mask);
+            }
+        }
+
+        if en_passant_square != "-" {
+            let sq = SQ::try_from(en_passant_square)?;
+            self.history[self.game_ply].set_epsq(sq);
+            self.hasher.update_ep(sq.file());
+        }
+        self.history[self.game_ply].set_half_move_counter(halfmove_clock);
+        Ok(())
+    }
+
     #[inline(always)]
     pub fn color_to_play(&self) -> Color {
         self.color_to_play
@@ -1254,89 +1341,15 @@ impl TryFrom<&str> for Board {
     type Error = &'static str;
 
     fn try_from(fen: &str) -> Result<Self, Self::Error> {
-        let mut board = Self::default();
-        let fen = fen.trim();
-        if !fen.is_ascii() || fen.lines().count() != 1 {
-            return Err("FEN should be a single ASCII line.");
-        }
-        let mut parts = fen.split_ascii_whitespace();
-
-        if parts.clone().count() < 3 {
-            return Err(
-                "Fen must at include at least piece placement, color, and castling string.",
-            );
-        }
-
-        let pieces_placement = parts.next().ok_or("Invalid piece placement.")?;
-        let color_to_play = parts
-            .next()
-            .ok_or("Invalid color.")?
-            .chars()
-            .next()
-            .ok_or("Invalid color.")?;
-        let castling_ability = parts.next().ok_or("Invalid castling.")?;
-        let en_passant_square = parts.next().unwrap_or("-");
-        let halfmove_clock = parts.next().unwrap_or("0").parse::<u16>().unwrap_or(0);
-        let fullmove_counter = parts
-            .next()
-            .unwrap_or("1")
-            .parse::<usize>()
-            .unwrap_or(1)
-            .max(1);
-
-        if pieces_placement.split("/").count() != Rank::N_RANKS {
-            return Err("Pieces Placement FEN should have 8 ranks.");
-        }
-
-        board.color_to_play = Color::try_from(color_to_play)?;
-
-        board.game_ply = (fullmove_counter - 1) * 2;
-        if board.color_to_play == Color::Black {
-            board.game_ply += 1;
-            board.hasher.update_color();
-        }
-
-        let ranks = pieces_placement.split("/");
-        for (rank_idx, rank_fen) in ranks.enumerate() {
-            let mut idx = (7 - rank_idx) * 8;
-
-            for ch in rank_fen.chars() {
-                if let Some(digit) = ch.to_digit(10) {
-                    idx += digit as usize;
-                } else {
-                    let sq = SQ::from(idx as u8);
-                    board.set_piece_at(Piece::try_from(ch)?, sq);
-                    idx += 1;
-                }
-            }
-        }
-
-        board.history[board.game_ply].set_entry(Bitboard::ALL_CASTLING_MASK);
-        for (symbol, mask) in "KQkq".chars().zip([
-            Bitboard::WHITE_OO_MASK,
-            Bitboard::WHITE_OOO_MASK,
-            Bitboard::BLACK_OO_MASK,
-            Bitboard::BLACK_OOO_MASK,
-        ]) {
-            if castling_ability.contains(symbol) {
-                board.history[board.game_ply]
-                    .set_entry(board.history[board.game_ply].entry() & !mask);
-            }
-        }
-
-        if en_passant_square != "-" {
-            let sq = SQ::try_from(en_passant_square)?;
-            board.history[board.game_ply].set_epsq(sq);
-            board.hasher.update_ep(sq.file());
-        }
-        board.history[board.game_ply].set_half_move_counter(halfmove_clock);
+        let mut board = Board::default();
+        board.set_fen(fen)?;
         Ok(board)
     }
 }
 
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut board_string = String::new();
+        let mut board_str = String::new();
         for rank_idx in (0..=7).rev() {
             let rank = Rank::from(rank_idx);
             let mut empty_squares = 0;
@@ -1346,23 +1359,23 @@ impl fmt::Display for Board {
                 let pc = self.board[sq.index()];
                 if pc != Piece::None {
                     if empty_squares != 0 {
-                        board_string.push_str(format!("{}", empty_squares).as_str());
+                        board_str.push_str(&format!("{}", empty_squares));
                         empty_squares = 0;
                     }
-                    board_string.push_str(&pc.to_string());
+                    board_str.push_str(&pc.to_string());
                 } else {
                     empty_squares += 1;
                 }
             }
             if empty_squares != 0 {
-                board_string.push_str(format!("{}", empty_squares).as_str());
+                board_str.push_str(&format!("{}", empty_squares));
             }
             if rank != Rank::One {
-                board_string.push('/');
+                board_str.push('/');
             }
         }
 
-        let mut castling_rights = String::new();
+        let mut castling_rights_str = String::new();
         for (symbol, mask) in "KQkq".chars().zip([
             Bitboard::WHITE_OO_MASK,
             Bitboard::WHITE_OOO_MASK,
@@ -1370,14 +1383,14 @@ impl fmt::Display for Board {
             Bitboard::BLACK_OOO_MASK,
         ]) {
             if mask & self.history[self.game_ply].entry() == Bitboard::ZERO {
-                castling_rights.push(symbol);
+                castling_rights_str.push(symbol);
             }
         }
-        if castling_rights.is_empty() {
-            castling_rights = "-".to_string();
+        if castling_rights_str.is_empty() {
+            castling_rights_str = "-".to_string();
         }
 
-        let epsq = if self.history[self.game_ply].epsq() != SQ::None {
+        let epsq_str = if self.history[self.game_ply].epsq() != SQ::None {
             self.history[self.game_ply].epsq().to_string()
         } else {
             "-".to_string()
@@ -1386,10 +1399,10 @@ impl fmt::Display for Board {
         write!(
             f,
             "{} {} {} {} {} {}",
-            board_string,
+            board_str,
             self.color_to_play,
-            castling_rights,
-            epsq,
+            castling_rights_str,
+            epsq_str,
             self.history[self.game_ply].half_move_counter(),
             self.game_ply / 2 + 1,
         )
@@ -1423,4 +1436,5 @@ impl fmt::Debug for Board {
 
 impl Board {
     const N_HISTORIES: usize = 1000;
+    const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 }

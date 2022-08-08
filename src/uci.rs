@@ -1,7 +1,6 @@
 use std::io::BufRead;
 use std::{io, sync, thread};
 
-use super::board::*;
 use super::search_master::*;
 use super::timer::*;
 use super::types::*;
@@ -57,7 +56,7 @@ pub enum UCICommand {
     UCINewGame,
     UCI,
     IsReady,
-    Position(Board),
+    Board(Option<String>, Vec<String>),
     Go(TimeControl),
     Quit,
     Stop,
@@ -70,65 +69,71 @@ impl TryFrom<&str> for UCICommand {
     type Error = &'static str;
 
     fn try_from(line: &str) -> Result<Self, Self::Error> {
-        if line.replace(" ", "") == "ucinewgame" {
+        let line = line.trim();
+        if line == "ucinewgame" {
             Ok(Self::UCINewGame)
-        } else if line.replace(" ", "") == "stop" {
+        } else if line == "stop" {
             Ok(Self::Stop)
-        } else if line.replace(" ", "") == "uci" {
+        } else if line == "uci" {
             Ok(Self::UCI)
-        } else if line.replace(" ", "") == "eval" {
+        } else if line == "eval" {
             Ok(Self::Eval)
-        } else if line.replace(" ", "") == "quit" {
+        } else if line == "quit" {
             Ok(Self::Quit)
-        } else if line.replace(" ", "") == "isready" {
+        } else if line == "isready" {
             Ok(Self::IsReady)
         } else if line.starts_with("go") {
             let time_control = TimeControl::from(line);
             Ok(Self::Go(time_control))
         } else if line.starts_with("position") {
-            let mut board;
-            let fen = line.trim_start_matches("position ");
-            if fen.starts_with("startpos") {
-                board = Board::new();
+            let position_str = line.trim_start_matches("position ");
+            let fen = if position_str.starts_with("startpos") {
+                None
             } else {
-                board = Board::try_from(fen.trim_start_matches("fen"))?;
-            }
+                Some(String::from(position_str.trim_start_matches("fen")))
+            };
+            let mut move_strs = Vec::new();
             if line.contains("moves") {
                 if let Some(moves_str) = line.split_terminator("moves ").nth(1) {
-                    for mov in moves_str.split_whitespace() {
-                        board.push_str(mov)?;
-                    }
+                    moves_str
+                        .split_whitespace()
+                        .map(String::from)
+                        .for_each(|move_str| move_strs.push(move_str));
                 }
             }
-            Ok(Self::Position(board))
+            Ok(Self::Board(fen, move_strs))
         } else if line.starts_with("perft") {
             let depth = line
                 .split_whitespace()
                 .nth(1)
-                .and_then(|d| d.parse().ok())
-                .unwrap_or(6);
+                .ok_or("perft command requires a depth.")?
+                .parse()
+                .or(Err("Unable to parse depth."))?;
             Ok(Self::Perft(depth))
         } else if line.starts_with("setoption") {
-            let mut words = line.split_whitespace();
-            let mut name_parts = Vec::new();
-            let mut value_parts = Vec::new();
+            let mut words = line
+                .split_terminator("setoption name ")
+                .nth(1)
+                .ok_or("Could not parse option.")?
+                .split_whitespace()
+                .into_iter();
 
-            // parse option name
-            for word in words.by_ref() {
-                if word == "value" {
-                    break;
-                } else {
-                    name_parts.push(word);
-                }
-            }
+            let name = words
+                .by_ref()
+                .take_while(|word| *word != "value")
+                .map(String::from)
+                .fold(String::new(), |a, b| format!("{} {}", a, b))
+                .trim()
+                .to_string();
 
-            for word in words {
-                value_parts.push(word);
-            }
+            let value = words
+                .by_ref()
+                .map(String::from)
+                .fold(String::new(), |a, b| format!("{} {}", a, b))
+                .trim()
+                .to_string();
 
-            let name = name_parts.last().unwrap();
-            let value = value_parts.last().unwrap_or(&"");
-            Ok(Self::Option(name.parse().unwrap(), value.parse().unwrap()))
+            Ok(Self::Option(name, value))
         } else {
             Err("Unknown command.")
         }

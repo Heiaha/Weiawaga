@@ -37,18 +37,18 @@ impl SearchMaster {
                     println!("readyok");
                 }
                 UCICommand::UCINewGame => {
-                    self.board = Board::new();
+                    self.board.reset();
                 }
                 UCICommand::UCI => {
                     println!("id name Weiawaga v{}", env!("CARGO_PKG_VERSION"));
                     println!("id author {}", env!("CARGO_PKG_AUTHORS"));
                     println!("option name Hash type spin default 16 min 1 max 65536");
                     println!("option name Threads type spin default 1 min 1 max 512");
-                    println!("option name Overhead type spin default 0 min 0 max 5000");
+                    println!("option name Move Overhead type spin default 0 min 0 max 5000");
                     println!("uciok");
                 }
-                UCICommand::Position(new_board) => {
-                    self.board = new_board;
+                UCICommand::Board(fen, move_strs) => {
+                    self.set_board(fen, move_strs);
                 }
                 UCICommand::Go(time_control) => {
                     self.go(time_control);
@@ -57,7 +57,7 @@ impl SearchMaster {
                     print_perft(&mut self.board, depth);
                 }
                 UCICommand::Option(name, value) => {
-                    self.set_option(&name, &value);
+                    self.set_option(name, value);
                 }
                 UCICommand::Eval => {
                     println!("{}", self.board.eval());
@@ -106,7 +106,26 @@ impl SearchMaster {
         self.tt.clear();
     }
 
-    fn set_option(&mut self, name: &str, value: &str) {
+    fn set_board(&mut self, fen: Option<String>, move_strs: Vec<String>) {
+        let original_fen = self.board.to_string();
+        if let Some(fen) = fen {
+            if let Err(e) = self.board.set_fen(&fen) {
+                eprintln!("{}", e);
+                self.board.set_fen(&original_fen).unwrap();
+                return;
+            }
+        }
+
+        for move_str in move_strs {
+            if let Err(e) = self.board.push_str(&move_str) {
+                eprintln!("{}", e);
+                self.board.set_fen(&original_fen).unwrap();
+                return;
+            }
+        }
+    }
+
+    fn set_option(&mut self, name: String, value: String) {
         match name.as_ref() {
             "Hash" => {
                 if let Ok(mb_size) = value.parse() {
@@ -130,13 +149,13 @@ impl SearchMaster {
                     );
                 }
             }
-            "Overhead" => {
+            "Move Overhead" => {
                 if let Ok(overhead) = value.parse() {
                     self.overhead = overhead;
-                    println!("info string set Overhead to {}", self.overhead);
+                    println!("info string set Move Overhead to {}", self.overhead);
                 } else {
                     eprintln!(
-                        "info string ERROR: error parsing Overhead value; value remains at {}.",
+                        "info string ERROR: error parsing Move Overhead value; value remains at {}.",
                         self.overhead
                     );
                 }
