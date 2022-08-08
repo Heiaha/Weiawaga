@@ -161,9 +161,11 @@ impl Timer {
     const CHECK_FLAG: u64 = 0x1000 - 1;
 }
 
-impl From<&str> for TimeControl {
-    fn from(s: &str) -> Self {
-        let mut result = TimeControl::Infinite;
+impl TryFrom<&str> for TimeControl {
+    type Error = &'static str;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        let mut result = Err("Unable to parse time control.");
 
         let mut wtime: Option<Time> = None;
         let mut btime: Option<Time> = None;
@@ -174,33 +176,82 @@ impl From<&str> for TimeControl {
         let mut split = s.split_whitespace();
         while let Some(s) = split.next() {
             if s == "movetime" {
-                result = TimeControl::FixedMillis(split.next().unwrap().parse().unwrap());
+                result = Ok(TimeControl::FixedMillis(
+                    split
+                        .next()
+                        .ok_or("Must provide a movetime value")?
+                        .parse()
+                        .or(Err("Unable to parse movetime value."))?,
+                ));
             } else if s == "infinite" {
-                result = TimeControl::Infinite;
+                result = Ok(TimeControl::Infinite);
             } else if s == "nodes" {
-                result = TimeControl::FixedNodes(split.next().unwrap().parse().unwrap());
+                result = Ok(TimeControl::FixedNodes(
+                    split
+                        .next()
+                        .ok_or("Must provides a nodes value.")?
+                        .parse()
+                        .or(Err("Unable to parse nodes value."))?,
+                ));
             } else if s == "depth" {
-                result = TimeControl::FixedDepth(split.next().unwrap().parse().unwrap());
+                result = Ok(TimeControl::FixedDepth(
+                    split
+                        .next()
+                        .ok_or("Must provides a depth value.")?
+                        .parse()
+                        .or(Err("Unable to parse depth value."))?,
+                ));
             } else if s == "wtime" {
-                wtime = split.next().unwrap().parse().ok();
+                wtime = Some(
+                    split
+                        .next()
+                        .ok_or("Must provide a wtime value")?
+                        .parse()
+                        .or(Err("Unable to parse wtime value."))?,
+                );
             } else if s == "btime" {
-                btime = split.next().unwrap().parse().ok();
+                btime = Some(
+                    split
+                        .next()
+                        .ok_or("Must provide a btime value")?
+                        .parse()
+                        .or(Err("Unable to parse btime value."))?,
+                );
             } else if s == "winc" {
-                winc = split.next().unwrap().parse().ok();
+                winc = Some(
+                    split
+                        .next()
+                        .ok_or("Must provide a winc value")?
+                        .parse()
+                        .or(Err("Unable to parse winc value."))?,
+                );
             } else if s == "binc" {
-                binc = split.next().unwrap().parse().ok();
+                binc = Some(
+                    split
+                        .next()
+                        .ok_or("Must provide a binc value")?
+                        .parse()
+                        .or(Err("Unable to parse binc value."))?,
+                );
             } else if s == "movestogo" {
-                moves_to_go = split.next().unwrap().parse().ok();
+                moves_to_go = Some(
+                    split
+                        .next()
+                        .ok_or("Must provide a movestogo value")?
+                        .parse()
+                        .or(Err("Unable to parse movestogo value."))?,
+                );
             }
         }
-        if wtime != None && btime != None {
-            result = TimeControl::Variable {
-                wtime: wtime.unwrap(),
-                btime: btime.unwrap(),
+
+        if let (Some(wtime), Some(btime)) = (wtime, btime) {
+            result = Ok(TimeControl::Variable {
+                wtime,
+                btime,
                 winc,
                 binc,
                 moves_to_go,
-            };
+            });
         }
         result
     }

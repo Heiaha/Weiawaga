@@ -83,7 +83,7 @@ impl TryFrom<&str> for UCICommand {
         } else if line == "isready" {
             Ok(Self::IsReady)
         } else if line.starts_with("go") {
-            let time_control = TimeControl::from(line);
+            let time_control = TimeControl::try_from(line)?;
             Ok(Self::Go(time_control))
         } else if line.starts_with("position") {
             let position_str = line.trim_start_matches("position ");
