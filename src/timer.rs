@@ -165,7 +165,7 @@ impl TryFrom<&str> for TimeControl {
     type Error = &'static str;
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        let mut result = Err("Unable to parse time control.");
+        let mut result = Ok(Self::Infinite);
 
         let mut wtime: Option<Time> = None;
         let mut btime: Option<Time> = None;
@@ -176,7 +176,7 @@ impl TryFrom<&str> for TimeControl {
         let mut split = s.split_whitespace();
         while let Some(s) = split.next() {
             if s == "movetime" {
-                result = Ok(TimeControl::FixedMillis(
+                result = Ok(Self::FixedMillis(
                     split
                         .next()
                         .ok_or("Must provide a movetime value")?
@@ -184,9 +184,9 @@ impl TryFrom<&str> for TimeControl {
                         .or(Err("Unable to parse movetime value."))?,
                 ));
             } else if s == "infinite" {
-                result = Ok(TimeControl::Infinite);
+                result = Ok(Self::Infinite);
             } else if s == "nodes" {
-                result = Ok(TimeControl::FixedNodes(
+                result = Ok(Self::FixedNodes(
                     split
                         .next()
                         .ok_or("Must provides a nodes value.")?
@@ -194,7 +194,7 @@ impl TryFrom<&str> for TimeControl {
                         .or(Err("Unable to parse nodes value."))?,
                 ));
             } else if s == "depth" {
-                result = Ok(TimeControl::FixedDepth(
+                result = Ok(Self::FixedDepth(
                     split
                         .next()
                         .ok_or("Must provides a depth value.")?
@@ -245,7 +245,7 @@ impl TryFrom<&str> for TimeControl {
         }
 
         if let (Some(wtime), Some(btime)) = (wtime, btime) {
-            result = Ok(TimeControl::Variable {
+            result = Ok(Self::Variable {
                 wtime,
                 btime,
                 winc,
