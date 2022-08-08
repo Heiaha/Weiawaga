@@ -114,6 +114,8 @@ impl SearchMaster {
                 self.board.set_fen(&original_fen).unwrap();
                 return;
             }
+        } else {
+            self.board.reset();
         }
 
         for move_str in move_strs {
