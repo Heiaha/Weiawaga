@@ -1,6 +1,7 @@
-use crate::types::Value;
 use std::fmt;
 use std::ops::Not;
+
+use super::types::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Color {

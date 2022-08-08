@@ -49,10 +49,11 @@ pub fn print_perft(board: &mut Board, depth: Depth) -> u128 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::bitboard::init_bb;
     use crate::magics::init_magics;
     use crate::perft::perft;
+
+    use super::*;
 
     #[test]
     fn test_perft() {

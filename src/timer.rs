@@ -8,8 +8,6 @@ use super::board::*;
 use super::color::*;
 use super::types::*;
 
-pub type Time = u64;
-
 // Some ideas taken from asymptote, which has a very elegant timer implementation.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum TimeControl {

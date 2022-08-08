@@ -9,6 +9,7 @@ use super::perft::*;
 use super::search::*;
 use super::timer::*;
 use super::tt::*;
+use super::types::*;
 use super::uci::*;
 
 pub struct SearchMaster {

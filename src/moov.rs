@@ -2,8 +2,7 @@ use std::fmt;
 
 use super::piece::*;
 use super::square::*;
-
-pub type MoveInt = u16;
+use super::types::*;
 
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Move(MoveInt);
