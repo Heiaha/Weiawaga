@@ -1,10 +1,19 @@
-use rand::Rng;
-
 use super::bitboard::*;
 use super::file::*;
 use super::piece::*;
 use super::square::*;
 use super::types::*;
+
+struct Rng(u64);
+
+impl Rng {
+    fn gen(&mut self) -> u64 {
+        self.0 ^= self.0 >> 12;
+        self.0 ^= self.0 << 25;
+        self.0 ^= self.0 >> 27;
+        return self.0.wrapping_mul(2685821657736338717);
+    }
+}
 
 #[derive(Clone)]
 pub struct Hasher {
@@ -17,18 +26,18 @@ pub struct Hasher {
 
 impl Hasher {
     pub fn new() -> Self {
-        let mut rng = rand::thread_rng();
+        let mut rng = Rng(1070372);
 
         let mut zobrist_table = [Hash::ZERO; SQ::N_SQUARES * Piece::N_PIECES];
         let mut zobrist_ep = [Hash::ZERO; File::N_FILES];
-        let zobrist_color = B!(rng.gen::<u64>());
+        let zobrist_color = B!(rng.gen());
 
         for j in 0..(SQ::N_SQUARES * Piece::N_PIECES) {
-            zobrist_table[j] = B!(rng.gen::<u64>());
+            zobrist_table[j] = B!(rng.gen());
         }
 
         for j in 0..File::N_FILES {
-            zobrist_ep[j] = B!(rng.gen::<u64>());
+            zobrist_ep[j] = B!(rng.gen());
         }
 
         Self {

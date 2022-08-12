@@ -5,11 +5,7 @@ repository = "https://github.com/Heiaha/Weiawaga"
 version = "5.0.0"
 edition = "2021"
 readme = "README.md"
-rust-version = "1.59"
-
-[dependencies]
-rand = "0.8.4"
-crossbeam = "0.8"
+rust-version = "1.63"
 
 [profile.release]
 opt-level = 3

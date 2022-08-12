@@ -1,8 +1,7 @@
 use std::sync;
 use std::sync::atomic::*;
 use std::sync::mpsc::Receiver;
-
-use crossbeam::thread;
+use std::thread;
 
 use super::board::*;
 use super::perft::*;
@@ -94,25 +93,20 @@ impl SearchMaster {
                     &self.tt,
                     id,
                 );
-                s.builder()
-                    .name(format!("Search thread #{:>3}", id))
-                    .stack_size(8 * 1024 * 1024)
-                    .spawn(move |_| helper_search_thread.go(thread_board))
-                    .unwrap();
+                s.spawn(move || helper_search_thread.go(thread_board));
             }
             main_search_thread.go(self.board.clone())
-        })
-        .unwrap();
+        });
         println!("bestmove {}", best_move);
         self.tt.clear();
     }
 
     fn set_board(&mut self, fen: Option<String>, move_strs: Vec<String>) {
-        let original_fen = self.board.to_string();
+        let original_board = self.board.clone();
         if let Some(fen) = fen {
             if let Err(e) = self.board.set_fen(&fen) {
                 eprintln!("{}", e);
-                self.board.set_fen(&original_fen).unwrap();
+                self.board = original_board;
                 return;
             }
         } else {
@@ -122,7 +116,7 @@ impl SearchMaster {
         for move_str in move_strs {
             if let Err(e) = self.board.push_str(&move_str) {
                 eprintln!("{}", e);
-                self.board.set_fen(&original_fen).unwrap();
+                self.board = original_board;
                 return;
             }
         }
