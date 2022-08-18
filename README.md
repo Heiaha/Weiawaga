@@ -19,7 +19,7 @@ https://lichess.org/@/Weiawaga
     - [Iterative deepening](https://en.wikipedia.org/wiki/Iterative_deepening_depth-first_search)
     - [Quiescence search](https://en.wikipedia.org/wiki/Quiescence_search)
     - [Aspiration windows](https://www.chessprogramming.org/Aspiration_Windows)
-    - [Reverse Futility Pruning](https://www.chessprogramming.org/Reverse_Futility_Pruning)
+    - [Reverse futility pruning](https://www.chessprogramming.org/Reverse_Futility_Pruning)
     - [Null move pruning](https://www.chessprogramming.org/Null_Move_Pruning)
     - [Check extensions](https://www.chessprogramming.org/Check_Extensions)
 - [NNUE](https://www.chessprogramming.org/NNUE) Evaluation
@@ -27,7 +27,7 @@ https://lichess.org/@/Weiawaga
     - Buckets
 - Move ordering
     - [Hash move](https://www.chessprogramming.org/Hash_Move)
-    - [Static Exchange Evaluation](https://www.chessprogramming.org/Static_Exchange_Evaluation)
+    - [Static exchange evaluation](https://www.chessprogramming.org/Static_Exchange_Evaluation)
     - [Killer heuristic](https://www.chessprogramming.org/Killer_Heuristic)
     - [History heuristic](https://www.chessprogramming.org/History_Heuristic)
 - Other
