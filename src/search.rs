@@ -74,7 +74,7 @@ impl<'a> Search<'a> {
                 beta = Value::MAX;
             } else {
                 // Only print info if we're in the main thread
-                if self.id == 0 && best_move.is_some() {
+                if self.id == 0 && best_move.is_some() && !self.stop {
                     self.print_info(&mut board, depth, best_move, score);
                 }
                 alpha = score - Self::ASPIRATION_WINDOW;
@@ -136,8 +136,8 @@ impl<'a> Search<'a> {
             }
 
             board.push(m);
-            if idx == 0 || -self.search(board, depth - 1, ply + 1, -alpha - 1, -alpha) > alpha {
-                value = -self.search(board, depth - 1, ply + 1, -beta, -alpha);
+            if idx == 0 || -self.search(board, depth - 1, -alpha - 1, -alpha, ply + 1) > alpha {
+                value = -self.search(board, depth - 1, -beta, -alpha, ply + 1);
             }
             board.pop();
 
@@ -171,9 +171,9 @@ impl<'a> Search<'a> {
         &mut self,
         board: &mut Board,
         mut depth: Depth,
-        ply: Ply,
         mut alpha: Value,
         mut beta: Value,
+        ply: Ply,
     ) -> Value {
         if self.stop || self.timer.stop_check() {
             self.stop = true;
@@ -206,7 +206,7 @@ impl<'a> Search<'a> {
         // horizon effect.
         ///////////////////////////////////////////////////////////////////
         if depth <= 0 {
-            return self.q_search(board, ply, alpha, beta);
+            return self.q_search(board, alpha, beta, ply);
         }
 
         self.nodes += 1;
@@ -219,7 +219,7 @@ impl<'a> Search<'a> {
         // Probe the hash table and adjust the value.
         // If appropriate, produce a cutoff.
         ///////////////////////////////////////////////////////////////////
-        let mut hash_move: Option<Move> = None;
+        let mut hash_move = None;
         if let Some(tt_entry) = self.tt.probe(board) {
             if tt_entry.depth() >= depth {
                 match tt_entry.flag() {
@@ -255,7 +255,7 @@ impl<'a> Search<'a> {
         if Self::can_apply_null(board, depth, beta, in_check, is_pv) {
             let r = Self::null_reduction(depth);
             board.push_null();
-            let value = -self.search(board, depth - r - 1, ply, -beta, -beta + 1);
+            let value = -self.search(board, depth - r - 1, -beta, -beta + 1, ply);
             board.pop_null();
             if self.stop {
                 return 0;
@@ -269,10 +269,10 @@ impl<'a> Search<'a> {
         // Generate moves, score, and begin searching
         // recursively.
         ///////////////////////////////////////////////////////////////////
-        let mut value: Value;
-        let mut reduced_depth: Depth;
+        let mut value;
+        let mut reduced_depth;
         let mut tt_flag = Bound::Upper;
-        let mut best_move: Option<Move> = None;
+        let mut best_move = None;
         let mut idx = 0;
 
         let mut moves = MoveList::from(board);
@@ -286,7 +286,7 @@ impl<'a> Search<'a> {
             board.push(m);
 
             if idx == 0 {
-                value = -self.search(board, depth - 1, ply + 1, -beta, -alpha);
+                value = -self.search(board, depth - 1, -beta, -alpha, ply + 1);
             } else {
                 ///////////////////////////////////////////////////////////////////
                 // Late move reductions.
@@ -296,9 +296,9 @@ impl<'a> Search<'a> {
                     reduced_depth -= Self::late_move_reduction(depth, idx);
                 }
                 loop {
-                    value = -self.search(board, reduced_depth - 1, ply + 1, -alpha - 1, -alpha);
+                    value = -self.search(board, reduced_depth - 1, -alpha - 1, -alpha, ply + 1);
                     if value > alpha {
-                        value = -self.search(board, reduced_depth - 1, ply + 1, -beta, -alpha);
+                        value = -self.search(board, reduced_depth - 1, -beta, -alpha, ply + 1);
                     }
 
                     ///////////////////////////////////////////////////////////////////
@@ -356,7 +356,7 @@ impl<'a> Search<'a> {
         alpha
     }
 
-    fn q_search(&mut self, board: &mut Board, ply: Ply, mut alpha: Value, beta: Value) -> Value {
+    fn q_search(&mut self, board: &mut Board, mut alpha: Value, beta: Value, ply: Ply) -> Value {
         if self.stop || self.timer.stop_check() {
             self.stop = true;
             return 0;
@@ -377,7 +377,7 @@ impl<'a> Search<'a> {
         }
         alpha = max(alpha, value);
 
-        let mut hash_move: Option<Move> = None;
+        let mut hash_move = None;
         if let Some(tt_entry) = self.tt.probe(board) {
             hash_move = tt_entry.best_move();
         }
@@ -398,7 +398,7 @@ impl<'a> Search<'a> {
             }
 
             board.push(m);
-            value = -self.q_search(board, ply + 1, -beta, -alpha);
+            value = -self.q_search(board, -beta, -alpha, ply + 1);
             board.pop();
 
             if self.stop {
@@ -482,10 +482,6 @@ impl<'a> Search<'a> {
     }
 
     fn print_info(&self, board: &mut Board, depth: Depth, m: Option<Move>, score: Value) {
-        if m.is_none() || self.id != 0 || self.stop {
-            return;
-        }
-
         let score_str = if Self::is_checkmate(score) {
             let mate_score = if score > 0 {
                 (Value::MAX - score + 1) / 2

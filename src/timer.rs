@@ -1,7 +1,7 @@
 use std::cmp::min;
 use std::sync;
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use std::time::Instant;
 
 use super::board::*;
@@ -22,6 +22,102 @@ pub enum TimeControl {
         binc: Option<Time>,
         moves_to_go: Option<u64>,
     },
+}
+
+impl TryFrom<&str> for TimeControl {
+    type Error = &'static str;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        let mut result = Ok(Self::Infinite);
+
+        let mut wtime: Option<Time> = None;
+        let mut btime: Option<Time> = None;
+        let mut winc: Option<Time> = None;
+        let mut binc: Option<Time> = None;
+        let mut moves_to_go: Option<u64> = None;
+
+        let mut split = s.split_whitespace();
+        while let Some(s) = split.next() {
+            if s == "movetime" {
+                result = Ok(Self::FixedMillis(
+                    split
+                        .next()
+                        .ok_or("Must provide a movetime value")?
+                        .parse()
+                        .or(Err("Unable to parse movetime value."))?,
+                ));
+            } else if s == "infinite" {
+                result = Ok(Self::Infinite);
+            } else if s == "nodes" {
+                result = Ok(Self::FixedNodes(
+                    split
+                        .next()
+                        .ok_or("Must provides a nodes value.")?
+                        .parse()
+                        .or(Err("Unable to parse nodes value."))?,
+                ));
+            } else if s == "depth" {
+                result = Ok(Self::FixedDepth(
+                    split
+                        .next()
+                        .ok_or("Must provides a depth value.")?
+                        .parse()
+                        .or(Err("Unable to parse depth value."))?,
+                ));
+            } else if s == "wtime" {
+                wtime = Some(
+                    split
+                        .next()
+                        .ok_or("Must provide a wtime value")?
+                        .parse()
+                        .or(Err("Unable to parse wtime value."))?,
+                );
+            } else if s == "btime" {
+                btime = Some(
+                    split
+                        .next()
+                        .ok_or("Must provide a btime value")?
+                        .parse()
+                        .or(Err("Unable to parse btime value."))?,
+                );
+            } else if s == "winc" {
+                winc = Some(
+                    split
+                        .next()
+                        .ok_or("Must provide a winc value")?
+                        .parse()
+                        .or(Err("Unable to parse winc value."))?,
+                );
+            } else if s == "binc" {
+                binc = Some(
+                    split
+                        .next()
+                        .ok_or("Must provide a binc value")?
+                        .parse()
+                        .or(Err("Unable to parse binc value."))?,
+                );
+            } else if s == "movestogo" {
+                moves_to_go = Some(
+                    split
+                        .next()
+                        .ok_or("Must provide a movestogo value")?
+                        .parse()
+                        .or(Err("Unable to parse movestogo value."))?,
+                );
+            }
+        }
+
+        if let (Some(wtime), Some(btime)) = (wtime, btime) {
+            result = Ok(Self::Variable {
+                wtime,
+                btime,
+                winc,
+                binc,
+                moves_to_go,
+            });
+        }
+        result
+    }
 }
 
 #[derive(Clone)]
@@ -157,100 +253,4 @@ impl Timer {
 
 impl Timer {
     const CHECK_FLAG: u64 = 0x1000 - 1;
-}
-
-impl TryFrom<&str> for TimeControl {
-    type Error = &'static str;
-
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        let mut result = Ok(Self::Infinite);
-
-        let mut wtime: Option<Time> = None;
-        let mut btime: Option<Time> = None;
-        let mut winc: Option<Time> = None;
-        let mut binc: Option<Time> = None;
-        let mut moves_to_go: Option<u64> = None;
-
-        let mut split = s.split_whitespace();
-        while let Some(s) = split.next() {
-            if s == "movetime" {
-                result = Ok(Self::FixedMillis(
-                    split
-                        .next()
-                        .ok_or("Must provide a movetime value")?
-                        .parse()
-                        .or(Err("Unable to parse movetime value."))?,
-                ));
-            } else if s == "infinite" {
-                result = Ok(Self::Infinite);
-            } else if s == "nodes" {
-                result = Ok(Self::FixedNodes(
-                    split
-                        .next()
-                        .ok_or("Must provides a nodes value.")?
-                        .parse()
-                        .or(Err("Unable to parse nodes value."))?,
-                ));
-            } else if s == "depth" {
-                result = Ok(Self::FixedDepth(
-                    split
-                        .next()
-                        .ok_or("Must provides a depth value.")?
-                        .parse()
-                        .or(Err("Unable to parse depth value."))?,
-                ));
-            } else if s == "wtime" {
-                wtime = Some(
-                    split
-                        .next()
-                        .ok_or("Must provide a wtime value")?
-                        .parse()
-                        .or(Err("Unable to parse wtime value."))?,
-                );
-            } else if s == "btime" {
-                btime = Some(
-                    split
-                        .next()
-                        .ok_or("Must provide a btime value")?
-                        .parse()
-                        .or(Err("Unable to parse btime value."))?,
-                );
-            } else if s == "winc" {
-                winc = Some(
-                    split
-                        .next()
-                        .ok_or("Must provide a winc value")?
-                        .parse()
-                        .or(Err("Unable to parse winc value."))?,
-                );
-            } else if s == "binc" {
-                binc = Some(
-                    split
-                        .next()
-                        .ok_or("Must provide a binc value")?
-                        .parse()
-                        .or(Err("Unable to parse binc value."))?,
-                );
-            } else if s == "movestogo" {
-                moves_to_go = Some(
-                    split
-                        .next()
-                        .ok_or("Must provide a movestogo value")?
-                        .parse()
-                        .or(Err("Unable to parse movestogo value."))?,
-                );
-            }
-        }
-
-        if let (Some(wtime), Some(btime)) = (wtime, btime) {
-            result = Ok(Self::Variable {
-                wtime,
-                btime,
-                winc,
-                binc,
-                moves_to_go,
-            });
-        }
-        result
-    }
 }
