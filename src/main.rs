@@ -13,7 +13,6 @@ mod board;
 mod color;
 mod diagonal;
 mod file;
-mod history_entry;
 mod magics;
 mod moov;
 mod move_list;

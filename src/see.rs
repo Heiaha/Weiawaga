@@ -19,15 +19,15 @@ pub fn see(board: &Board, m: Move) -> SortValue {
     let to_sq = m.to_sq();
     let all_pieces = board.all_pieces();
     let mut gains = [0; 16];
-    let mut color = !board.color_to_play();
+    let mut color = !board.ctm();
     let mut blockers = all_pieces & !m.from_sq().bb();
 
     gains[0] = SEE_PIECE_TYPE[board.piece_type_at(to_sq).index()];
     let mut last_piece_pts = SEE_PIECE_TYPE[board.piece_type_at(m.from_sq()).index()];
 
-    'depth_loop: for depth in 1..gains.len() {
+    'outer: for depth in 1..gains.len() {
         gains[depth] = last_piece_pts - gains[depth - 1];
-        defenders = board.all_pieces_color(color) & blockers;
+        defenders = board.all_pieces_c(color) & blockers;
         for pt in PieceType::iter(PieceType::Pawn, PieceType::King) {
             last_piece_pts = SEE_PIECE_TYPE[pt.index()];
             piece_bb = if pt == PieceType::Pawn {
@@ -40,7 +40,7 @@ pub fn see(board: &Board, m: Move) -> SortValue {
             if piece_bb != Bitboard::ZERO {
                 blockers &= !piece_bb.lsb().bb();
                 color = !color;
-                continue 'depth_loop;
+                continue 'outer;
             }
         }
         max_depth = depth;

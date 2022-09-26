@@ -79,7 +79,7 @@ impl MoveSorter {
     }
 
     pub fn add_killer(&mut self, board: &Board, m: Move, ply: Ply) {
-        let color = board.color_to_play() as usize;
+        let color = board.ctm() as usize;
         self.killer_moves[color][ply].rotate_right(1);
         self.killer_moves[color][ply][0] = Some(m);
     }
@@ -102,7 +102,7 @@ impl MoveSorter {
     }
 
     fn is_killer(&self, board: &Board, m: Move, ply: usize) -> bool {
-        for killer_move in self.killer_moves[board.color_to_play().index()][ply] {
+        for killer_move in self.killer_moves[board.ctm().index()][ply] {
             if Some(m) == killer_move {
                 return true;
             }

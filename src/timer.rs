@@ -157,12 +157,12 @@ impl Timer {
             moves_to_go,
         } = self.control
         {
-            let time = if board.color_to_play() == Color::White {
+            let time = if board.ctm() == Color::White {
                 wtime
             } else {
                 btime
             };
-            let inc = if board.color_to_play() == Color::White {
+            let inc = if board.ctm() == Color::White {
                 winc
             } else {
                 binc
