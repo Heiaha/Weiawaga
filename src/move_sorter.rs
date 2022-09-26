@@ -194,11 +194,11 @@ impl MoveSorter {
 impl MoveSorter {
     const N_KILLERS: usize = 3;
     const HASH_MOVE_SCORE: SortValue = 25000;
+    const QUEEN_PROMOTION_SCORE: SortValue = 8000;
+    const ROOK_PROMOTION_SCORE: SortValue = 7000;
+    const BISHOP_PROMOTION_SCORE: SortValue = 6000;
+    const KNIGHT_PROMOTION_SCORE: SortValue = 5000;
     const WINNING_CAPTURES_OFFSET: SortValue = 10;
-    const QUEEN_PROMOTION_SCORE: SortValue = 8;
-    const ROOK_PROMOTION_SCORE: SortValue = 7;
-    const BISHOP_PROMOTION_SCORE: SortValue = 6;
-    const KNIGHT_PROMOTION_SCORE: SortValue = 5;
     const KILLER_MOVE_SCORE: SortValue = 2;
     const CASTLING_SCORE: SortValue = 1;
     const HISTORY_MOVE_OFFSET: SortValue = -30000;
