@@ -154,13 +154,10 @@ impl MoveSorter {
                 break;
             }
 
-            let mut attacking_pt = PieceType::Pawn;
-            for pt in PieceType::iter(PieceType::Pawn, PieceType::King) {
-                attacking_pt = pt;
-                if (stm_attackers & board.bitboard_of_pt(pt)) != Bitboard::ZERO {
-                    break;
-                }
-            }
+            // We know at this point that there must be a piece, so find the least valuable attacker.
+            let attacking_pt = PieceType::iter(PieceType::Pawn, PieceType::King)
+                .find(|pt| stm_attackers & board.bitboard_of_pt(*pt) != Bitboard::ZERO)
+                .unwrap();
 
             ctm = !ctm;
 
