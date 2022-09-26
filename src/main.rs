@@ -24,7 +24,6 @@ mod piece;
 mod rank;
 mod search;
 mod search_master;
-mod see;
 mod square;
 mod timer;
 mod tt;

@@ -4,9 +4,9 @@ use super::color::*;
 use super::moov::*;
 use super::move_list::*;
 use super::piece::*;
-use super::see::*;
 use super::square::*;
 use super::types::*;
+use crate::attacks;
 
 pub struct MoveSorter {
     killer_moves: [[[Option<Move>; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],
@@ -58,12 +58,12 @@ impl MoveSorter {
                     continue;
                 }
 
-                let capture_value = see(board, m);
+                moves.scores[idx] += Self::mvv_lva_score(board, m);
 
-                if capture_value >= 0 {
-                    moves.scores[idx] += capture_value + Self::WINNING_CAPTURES_OFFSET;
+                if Self::see(board, m, -100) {
+                    moves.scores[idx] += Self::WINNING_CAPTURES_OFFSET;
                 } else {
-                    moves.scores[idx] += capture_value + Self::LOSING_CAPTURES_OFFSET;
+                    moves.scores[idx] += Self::LOSING_CAPTURES_OFFSET;
                 }
             }
 
@@ -78,15 +78,19 @@ impl MoveSorter {
         }
     }
 
+    #[inline(always)]
+    fn mvv_lva_score(board: &Board, m: Move) -> SortValue {
+        Self::MVV_LVA_SCORES[board.piece_type_at(m.to_sq()).index() * PieceType::N_PIECE_TYPES
+            + board.piece_type_at(m.from_sq()).index()]
+    }
+
     pub fn add_killer(&mut self, board: &Board, m: Move, ply: Ply) {
-        let color = board.ctm() as usize;
+        let color = board.ctm().index();
         self.killer_moves[color][ply].rotate_right(1);
         self.killer_moves[color][ply][0] = Some(m);
     }
 
     pub fn add_history(&mut self, m: Move, depth: Depth) {
-        debug_assert!(depth >= 0, "Depth is less than 0 in the history heuristic!");
-
         let depth = depth as SortValue;
         let from = m.from_sq().index();
         let to = m.to_sq().index();
@@ -114,6 +118,80 @@ impl MoveSorter {
     fn history_score(&self, m: Move) -> SortValue {
         self.history_scores[m.from_sq().index()][m.to_sq().index()]
     }
+
+    pub fn see(board: &Board, m: Move, threshold: SortValue) -> bool {
+        if m.promotion() != PieceType::None {
+            return true;
+        }
+
+        let from_sq = m.from_sq();
+        let to_sq = m.to_sq();
+        let mut value = Self::SEE_PIECE_TYPE[board.piece_type_at(to_sq).index()] - threshold;
+
+        if value < 0 {
+            return false;
+        }
+
+        value -= Self::SEE_PIECE_TYPE[board.piece_type_at(from_sq).index()];
+
+        if value >= 0 {
+            return true;
+        }
+
+        let mut occ = board.all_pieces() ^ from_sq.bb();
+        let mut attackers = board.attackers(to_sq, occ);
+        let mut stm_attackers;
+
+        let diagonal_sliders = board.diagonal_sliders();
+        let orthogonal_sliders = board.orthogonal_sliders();
+
+        let mut ctm = !board.ctm();
+        loop {
+            attackers &= occ;
+            stm_attackers = attackers & board.all_pieces_c(ctm);
+
+            if stm_attackers == Bitboard::ZERO {
+                break;
+            }
+
+            let mut attacking_pt = PieceType::Pawn;
+            for pt in PieceType::iter(PieceType::Pawn, PieceType::King) {
+                attacking_pt = pt;
+                if (stm_attackers & board.bitboard_of_pt(pt)) != Bitboard::ZERO {
+                    break;
+                }
+            }
+
+            ctm = !ctm;
+
+            value = -value - 1 - Self::SEE_PIECE_TYPE[attacking_pt.index()];
+
+            if value >= 0 {
+                if attacking_pt == PieceType::King
+                    && (attackers & board.all_pieces_c(ctm) != Bitboard::ZERO)
+                {
+                    ctm = !ctm;
+                }
+                break;
+            }
+
+            occ ^= (stm_attackers & board.bitboard_of_pt(attacking_pt))
+                .lsb()
+                .bb();
+
+            if attacking_pt == PieceType::Pawn
+                || attacking_pt == PieceType::Bishop
+                || attacking_pt == PieceType::Queen
+            {
+                attackers |= attacks::bishop_attacks(to_sq, occ) & diagonal_sliders;
+            }
+            if attacking_pt == PieceType::Rook || attacking_pt == PieceType::Queen {
+                attackers |= attacks::rook_attacks(to_sq, occ) & orthogonal_sliders;
+            }
+        }
+
+        ctm != board.piece_at(from_sq).color_of()
+    }
 }
 
 impl MoveSorter {
@@ -128,4 +206,16 @@ impl MoveSorter {
     const CASTLING_SCORE: SortValue = 1;
     const HISTORY_MOVE_OFFSET: SortValue = -30000;
     const LOSING_CAPTURES_OFFSET: SortValue = -30001;
+
+    const SEE_PIECE_TYPE: [SortValue; PieceType::N_PIECE_TYPES] = [100, 375, 375, 500, 1025, 10000];
+
+    #[rustfmt::skip]
+    const MVV_LVA_SCORES: [SortValue; PieceType::N_PIECE_TYPES * PieceType::N_PIECE_TYPES] = [
+        105, 104, 103, 102, 101, 100,
+        205, 204, 203, 202, 201, 200,
+        305, 304, 303, 302, 301, 300,
+        405, 404, 403, 402, 401, 400,
+        505, 504, 503, 502, 501, 500,
+        605, 604, 603, 602, 601, 600
+    ];
 }

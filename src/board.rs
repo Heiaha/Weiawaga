@@ -22,8 +22,8 @@ pub struct Board {
     color_bb: [Bitboard; Color::N_COLORS],
     history: [HistoryEntry; Self::N_HISTORIES],
     ctm: Color,
-    hasher: Hasher,
     ply: usize,
+    hasher: Hasher,
     network: Network,
 }
 
@@ -146,6 +146,16 @@ impl Board {
     #[inline(always)]
     pub fn all_pieces_c(&self, color: Color) -> Bitboard {
         self.color_bb[color.index()]
+    }
+
+    pub fn attackers(&self, sq: SQ, occ: Bitboard) -> Bitboard {
+        (self.bitboard_of(Color::White, PieceType::Pawn)
+            & attacks::pawn_attacks_sq(sq, Color::Black))
+            | (self.bitboard_of(Color::Black, PieceType::Pawn)
+                & attacks::pawn_attacks_sq(sq, Color::White))
+            | (self.bitboard_of_pt(PieceType::Knight) & attacks::knight_attacks(sq))
+            | (self.diagonal_sliders() & attacks::bishop_attacks(sq, occ))
+            | (self.orthogonal_sliders() & attacks::rook_attacks(sq, occ))
     }
 
     pub fn attackers_from_c(&self, sq: SQ, occ: Bitboard, color: Color) -> Bitboard {
