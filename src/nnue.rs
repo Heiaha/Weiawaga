@@ -37,22 +37,20 @@ impl Network {
 
     #[inline(always)]
     pub fn move_piece(&mut self, piece: Piece, from_sq: SQ, to_sq: SQ) {
-        let pc_idx = piece.index() * SQ::N_SQUARES;
-        let from_idx = (pc_idx + from_sq.index()) * self.input_layer.activations.len();
-        let to_idx = (pc_idx + to_sq.index()) * self.input_layer.activations.len();
-
-        for j in 0..self.input_layer.activations.len() {
-            self.input_layer.activations[j] -= self.input_layer.weights[from_idx + j];
-            self.input_layer.activations[j] += self.input_layer.weights[to_idx + j];
-        }
+        self.deactivate(piece, from_sq);
+        self.activate(piece, to_sq);
     }
 
     #[inline(always)]
     pub fn activate(&mut self, piece: Piece, sq: SQ) {
         let feature_idx =
             (piece.index() * SQ::N_SQUARES + sq.index()) * self.input_layer.activations.len();
-        for j in 0..self.input_layer.activations.len() {
-            self.input_layer.activations[j] += self.input_layer.weights[feature_idx + j];
+        let weights = self.input_layer.weights
+            [feature_idx..feature_idx + self.input_layer.activations.len()]
+            .iter();
+
+        for (activation, weight) in self.input_layer.activations.iter_mut().zip(weights) {
+            *activation += weight;
         }
     }
 
@@ -60,8 +58,12 @@ impl Network {
     pub fn deactivate(&mut self, piece: Piece, sq: SQ) {
         let feature_idx =
             (piece.index() * SQ::N_SQUARES + sq.index()) * self.input_layer.activations.len();
-        for j in 0..self.input_layer.activations.len() {
-            self.input_layer.activations[j] -= self.input_layer.weights[feature_idx + j];
+        let weights = self.input_layer.weights
+            [feature_idx..feature_idx + self.input_layer.activations.len()]
+            .iter();
+
+        for (activation, weight) in self.input_layer.activations.iter_mut().zip(weights) {
+            *activation -= weight;
         }
     }
 
@@ -70,9 +72,18 @@ impl Network {
         let bucket_idx = bucket * self.input_layer.activations.len();
         let mut output = self.hidden_layer.biases[bucket] as Value;
 
-        for j in 0..self.input_layer.activations.len() {
-            output += Self::clipped_relu(self.input_layer.activations[j])
-                * self.hidden_layer.weights[bucket_idx + j] as Value;
+        let weights = self.hidden_layer.weights
+            [bucket_idx..bucket_idx + self.input_layer.activations.len()]
+            .iter();
+
+        for (clipped_activation, weight) in self
+            .input_layer
+            .activations
+            .iter()
+            .map(|x| Self::clipped_relu(*x))
+            .zip(weights)
+        {
+            output += clipped_activation * (*weight as Value);
         }
         output / (Self::SCALE * Self::SCALE)
     }
