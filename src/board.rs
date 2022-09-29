@@ -20,7 +20,7 @@ pub struct Board {
     board: [Piece; SQ::N_SQUARES],
     piece_type_bb: [Bitboard; PieceType::N_PIECE_TYPES],
     color_bb: [Bitboard; Color::N_COLORS],
-    history: [HistoryEntry; Self::N_HISTORIES],
+    pub history: [HistoryEntry; Self::N_HISTORIES],
     ctm: Color,
     ply: usize,
     hasher: Hasher,
@@ -220,17 +220,19 @@ impl Board {
     }
 
     #[inline(always)]
-    fn is_repetition(&self) -> bool {
+    pub fn is_repetition(&self) -> bool {
         let lookback = min(
             self.history[self.ply].plies_from_null(),
             self.history[self.ply].half_move_counter(),
         ) as usize;
-        for i in (2..=lookback).step_by(2) {
-            if self.material_hash() == self.history[self.ply - i].material_hash() {
-                return true;
-            }
-        }
-        false
+
+        self.history[..self.ply]
+            .iter()
+            .rev()
+            .take(lookback)
+            .skip(1)
+            .step_by(2)
+            .any(|entry| self.material_hash() == entry.material_hash())
     }
 
     #[inline(always)]
@@ -1225,6 +1227,7 @@ impl Board {
             self.hasher.update_ep(sq.file());
         }
         self.history[self.ply].set_half_move_counter(halfmove_clock);
+        self.history[self.ply].set_material_hash(self.hasher.material_hash());
         Ok(())
     }
 
