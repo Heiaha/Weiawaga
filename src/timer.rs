@@ -1,4 +1,5 @@
 use std::cmp::min;
+use std::str::{FromStr, SplitWhitespace};
 use std::sync;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -24,6 +25,16 @@ pub enum TimeControl {
     },
 }
 
+impl TimeControl {
+    pub fn parse_next<T: FromStr>(split: &mut SplitWhitespace) -> Result<T, &'static str> {
+        Ok(split
+            .next()
+            .ok_or("Must provide a value")?
+            .parse()
+            .or(Err("Unable to parse value."))?)
+    }
+}
+
 impl TryFrom<&str> for TimeControl {
     type Error = &'static str;
 
@@ -37,74 +48,23 @@ impl TryFrom<&str> for TimeControl {
         let mut moves_to_go: Option<u64> = None;
 
         let mut split = s.split_whitespace();
-        while let Some(s) = split.next() {
-            if s == "movetime" {
-                result = Ok(Self::FixedMillis(
-                    split
-                        .next()
-                        .ok_or("Must provide a movetime value")?
-                        .parse()
-                        .or(Err("Unable to parse movetime value."))?,
-                ));
-            } else if s == "infinite" {
-                result = Ok(Self::Infinite);
-            } else if s == "nodes" {
-                result = Ok(Self::FixedNodes(
-                    split
-                        .next()
-                        .ok_or("Must provides a nodes value.")?
-                        .parse()
-                        .or(Err("Unable to parse nodes value."))?,
-                ));
-            } else if s == "depth" {
-                result = Ok(Self::FixedDepth(
-                    split
-                        .next()
-                        .ok_or("Must provides a depth value.")?
-                        .parse()
-                        .or(Err("Unable to parse depth value."))?,
-                ));
-            } else if s == "wtime" {
-                wtime = Some(
-                    split
-                        .next()
-                        .ok_or("Must provide a wtime value")?
-                        .parse()
-                        .or(Err("Unable to parse wtime value."))?,
-                );
-            } else if s == "btime" {
-                btime = Some(
-                    split
-                        .next()
-                        .ok_or("Must provide a btime value")?
-                        .parse()
-                        .or(Err("Unable to parse btime value."))?,
-                );
-            } else if s == "winc" {
-                winc = Some(
-                    split
-                        .next()
-                        .ok_or("Must provide a winc value")?
-                        .parse()
-                        .or(Err("Unable to parse winc value."))?,
-                );
-            } else if s == "binc" {
-                binc = Some(
-                    split
-                        .next()
-                        .ok_or("Must provide a binc value")?
-                        .parse()
-                        .or(Err("Unable to parse binc value."))?,
-                );
-            } else if s == "movestogo" {
-                moves_to_go = Some(
-                    split
-                        .next()
-                        .ok_or("Must provide a movestogo value")?
-                        .parse()
-                        .or(Err("Unable to parse movestogo value."))?,
-                );
+        while let Some(key) = split.next() {
+            match key {
+                "infinite" => result = Ok(Self::Infinite),
+                "movetime" => result = Ok(Self::FixedMillis(Self::parse_next(&mut split)?)),
+                "nodes" => result = Ok(Self::FixedNodes(Self::parse_next(&mut split)?)),
+                "depth" => result = Ok(Self::FixedDepth(Self::parse_next(&mut split)?)),
+                "wtime" => wtime = Some(Self::parse_next(&mut split)?),
+                "btime" => btime = Some(Self::parse_next(&mut split)?),
+                "winc" => winc = Some(Self::parse_next(&mut split)?),
+                "binc" => binc = Some(Self::parse_next(&mut split)?),
+                "movestogo" => moves_to_go = Some(Self::parse_next(&mut split)?),
+                _ => continue,
             }
+        }
+
+        if (wtime.is_none() && btime.is_some()) || (wtime.is_some() && btime.is_none()) {
+            return Err("Must provide both wtime and btime.");
         }
 
         if let (Some(wtime), Some(btime)) = (wtime, btime) {
