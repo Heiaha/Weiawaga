@@ -220,7 +220,7 @@ impl Board {
     }
 
     #[inline(always)]
-    pub fn is_repetition(&self) -> bool {
+    fn is_repetition(&self) -> bool {
         let lookback = min(
             self.history[self.ply].plies_from_null(),
             self.history[self.ply].half_move_counter(),
