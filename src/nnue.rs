@@ -49,9 +49,11 @@ impl Network {
             [feature_idx..feature_idx + self.input_layer.activations.len()]
             .iter();
 
-        for (activation, weight) in self.input_layer.activations.iter_mut().zip(weights) {
-            *activation += weight;
-        }
+        self.input_layer
+            .activations
+            .iter_mut()
+            .zip(weights)
+            .for_each(|(activation, weight)| *activation += weight);
     }
 
     #[inline(always)]
@@ -62,9 +64,11 @@ impl Network {
             [feature_idx..feature_idx + self.input_layer.activations.len()]
             .iter();
 
-        for (activation, weight) in self.input_layer.activations.iter_mut().zip(weights) {
-            *activation -= weight;
-        }
+        self.input_layer
+            .activations
+            .iter_mut()
+            .zip(weights)
+            .for_each(|(activation, weight)| *activation -= weight);
     }
 
     pub fn eval(&self, board: &Board) -> Value {
@@ -76,24 +80,23 @@ impl Network {
             [bucket_idx..bucket_idx + self.input_layer.activations.len()]
             .iter();
 
-        for (clipped_activation, weight) in self
-            .input_layer
+        self.input_layer
             .activations
             .iter()
             .map(|x| Self::clipped_relu(*x))
             .zip(weights)
-        {
-            output += clipped_activation * (*weight as Value);
-        }
-        output / (Self::SCALE * Self::SCALE)
+            .for_each(|(clipped_activation, weight)| {
+                output += (clipped_activation as Value) * (*weight as Value)
+            });
+        output / (Self::SCALE * Self::SCALE) as Value
     }
 
     #[inline(always)]
-    fn clipped_relu(x: i16) -> Value {
-        (x as Value).max(0).min(Self::SCALE)
+    fn clipped_relu(x: i16) -> i16 {
+        x.max(0).min(Self::SCALE)
     }
 }
 
 impl Network {
-    const SCALE: i32 = 64;
+    const SCALE: i16 = 64;
 }
