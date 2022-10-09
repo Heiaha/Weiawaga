@@ -20,7 +20,7 @@ pub struct Board {
     board: [Piece; SQ::N_SQUARES],
     piece_type_bb: [Bitboard; PieceType::N_PIECE_TYPES],
     color_bb: [Bitboard; Color::N_COLORS],
-    pub history: [HistoryEntry; Self::N_HISTORIES],
+    history: [HistoryEntry; Self::N_HISTORIES],
     ctm: Color,
     ply: usize,
     hasher: Hasher,
@@ -1375,7 +1375,7 @@ pub struct HistoryEntry {
     captured: Piece,
     epsq: SQ,
     moov: Move,
-    material_hash: Bitboard,
+    material_hash: Hash,
     half_move_counter: u16,
     plies_from_null: u16,
 }
@@ -1388,7 +1388,7 @@ impl HistoryEntry {
         plies_from_null: u16,
         captured: Piece,
         epsq: SQ,
-        material_hash: Bitboard,
+        material_hash: Hash,
     ) -> Self {
         Self {
             entry,
@@ -1432,7 +1432,7 @@ impl HistoryEntry {
     }
 
     #[inline(always)]
-    pub fn material_hash(&self) -> Bitboard {
+    pub fn material_hash(&self) -> Hash {
         self.material_hash
     }
 
