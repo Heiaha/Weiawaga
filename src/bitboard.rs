@@ -8,7 +8,7 @@ use super::square::*;
 use super::types::*;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
-pub struct Bitboard(pub u64);
+pub struct Bitboard(pub Hash);
 
 #[macro_export]
 macro_rules! B {
@@ -151,8 +151,8 @@ impl Bitboard {
     }
 }
 
-impl From<u64> for Bitboard {
-    fn from(value: u64) -> Self {
+impl From<Hash> for Bitboard {
+    fn from(value: Hash) -> Self {
         Self(value)
     }
 }
@@ -163,7 +163,7 @@ impl From<u64> for Bitboard {
 
 impl<T> Shl<T> for Bitboard
 where
-    u64: Shl<T, Output = u64>,
+    Hash: Shl<T, Output = Hash>,
 {
     type Output = Self;
 
@@ -175,7 +175,7 @@ where
 
 impl<T> ShlAssign<T> for Bitboard
 where
-    u64: ShlAssign<T>,
+    Hash: ShlAssign<T>,
 {
     #[inline(always)]
     fn shl_assign(&mut self, rhs: T) {
@@ -185,7 +185,7 @@ where
 
 impl<T> Shr<T> for Bitboard
 where
-    u64: Shr<T, Output = u64>,
+    Hash: Shr<T, Output = Hash>,
 {
     type Output = Self;
 
@@ -197,7 +197,7 @@ where
 
 impl<T> ShrAssign<T> for Bitboard
 where
-    u64: ShrAssign<T>,
+    Hash: ShrAssign<T>,
 {
     #[inline(always)]
     fn shr_assign(&mut self, rhs: T) {
@@ -296,7 +296,7 @@ impl Iterator for Bitboard {
     type Item = SQ;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if *self == Self::ZERO {
+        if self.0 == 0 {
             return None;
         }
         Some(self.pop_lsb())

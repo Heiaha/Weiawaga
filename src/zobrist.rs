@@ -1,13 +1,12 @@
-use super::bitboard::*;
 use super::file::*;
 use super::piece::*;
 use super::square::*;
 use super::types::*;
 
-struct Rng(u64);
+struct Rng(Hash);
 
 impl Rng {
-    fn gen(&mut self) -> u64 {
+    fn gen(&mut self) -> Hash {
         self.0 ^= self.0 >> 12;
         self.0 ^= self.0 << 25;
         self.0 ^= self.0 >> 27;
@@ -28,21 +27,17 @@ impl Hasher {
     pub fn new() -> Self {
         let mut rng = Rng(1070372);
 
-        let mut zobrist_table = [Hash::ZERO; SQ::N_SQUARES * Piece::N_PIECES];
-        let mut zobrist_ep = [Hash::ZERO; File::N_FILES];
-        let zobrist_color = B!(rng.gen());
+        let mut zobrist_table = [0; SQ::N_SQUARES * Piece::N_PIECES];
+        let mut zobrist_ep = [0; File::N_FILES];
+        let zobrist_color = rng.gen();
 
-        for j in 0..(SQ::N_SQUARES * Piece::N_PIECES) {
-            zobrist_table[j] = B!(rng.gen());
-        }
+        zobrist_table.iter_mut().for_each(|hash| *hash = rng.gen());
 
-        for j in 0..File::N_FILES {
-            zobrist_ep[j] = B!(rng.gen());
-        }
+        zobrist_ep.iter_mut().for_each(|hash| *hash = rng.gen());
 
         Self {
-            hash: Hash::ZERO,
-            material_hash: Hash::ZERO,
+            hash: 0,
+            material_hash: 0,
             zobrist_table,
             zobrist_ep,
             zobrist_color,
@@ -77,8 +72,8 @@ impl Hasher {
 
     #[inline(always)]
     pub fn clear(&mut self) {
-        self.hash = Hash::ZERO;
-        self.material_hash = Hash::ZERO;
+        self.hash = 0;
+        self.material_hash = 0;
     }
 
     #[inline(always)]

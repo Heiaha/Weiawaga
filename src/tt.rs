@@ -1,6 +1,5 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use super::bitboard::*;
 use super::board::*;
 use super::moov::*;
 use super::search::*;
@@ -11,10 +10,9 @@ use super::types::*;
 ///////////////////////////////////////////////////////////////////
 
 #[derive(Eq, PartialEq, Copy, Clone)]
-#[repr(align(8))]
 pub struct TTEntry {
     value: TTValue,
-    best_move: Option<MoveInt>,
+    best_move: Option<Move>,
     depth: Depth,
     flag: Bound,
 }
@@ -22,7 +20,7 @@ pub struct TTEntry {
 impl TTEntry {
     pub fn new(value: Value, best_move: Option<Move>, depth: Depth, flag: Bound) -> Self {
         TTEntry {
-            best_move: best_move.map(|m| m.into()),
+            best_move,
             depth,
             value: value as TTValue,
             flag,
@@ -31,7 +29,7 @@ impl TTEntry {
 
     #[inline(always)]
     pub fn best_move(&self) -> Option<Move> {
-        self.best_move.map(Move::from)
+        self.best_move
     }
 
     #[inline(always)]
@@ -84,6 +82,7 @@ pub struct TT {
 
 impl TT {
     pub fn new(mb_size: usize) -> Self {
+        assert_eq!(std::mem::size_of::<TTEntry>(), 8);
         let upper_limit = mb_size * 1024 * 1024 / std::mem::size_of::<AtomicEntry>() + 1;
         let count = upper_limit.next_power_of_two() / 2;
         let mut table = Vec::with_capacity(count);
@@ -94,7 +93,7 @@ impl TT {
 
         TT {
             table,
-            bitmask: B!(count as u64 - 1),
+            bitmask: count as Hash - 1,
         }
     }
 
@@ -124,7 +123,7 @@ impl TT {
 
     #[inline(always)]
     fn index(&self, board: &Board) -> usize {
-        (board.hash() & self.bitmask).0 as usize
+        (board.hash() & self.bitmask) as usize
     }
 
     pub fn mb_size(&self) -> usize {
@@ -150,8 +149,8 @@ struct AtomicEntry(AtomicU64, AtomicU64);
 
 impl AtomicEntry {
     fn read(&self, lookup_hash: Hash) -> Option<TTEntry> {
-        let entry_hash = Hash::from(self.0.load(Ordering::Relaxed));
-        let data = Hash::from(self.1.load(Ordering::Relaxed));
+        let entry_hash = self.0.load(Ordering::Relaxed);
+        let data = self.1.load(Ordering::Relaxed);
         if entry_hash ^ data == lookup_hash {
             return Some(TTEntry::from(data));
         }
@@ -160,11 +159,11 @@ impl AtomicEntry {
 
     fn write(&self, hash: Hash, entry: TTEntry) {
         let data = Hash::from(entry);
-        self.0.store((hash ^ data).0, Ordering::Relaxed);
-        self.1.store(data.0, Ordering::Relaxed);
+        self.0.store(hash ^ data, Ordering::Relaxed);
+        self.1.store(data, Ordering::Relaxed);
     }
 
     fn used(&self) -> bool {
-        self.0.load(Ordering::Relaxed) != u64::default()
+        self.0.load(Ordering::Relaxed) != Hash::default()
     }
 }
