@@ -116,9 +116,9 @@ impl TT {
     }
 
     pub fn clear(&mut self) {
-        for j in 0..self.table.len() {
-            self.table[j] = AtomicEntry::default();
-        }
+        self.table
+            .iter_mut()
+            .for_each(|entry| *entry = AtomicEntry::default());
     }
 
     #[inline(always)]

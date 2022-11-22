@@ -1289,16 +1289,16 @@ impl fmt::Display for Board {
                 let pc = self.board[sq.index()];
                 if pc != Piece::None {
                     if empty_squares != 0 {
-                        board_str.push_str(&format!("{}", empty_squares));
+                        board_str.push_str(empty_squares.to_string().as_ref());
                         empty_squares = 0;
                     }
-                    board_str.push_str(&pc.to_string());
+                    board_str.push_str(pc.to_string().as_ref());
                 } else {
                     empty_squares += 1;
                 }
             }
             if empty_squares != 0 {
-                board_str.push_str(&format!("{}", empty_squares));
+                board_str.push_str(empty_squares.to_string().as_ref());
             }
             if rank != Rank::One {
                 board_str.push('/');
