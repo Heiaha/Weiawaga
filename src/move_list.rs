@@ -56,7 +56,7 @@ impl MoveList {
     }
 
     pub fn contains(&self, m: Move) -> bool {
-        self.moves.contains(&m)
+        self.moves[..self.len].contains(&m)
     }
 
     #[inline(always)]

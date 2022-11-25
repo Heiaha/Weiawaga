@@ -1,3 +1,4 @@
+use super::attacks;
 use super::bitboard::*;
 use super::board::*;
 use super::color::*;
@@ -6,7 +7,6 @@ use super::move_list::*;
 use super::piece::*;
 use super::square::*;
 use super::types::*;
-use crate::attacks;
 
 pub struct MoveSorter {
     killer_moves: [[[Option<Move>; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],

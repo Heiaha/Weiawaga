@@ -58,6 +58,11 @@ impl Move {
     pub fn is_castling(&self) -> bool {
         matches!(self.flags(), MoveFlags::OO | MoveFlags::OOO)
     }
+
+    #[inline(always)]
+    pub fn is_null(&self) -> bool {
+        *self == Move::NULL
+    }
 }
 
 impl From<MoveInt> for Move {

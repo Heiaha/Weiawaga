@@ -12,23 +12,25 @@ use super::types::*;
 #[derive(Eq, PartialEq, Copy, Clone)]
 pub struct TTEntry {
     value: TTValue,
-    best_move: Option<Move>,
+    best_move: Move,
     depth: Depth,
     flag: Bound,
+    _pad: u16,
 }
 
 impl TTEntry {
-    pub fn new(value: Value, best_move: Option<Move>, depth: Depth, flag: Bound) -> Self {
+    pub fn new(value: Value, best_move: Move, depth: Depth, flag: Bound) -> Self {
         TTEntry {
             best_move,
             depth,
             value: value as TTValue,
             flag,
+            _pad: 0,
         }
     }
 
     #[inline(always)]
-    pub fn best_move(&self) -> Option<Move> {
+    pub fn best_move(&self) -> Move {
         self.best_move
     }
 
@@ -51,10 +53,11 @@ impl TTEntry {
 impl Default for TTEntry {
     fn default() -> Self {
         Self {
-            best_move: None,
+            best_move: Move::NULL,
             depth: 0,
             value: 0,
             flag: Bound::Exact,
+            _pad: 0,
         }
     }
 }
@@ -98,14 +101,7 @@ impl TT {
     }
 
     #[inline(always)]
-    pub fn insert(
-        &self,
-        board: &Board,
-        depth: Depth,
-        value: Value,
-        best_move: Option<Move>,
-        flag: Bound,
-    ) {
+    pub fn insert(&self, board: &Board, depth: Depth, value: Value, best_move: Move, flag: Bound) {
         self.table[self.index(board)]
             .write(board.hash(), TTEntry::new(value, best_move, depth, flag))
     }

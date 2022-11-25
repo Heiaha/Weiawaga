@@ -37,7 +37,7 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         let mut alpha = -Value::MAX;
         let mut beta = Value::MAX;
-        let mut best_move = None;
+        let mut best_move = Move::NULL;
         let mut value = 0;
         let mut depth = 1;
 
@@ -79,7 +79,7 @@ impl<'a> Search<'a> {
                 beta = Value::MAX;
             } else {
                 // Only print info if we're in the main thread
-                if self.id == 0 && best_move.is_some() && !self.stop {
+                if self.id == 0 && !best_move.is_null() && !self.stop {
                     self.print_info(&mut board, depth, best_move, value);
                 }
                 alpha = value - Self::ASPIRATION_WINDOW;
@@ -94,7 +94,7 @@ impl<'a> Search<'a> {
             self.timer.stop();
         }
 
-        best_move
+        Some(best_move)
     }
 
     fn search_root(
@@ -103,7 +103,7 @@ impl<'a> Search<'a> {
         mut depth: Depth,
         mut alpha: Value,
         beta: Value,
-    ) -> (Option<Move>, Value) {
+    ) -> (Move, Value) {
         ///////////////////////////////////////////////////////////////////
         // Check extension.
         ///////////////////////////////////////////////////////////////////
@@ -117,15 +117,15 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         let mut hash_move = None;
         if let Some(tt_entry) = self.tt.probe(board) {
-            hash_move = tt_entry.best_move();
+            hash_move = Some(tt_entry.best_move());
         }
 
         ///////////////////////////////////////////////////////////////////
         // Score moves and begin searching recursively.
         ///////////////////////////////////////////////////////////////////
-        let ply: Ply = 0;
+        let ply = 0;
         let mut value = -Value::MAX;
-        let mut best_move = None;
+        let mut best_move = Move::NULL;
         let mut idx = 0;
 
         let mut moves = MoveList::from(board);
@@ -148,7 +148,7 @@ impl<'a> Search<'a> {
             }
 
             if value > alpha {
-                best_move = Some(m);
+                best_move = m;
                 if value >= beta {
                     self.tt.insert(board, depth, beta, best_move, Bound::Lower);
                     return (best_move, beta);
@@ -159,8 +159,8 @@ impl<'a> Search<'a> {
             idx += 1;
         }
 
-        if best_move.is_none() {
-            best_move = Some(moves[0]);
+        if best_move.is_null() && moves.len() > 0 {
+            best_move = moves[0];
         }
 
         if !self.stop {
@@ -233,7 +233,7 @@ impl<'a> Search<'a> {
                     return tt_entry.value();
                 }
             }
-            hash_move = tt_entry.best_move();
+            hash_move = Some(tt_entry.best_move());
         }
 
         ///////////////////////////////////////////////////////////////////
@@ -274,7 +274,7 @@ impl<'a> Search<'a> {
         let mut value;
         let mut reduced_depth;
         let mut tt_flag = Bound::Upper;
-        let mut best_move = None;
+        let mut best_move = Move::NULL;
         let mut idx = 0;
 
         let mut moves = MoveList::from(board);
@@ -325,7 +325,7 @@ impl<'a> Search<'a> {
             // Re-bound, check for cutoffs, and add killers and history.
             ///////////////////////////////////////////////////////////////////
             if value > alpha {
-                best_move = Some(m);
+                best_move = m;
                 if value >= beta {
                     if m.is_quiet() {
                         self.move_sorter.add_killer(board, m, ply);
@@ -350,6 +350,10 @@ impl<'a> Search<'a> {
             } else {
                 alpha = 0;
             }
+        }
+
+        if best_move.is_null() && moves.len() > 0 {
+            best_move = moves[0];
         }
 
         if !self.stop {
@@ -381,7 +385,7 @@ impl<'a> Search<'a> {
 
         let mut hash_move = None;
         if let Some(tt_entry) = self.tt.probe(board) {
-            hash_move = tt_entry.best_move();
+            hash_move = Some(tt_entry.best_move());
         }
 
         let mut moves = MoveList::from_q(board);
@@ -470,20 +474,19 @@ impl<'a> Search<'a> {
         }
 
         if let Some(tt_entry) = self.tt.probe(board) {
-            if let Some(hash_move) = tt_entry.best_move() {
-                let mut pv = String::new();
-                if MoveList::from(board).contains(hash_move) {
-                    board.push(hash_move);
-                    pv = format!("{} {}", hash_move, self.get_pv(board, depth - 1));
-                    board.pop();
-                }
-                return pv;
+            let mut pv = String::new();
+            let hash_move = tt_entry.best_move();
+            if MoveList::from(board).contains(hash_move) {
+                board.push(hash_move);
+                pv = format!("{} {}", hash_move, self.get_pv(board, depth - 1));
+                board.pop();
             }
+            return pv;
         }
         String::new()
     }
 
-    fn print_info(&self, board: &mut Board, depth: Depth, m: Option<Move>, value: Value) {
+    fn print_info(&self, board: &mut Board, depth: Depth, m: Move, value: Value) {
         let score_str = if Self::is_checkmate(value) {
             let mate_value = if value > 0 {
                 (Value::MAX - value + 1) / 2
@@ -496,7 +499,7 @@ impl<'a> Search<'a> {
         };
 
         println!("info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv}",
-                 m = m.unwrap(),
+                 m = m,
                  depth = depth,
                  sel_depth = self.sel_depth,
                  time = self.timer.elapsed(),
