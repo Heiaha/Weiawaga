@@ -128,7 +128,7 @@ impl TT {
         self.table
             .iter()
             .take(1000)
-            .filter(|&entry| entry.used())
+            .filter(|&entry| entry.is_used())
             .count()
     }
 }
@@ -156,7 +156,7 @@ impl AtomicEntry {
         self.1.store(data, Ordering::Relaxed);
     }
 
-    fn used(&self) -> bool {
+    fn is_used(&self) -> bool {
         self.0.load(Ordering::Relaxed) != Hash::default()
     }
 }
