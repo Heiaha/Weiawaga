@@ -11,11 +11,10 @@ use super::types::*;
 
 #[derive(Eq, PartialEq, Copy, Clone)]
 pub struct TTEntry {
-    value: TTValue,
+    value: Value,
     best_move: Move,
     depth: Depth,
     flag: Bound,
-    _pad: u16,
 }
 
 impl TTEntry {
@@ -23,9 +22,8 @@ impl TTEntry {
         TTEntry {
             best_move,
             depth,
-            value: value as TTValue,
+            value,
             flag,
-            _pad: 0,
         }
     }
 
@@ -41,7 +39,7 @@ impl TTEntry {
 
     #[inline(always)]
     pub fn value(&self) -> Value {
-        self.value as Value
+        self.value
     }
 
     #[inline(always)]
@@ -57,7 +55,6 @@ impl Default for TTEntry {
             depth: 0,
             value: 0,
             flag: Bound::Exact,
-            _pad: 0,
         }
     }
 }
