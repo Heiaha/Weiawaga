@@ -35,8 +35,8 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         // Start iterative deepening.
         ///////////////////////////////////////////////////////////////////
-        let mut alpha = -Value::MAX;
-        let mut beta = Value::MAX;
+        let mut alpha = -Self::MATE;
+        let mut beta = Self::MATE;
         let mut best_move = Move::NULL;
         let mut value = 0;
         let mut depth = 1;
@@ -74,9 +74,9 @@ impl<'a> Search<'a> {
             // Widen aspiration windows.
             ///////////////////////////////////////////////////////////////////
             if value <= alpha {
-                alpha = -Value::MAX;
+                alpha = -Self::MATE;
             } else if value >= beta {
-                beta = Value::MAX;
+                beta = Self::MATE;
             } else {
                 // Only print info if we're in the main thread
                 if self.id == 0 && !best_move.is_null() && !self.stop {
@@ -124,7 +124,7 @@ impl<'a> Search<'a> {
         // Score moves and begin searching recursively.
         ///////////////////////////////////////////////////////////////////
         let ply = 0;
-        let mut value = -Value::MAX;
+        let mut value = -Self::MATE;
         let mut best_move = Move::NULL;
         let mut idx = 0;
 
@@ -186,7 +186,7 @@ impl<'a> Search<'a> {
         // Mate distance pruning - will help reduce
         // some nodes when checkmate is near.
         ///////////////////////////////////////////////////////////////////
-        let mate_value = Value::MAX - (ply as Value);
+        let mate_value = Self::MATE - (ply as Value);
         alpha = max(alpha, -mate_value);
         beta = min(beta, mate_value - 1);
         if alpha >= beta {
@@ -465,7 +465,7 @@ impl<'a> Search<'a> {
     }
 
     fn is_checkmate(value: Value) -> bool {
-        value.abs() >= Value::MAX >> 1
+        value.abs() >= Self::MATE >> 1
     }
 
     fn get_pv(&self, board: &mut Board, depth: Depth) -> String {
@@ -489,9 +489,9 @@ impl<'a> Search<'a> {
     fn print_info(&self, board: &mut Board, depth: Depth, m: Move, value: Value) {
         let score_str = if Self::is_checkmate(value) {
             let mate_value = if value > 0 {
-                (Value::MAX - value + 1) / 2
+                (Self::MATE - value + 1) / 2
             } else {
-                -(value + Value::MAX) / 2
+                -(value + Self::MATE) / 2
             };
             format!("mate {}", mate_value)
         } else {
@@ -533,6 +533,7 @@ impl<'a> Search<'a> {
     const LMR_MIN_DEPTH: Depth = 2;
     const LMR_BASE_REDUCTION: f32 = 0.75;
     const LMR_MOVE_DIVIDER: f32 = 2.25;
+    const MATE: Value = 32000;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
