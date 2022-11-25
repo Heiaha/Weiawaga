@@ -31,14 +31,14 @@ impl<'a> Search<'a> {
         }
     }
 
-    pub fn go(&mut self, mut board: Board) -> Move {
+    pub fn go(&mut self, mut board: Board) -> Option<Move> {
         ///////////////////////////////////////////////////////////////////
         // Start iterative deepening.
         ///////////////////////////////////////////////////////////////////
         let mut alpha = -Value::MAX;
         let mut beta = Value::MAX;
         let mut best_move = None;
-        let mut score = 0;
+        let mut value = 0;
         let mut depth = 1;
 
         ///////////////////////////////////////////////////////////////////
@@ -46,39 +46,44 @@ impl<'a> Search<'a> {
         // it instead of searching.
         ///////////////////////////////////////////////////////////////////
         let moves = MoveList::from(&board);
+
+        if moves.len() == 0 {
+            return None;
+        }
+
         if moves.len() == 1 {
-            return moves[0];
+            return Some(moves[0]);
         }
 
         while !self.stop
             && self.timer.start_check(depth)
-            && !Self::is_checkmate(score)
+            && !Self::is_checkmate(value)
             && depth < Depth::MAX
         {
-            (best_move, score) = self.search_root(&mut board, depth, alpha, beta);
+            (best_move, value) = self.search_root(&mut board, depth, alpha, beta);
 
             ///////////////////////////////////////////////////////////////////
             // Update the clock if the score is changing
             // by a lot.
             ///////////////////////////////////////////////////////////////////
             if depth >= Self::SEARCHES_WO_TIMER_UPDATE {
-                self.timer.update(score);
+                self.timer.update(value);
             }
 
             ///////////////////////////////////////////////////////////////////
             // Widen aspiration windows.
             ///////////////////////////////////////////////////////////////////
-            if score <= alpha {
+            if value <= alpha {
                 alpha = -Value::MAX;
-            } else if score >= beta {
+            } else if value >= beta {
                 beta = Value::MAX;
             } else {
                 // Only print info if we're in the main thread
                 if self.id == 0 && best_move.is_some() && !self.stop {
-                    self.print_info(&mut board, depth, best_move, score);
+                    self.print_info(&mut board, depth, best_move, value);
                 }
-                alpha = score - Self::ASPIRATION_WINDOW;
-                beta = score + Self::ASPIRATION_WINDOW;
+                alpha = value - Self::ASPIRATION_WINDOW;
+                beta = value + Self::ASPIRATION_WINDOW;
                 depth += 1;
                 self.nodes = 0;
                 self.sel_depth = 0;
@@ -89,10 +94,7 @@ impl<'a> Search<'a> {
             self.timer.stop();
         }
 
-        match best_move {
-            Some(m) => m,
-            None => moves[0],
-        }
+        best_move
     }
 
     fn search_root(
@@ -122,7 +124,7 @@ impl<'a> Search<'a> {
         // Score moves and begin searching recursively.
         ///////////////////////////////////////////////////////////////////
         let ply: Ply = 0;
-        let mut value: Value = -Value::MAX;
+        let mut value = -Value::MAX;
         let mut best_move = None;
         let mut idx = 0;
 
@@ -481,16 +483,16 @@ impl<'a> Search<'a> {
         String::new()
     }
 
-    fn print_info(&self, board: &mut Board, depth: Depth, m: Option<Move>, score: Value) {
-        let score_str = if Self::is_checkmate(score) {
-            let mate_score = if score > 0 {
-                (Value::MAX - score + 1) / 2
+    fn print_info(&self, board: &mut Board, depth: Depth, m: Option<Move>, value: Value) {
+        let score_str = if Self::is_checkmate(value) {
+            let mate_value = if value > 0 {
+                (Value::MAX - value + 1) / 2
             } else {
-                -(score + Value::MAX) / 2
+                -(value + Value::MAX) / 2
             };
-            format!("mate {}", mate_score)
+            format!("mate {}", mate_value)
         } else {
-            format!("cp {}", score)
+            format!("cp {}", value)
         };
 
         println!("info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv}",

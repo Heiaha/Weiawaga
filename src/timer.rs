@@ -94,28 +94,16 @@ pub struct Timer {
 
 impl Timer {
     pub fn new(board: &Board, control: TimeControl, stop: Arc<AtomicBool>, overhead: Time) -> Self {
-        let mut tm = Self {
-            start_time: Instant::now(),
-            stop,
-            control,
-            overhead,
-            last_score: 0,
-            times_checked: 0,
-            time_target: 0,
-            time_maximum: 0,
-        };
-        tm.calc(board);
-        tm
-    }
+        let mut time_target = 0;
+        let mut time_maximum = 0;
 
-    fn calc(&mut self, board: &Board) {
         if let TimeControl::Variable {
             wtime,
             btime,
             winc,
             binc,
             moves_to_go,
-        } = self.control
+        } = control
         {
             let time = if board.ctm() == Color::White {
                 wtime
@@ -130,8 +118,19 @@ impl Timer {
             .unwrap_or(0);
 
             let target = time.min(time / moves_to_go.unwrap_or(40) + inc);
-            self.time_target = target as Time;
-            self.time_maximum = (target + (time - target) / 4) as Time;
+            time_target = target as Time;
+            time_maximum = (target + (time - target) / 4) as Time;
+        }
+
+        Self {
+            start_time: Instant::now(),
+            stop,
+            control,
+            overhead,
+            time_target,
+            time_maximum,
+            last_score: 0,
+            times_checked: 0,
         }
     }
 

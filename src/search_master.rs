@@ -97,7 +97,12 @@ impl SearchMaster {
             }
             main_search_thread.go(self.board.clone())
         });
-        println!("bestmove {}", best_move);
+
+        match best_move {
+            Some(m) => println!("bestmove {}", m),
+            None => println!("bestmove (none)"),
+        }
+
         self.tt.clear();
     }
 
