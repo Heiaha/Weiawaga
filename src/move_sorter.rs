@@ -10,7 +10,7 @@ use super::types::*;
 
 pub struct MoveSorter {
     killer_moves: [[[Option<Move>; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],
-    history_scores: [[SortValue; SQ::N_SQUARES]; SQ::N_SQUARES],
+    history_scores: [[Value; SQ::N_SQUARES]; SQ::N_SQUARES],
 }
 
 impl MoveSorter {
@@ -79,7 +79,7 @@ impl MoveSorter {
     }
 
     #[inline(always)]
-    fn mvv_lva_score(board: &Board, m: Move) -> SortValue {
+    fn mvv_lva_score(board: &Board, m: Move) -> Value {
         Self::MVV_LVA_SCORES[board.piece_type_at(m.to_sq()).index() * PieceType::N_PIECE_TYPES
             + board.piece_type_at(m.from_sq()).index()]
     }
@@ -91,7 +91,7 @@ impl MoveSorter {
     }
 
     pub fn add_history(&mut self, m: Move, depth: Depth) {
-        let depth = depth as SortValue;
+        let depth = depth as Value;
         let from = m.from_sq().index();
         let to = m.to_sq().index();
         self.history_scores[from][to] += depth * depth;
@@ -115,11 +115,11 @@ impl MoveSorter {
     }
 
     #[inline(always)]
-    fn history_score(&self, m: Move) -> SortValue {
+    fn history_score(&self, m: Move) -> Value {
         self.history_scores[m.from_sq().index()][m.to_sq().index()]
     }
 
-    pub fn see(board: &Board, m: Move, threshold: SortValue) -> bool {
+    pub fn see(board: &Board, m: Move, threshold: Value) -> bool {
         if m.promotion() != PieceType::None {
             return true;
         }
@@ -193,21 +193,21 @@ impl MoveSorter {
 
 impl MoveSorter {
     const N_KILLERS: usize = 3;
-    const HASH_MOVE_SCORE: SortValue = 25000;
-    const QUEEN_PROMOTION_SCORE: SortValue = 8000;
-    const ROOK_PROMOTION_SCORE: SortValue = 7000;
-    const BISHOP_PROMOTION_SCORE: SortValue = 6000;
-    const KNIGHT_PROMOTION_SCORE: SortValue = 5000;
-    const WINNING_CAPTURES_OFFSET: SortValue = 10;
-    const KILLER_MOVE_SCORE: SortValue = 2;
-    const CASTLING_SCORE: SortValue = 1;
-    const HISTORY_MOVE_OFFSET: SortValue = -30000;
-    const LOSING_CAPTURES_OFFSET: SortValue = -30001;
+    const HASH_MOVE_SCORE: Value = 25000;
+    const QUEEN_PROMOTION_SCORE: Value = 8000;
+    const ROOK_PROMOTION_SCORE: Value = 7000;
+    const BISHOP_PROMOTION_SCORE: Value = 6000;
+    const KNIGHT_PROMOTION_SCORE: Value = 5000;
+    const WINNING_CAPTURES_OFFSET: Value = 10;
+    const KILLER_MOVE_SCORE: Value = 2;
+    const CASTLING_SCORE: Value = 1;
+    const HISTORY_MOVE_OFFSET: Value = -30000;
+    const LOSING_CAPTURES_OFFSET: Value = -30001;
 
-    const SEE_PIECE_TYPE: [SortValue; PieceType::N_PIECE_TYPES] = [100, 375, 375, 500, 1025, 10000];
+    const SEE_PIECE_TYPE: [Value; PieceType::N_PIECE_TYPES] = [100, 375, 375, 500, 1025, 10000];
 
     #[rustfmt::skip]
-    const MVV_LVA_SCORES: [SortValue; PieceType::N_PIECE_TYPES * PieceType::N_PIECE_TYPES] = [
+    const MVV_LVA_SCORES: [Value; PieceType::N_PIECE_TYPES * PieceType::N_PIECE_TYPES] = [
         105, 104, 103, 102, 101, 100,
         205, 204, 203, 202, 201, 200,
         305, 304, 303, 302, 301, 300,

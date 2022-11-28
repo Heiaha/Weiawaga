@@ -24,7 +24,7 @@ const MAX_MOVES: usize = 255;
 
 pub struct MoveList {
     moves: [Move; MAX_MOVES],
-    pub scores: [SortValue; MAX_MOVES],
+    pub scores: [Value; MAX_MOVES],
     idx: usize,
     len: usize,
 }
@@ -107,7 +107,7 @@ impl MoveList {
             return None;
         }
 
-        let mut max_score = SortValue::MIN;
+        let mut max_score = Value::MIN;
         let mut max_idx = self.idx;
 
         for i in self.idx..self.len() {
