@@ -149,7 +149,7 @@ impl Timer {
         }
 
         // Always search to a depth of at least 1
-        if depth == 1 {
+        if depth <= 1 {
             return true;
         }
 
