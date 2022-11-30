@@ -148,6 +148,11 @@ impl Timer {
             return false;
         }
 
+        // Always search to a depth of at least 1
+        if depth == 1 {
+            return true;
+        }
+
         let start = match self.control {
             TimeControl::Infinite => true,
             TimeControl::FixedDuration(duration) => self.elapsed() + self.overhead <= duration,
