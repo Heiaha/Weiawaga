@@ -2,13 +2,13 @@ use std::sync;
 use std::sync::atomic::*;
 use std::sync::mpsc::Receiver;
 use std::thread;
+use std::time::Duration;
 
 use super::board::*;
 use super::perft::*;
 use super::search::*;
 use super::timer::*;
 use super::tt::*;
-use super::types::*;
 use super::uci::*;
 
 pub struct SearchMaster {
@@ -16,7 +16,7 @@ pub struct SearchMaster {
     board: Board,
     num_threads: u16,
     tt: TT,
-    overhead: Time,
+    overhead: Duration,
 }
 
 impl SearchMaster {
@@ -26,7 +26,7 @@ impl SearchMaster {
             board: Board::new(),
             num_threads: 1,
             tt: TT::new(16),
-            overhead: 0,
+            overhead: Duration::ZERO,
         }
     }
 
@@ -153,12 +153,15 @@ impl SearchMaster {
             }
             "Move Overhead" => {
                 if let Ok(overhead) = value.parse() {
-                    self.overhead = overhead;
-                    println!("info string set Move Overhead to {}", self.overhead);
+                    self.overhead = Duration::from_millis(overhead);
+                    println!(
+                        "info string set Move Overhead to {}",
+                        self.overhead.as_millis()
+                    );
                 } else {
                     eprintln!(
                         "info string ERROR: error parsing Move Overhead value; value remains at {}.",
-                        self.overhead
+                        self.overhead.as_millis()
                     );
                 }
             }

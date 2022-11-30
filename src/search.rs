@@ -1,4 +1,5 @@
 use std::cmp::{max, min};
+use std::time::Duration;
 
 use super::board::*;
 use super::moov::*;
@@ -85,7 +86,6 @@ impl<'a> Search<'a> {
                 alpha = value - Self::ASPIRATION_WINDOW;
                 beta = value + Self::ASPIRATION_WINDOW;
                 depth += 1;
-                self.nodes = 0;
                 self.sel_depth = 0;
             }
         }
@@ -133,7 +133,7 @@ impl<'a> Search<'a> {
             .score_moves(&mut moves, board, ply, hash_move);
 
         while let Some(m) = moves.next_best() {
-            if self.id == 0 && self.timer.elapsed() >= Self::PRINT_CURRMOVENUMBER_TIME_MILLIS {
+            if self.id == 0 && self.timer.elapsed() >= Self::PRINT_CURRMOVENUMBER_TIME {
                 Self::print_currmovenumber(depth, m, idx);
             }
 
@@ -498,14 +498,16 @@ impl<'a> Search<'a> {
             format!("cp {}", value)
         };
 
+        let elapsed = self.timer.elapsed();
+
         println!("info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv}",
                  m = m,
                  depth = depth,
                  sel_depth = self.sel_depth,
-                 time = self.timer.elapsed(),
+                 time = elapsed.as_millis(),
                  score_str = score_str,
                  nodes = self.nodes,
-                 nps = 1000 * self.nodes / (self.timer.elapsed() + 1),
+                 nps = (self.nodes as f64 / elapsed.as_secs_f64()) as u64,
                  hashfull = self.tt.hashfull(),
                  pv = self.get_pv(board, depth));
     }
@@ -521,7 +523,7 @@ impl<'a> Search<'a> {
 }
 
 impl<'a> Search<'a> {
-    const PRINT_CURRMOVENUMBER_TIME_MILLIS: Time = 3000;
+    const PRINT_CURRMOVENUMBER_TIME: Duration = Duration::from_millis(3000);
     const SEARCHES_WO_TIMER_UPDATE: Depth = 4;
     const RFP_MAX_DEPTH: Depth = 8;
     const RFP_MARGIN_MULTIPLIER: Value = 120;

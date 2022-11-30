@@ -3,7 +3,7 @@ use std::str::{FromStr, SplitWhitespace};
 use std::sync;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use super::board::*;
 use super::color::*;
@@ -13,15 +13,15 @@ use super::types::*;
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum TimeControl {
     Infinite,
-    FixedMillis(Time),
+    FixedDuration(Duration),
     FixedDepth(Depth),
     FixedNodes(u64),
     Variable {
-        wtime: Time,
-        btime: Time,
-        winc: Option<Time>,
-        binc: Option<Time>,
-        moves_to_go: Option<u64>,
+        wtime: Duration,
+        btime: Duration,
+        winc: Option<Duration>,
+        binc: Option<Duration>,
+        moves_to_go: Option<u32>,
     },
 }
 
@@ -41,23 +41,27 @@ impl TryFrom<&str> for TimeControl {
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         let mut result = Ok(Self::Infinite);
 
-        let mut wtime: Option<Time> = None;
-        let mut btime: Option<Time> = None;
-        let mut winc: Option<Time> = None;
-        let mut binc: Option<Time> = None;
-        let mut moves_to_go: Option<u64> = None;
+        let mut wtime = None;
+        let mut btime = None;
+        let mut winc = None;
+        let mut binc = None;
+        let mut moves_to_go = None;
 
         let mut split = s.split_whitespace();
         while let Some(key) = split.next() {
             match key {
                 "infinite" => result = Ok(Self::Infinite),
-                "movetime" => result = Ok(Self::FixedMillis(Self::parse_next(&mut split)?)),
+                "movetime" => {
+                    result = Ok(Self::FixedDuration(Duration::from_millis(
+                        Self::parse_next(&mut split)?,
+                    )))
+                }
                 "nodes" => result = Ok(Self::FixedNodes(Self::parse_next(&mut split)?)),
                 "depth" => result = Ok(Self::FixedDepth(Self::parse_next(&mut split)?)),
-                "wtime" => wtime = Some(Self::parse_next(&mut split)?),
-                "btime" => btime = Some(Self::parse_next(&mut split)?),
-                "winc" => winc = Some(Self::parse_next(&mut split)?),
-                "binc" => binc = Some(Self::parse_next(&mut split)?),
+                "wtime" => wtime = Some(Duration::from_millis(Self::parse_next(&mut split)?)),
+                "btime" => btime = Some(Duration::from_millis(Self::parse_next(&mut split)?)),
+                "winc" => winc = Some(Duration::from_millis(Self::parse_next(&mut split)?)),
+                "binc" => binc = Some(Duration::from_millis(Self::parse_next(&mut split)?)),
                 "movestogo" => moves_to_go = Some(Self::parse_next(&mut split)?),
                 _ => continue,
             }
@@ -86,16 +90,21 @@ pub struct Timer {
     start_time: Instant,
     stop: Arc<AtomicBool>,
     times_checked: u64,
-    time_target: Time,
-    time_maximum: Time,
-    overhead: Time,
+    time_target: Duration,
+    time_maximum: Duration,
+    overhead: Duration,
     last_score: Value,
 }
 
 impl Timer {
-    pub fn new(board: &Board, control: TimeControl, stop: Arc<AtomicBool>, overhead: Time) -> Self {
-        let mut time_target = 0;
-        let mut time_maximum = 0;
+    pub fn new(
+        board: &Board,
+        control: TimeControl,
+        stop: Arc<AtomicBool>,
+        overhead: Duration,
+    ) -> Self {
+        let mut time_target = Duration::ZERO;
+        let mut time_maximum = Duration::ZERO;
 
         if let TimeControl::Variable {
             wtime,
@@ -115,11 +124,11 @@ impl Timer {
             } else {
                 binc
             }
-            .unwrap_or(0);
+            .unwrap_or(Duration::ZERO);
 
             let target = time.min(time / moves_to_go.unwrap_or(40) + inc);
-            time_target = target as Time;
-            time_maximum = (target + (time - target) / 4) as Time;
+            time_target = target;
+            time_maximum = target + (time - target) / 4;
         }
 
         Self {
@@ -141,7 +150,7 @@ impl Timer {
 
         let start = match self.control {
             TimeControl::Infinite => true,
-            TimeControl::FixedMillis(millis) => self.elapsed() + self.overhead <= millis,
+            TimeControl::FixedDuration(duration) => self.elapsed() + self.overhead <= duration,
             TimeControl::FixedDepth(stop_depth) => depth <= stop_depth,
             TimeControl::FixedNodes(_) => true,
             TimeControl::Variable { .. } => self.elapsed() + self.overhead <= self.time_target / 2,
@@ -163,9 +172,9 @@ impl Timer {
 
         let stop = match self.control {
             TimeControl::Infinite => false,
-            TimeControl::FixedMillis(millis) => {
+            TimeControl::FixedDuration(duration) => {
                 if self.times_checked & Self::CHECK_FLAG == 0 {
-                    self.elapsed() + self.overhead >= millis
+                    self.elapsed() + self.overhead >= duration
                 } else {
                     false
                 }
@@ -191,8 +200,8 @@ impl Timer {
     }
 
     #[inline(always)]
-    pub fn elapsed(&self) -> Time {
-        self.start_time.elapsed().as_millis() as Time
+    pub fn elapsed(&self) -> Duration {
+        self.start_time.elapsed()
     }
 
     pub fn update(&mut self, score: Value) {
