@@ -148,7 +148,7 @@ impl fmt::Debug for MoveList {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut result = String::from('[');
         for i in 0..self.len {
-            result.push_str(format!("{}, ", self.moves[i].to_string()).as_ref());
+            result.push_str(format!("{}, ", self.moves[i]).as_ref());
         }
         result.push(']');
         write!(f, "{}", result)

@@ -402,9 +402,9 @@ impl Board {
         // General purpose bitboards.
         ///////////////////////////////////////////////////////////////////
 
-        let mut b1: Bitboard;
-        let mut b2: Bitboard;
-        let mut b3: Bitboard;
+        let mut b1;
+        let mut b2;
+        let mut b3;
 
         ///////////////////////////////////////////////////////////////////
         // Danger squares for the king
@@ -446,13 +446,13 @@ impl Board {
         // The capture mask consists of destination squares containing enemy
         // pieces that must be captured because they are checking the king.
         ///////////////////////////////////////////////////////////////////
-        let capture_mask: Bitboard;
+        let capture_mask;
 
         ///////////////////////////////////////////////////////////////////
         // The quiet mask consists of squares where pieces must be moved
         // to block an attack checking the king.
         ///////////////////////////////////////////////////////////////////
-        let quiet_mask: Bitboard;
+        let quiet_mask;
 
         ///////////////////////////////////////////////////////////////////
         // Checkers are identified by projecting attacks from the king
@@ -848,9 +848,9 @@ impl Board {
         let our_orth_sliders = self.orthogonal_sliders_c(us);
         let their_orth_sliders = self.orthogonal_sliders_c(them);
 
-        let mut b1: Bitboard;
-        let mut b2: Bitboard;
-        let mut b3: Bitboard;
+        let mut b1;
+        let mut b2;
+        let mut b3;
 
         let mut danger = Bitboard::ZERO;
 
@@ -875,8 +875,8 @@ impl Board {
         let king_attacks = attacks::king_attacks(our_king) & !(us_bb | danger);
         moves.make_c(our_king, king_attacks & them_bb);
 
-        let capture_mask: Bitboard;
-        let quiet_mask: Bitboard;
+        let capture_mask;
+        let quiet_mask;
 
         let mut checkers = (attacks::knight_attacks(our_king)
             & self.bitboard_of(them, PieceType::Knight))
@@ -1459,5 +1459,28 @@ impl HistoryEntry {
     #[inline(always)]
     pub fn set_material_hash(&mut self, material_hash: Hash) {
         self.material_hash = material_hash;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::board::Board;
+
+    #[test]
+    fn threefold_repetition() {
+        let mut board = Board::new();
+        assert_eq!(board.is_repetition(), false);
+        board.push_str("e2e4").unwrap();
+        assert_eq!(board.is_repetition(), false);
+        board.push_str("e7e5").unwrap();
+        assert_eq!(board.is_repetition(), false);
+        board.push_str("f1c4").unwrap();
+        assert_eq!(board.is_repetition(), false);
+        board.push_str("f8c5").unwrap();
+        assert_eq!(board.is_repetition(), false);
+        board.push_str("c4f1").unwrap();
+        assert_eq!(board.is_repetition(), false);
+        board.push_str("c5f8").unwrap();
+        assert_eq!(board.is_repetition(), true);
     }
 }

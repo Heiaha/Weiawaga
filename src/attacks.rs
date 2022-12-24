@@ -106,11 +106,7 @@ pub fn king_attacks(sq: SQ) -> Bitboard {
 
 #[inline(always)]
 pub fn pawn_attacks_bb(bb: Bitboard, color: Color) -> Bitboard {
-    if color == Color::White {
-        bb.shift(Direction::NorthWest) | bb.shift(Direction::NorthEast)
-    } else {
-        bb.shift(Direction::SouthWest) | bb.shift(Direction::SouthEast)
-    }
+    bb.shift(Direction::NorthWest.relative(color)) | bb.shift(Direction::NorthEast.relative(color))
 }
 
 #[inline(always)]
