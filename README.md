@@ -22,8 +22,8 @@ https://lichess.org/@/Weiawaga
     - [Reverse futility pruning](https://www.chessprogramming.org/Reverse_Futility_Pruning)
     - [Null move pruning](https://www.chessprogramming.org/Null_Move_Pruning)
     - [Check extensions](https://www.chessprogramming.org/Check_Extensions)
-- [NNUE](https://www.chessprogramming.org/NNUE) Evaluation
-    - Incremental Updating 
+- [NNUE](https://www.chessprogramming.org/NNUE) evaluation
+    - Incremental updating 
     - Buckets
 - Move ordering
     - [Hash move](https://www.chessprogramming.org/Hash_Move)
