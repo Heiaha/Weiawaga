@@ -88,17 +88,15 @@ impl MoveList {
 
     pub fn make_pc(&mut self, from_sq: SQ, to: Bitboard) {
         for to_sq in to {
-            self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::PcKnight);
-            self.len += 1;
-
-            self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::PcBishop);
-            self.len += 1;
-
-            self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::PcRook);
-            self.len += 1;
-
-            self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::PcQueen);
-            self.len += 1;
+            for flag in [
+                MoveFlags::PcQueen,
+                MoveFlags::PcKnight,
+                MoveFlags::PcRook,
+                MoveFlags::PcBishop,
+            ] {
+                self.moves[self.len] = Move::new(from_sq, to_sq, flag);
+                self.len += 1;
+            }
         }
     }
 
@@ -116,10 +114,13 @@ impl MoveList {
                 max_score = self.scores[i];
             }
         }
+
         self.moves.swap(self.idx, max_idx);
         self.scores.swap(self.idx, max_idx);
+
+        let idx = self.idx;
         self.idx += 1;
-        Some(self.moves[self.idx - 1])
+        Some(self.moves[idx])
     }
 }
 
@@ -131,8 +132,10 @@ impl Iterator for MoveList {
             self.idx = 0;
             return None;
         }
+
+        let idx = self.idx;
         self.idx += 1;
-        Some(self.moves[self.idx - 1])
+        Some(self.moves[idx])
     }
 }
 

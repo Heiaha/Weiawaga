@@ -28,54 +28,53 @@ impl MoveSorter {
         ply: Ply,
         hash_move: Option<Move>,
     ) {
-        let mut m: Move;
         for idx in 0..moves.len() {
-            m = moves[idx];
-
-            if Some(m) == hash_move {
-                moves.scores[idx] += Self::HASH_MOVE_SCORE;
-                continue;
-            }
-
-            if m.is_quiet() {
-                if self.is_killer(board, m, ply) {
-                    moves.scores[idx] += Self::KILLER_MOVE_SCORE;
-                    continue;
-                }
-
-                if m.is_castling() {
-                    moves.scores[idx] += Self::CASTLING_SCORE;
-                    continue;
-                }
-
-                moves.scores[idx] += Self::HISTORY_MOVE_OFFSET + self.history_score(m);
-                continue;
-            }
-
-            if m.is_capture() {
-                if m.is_ep() {
-                    moves.scores[idx] += Self::WINNING_CAPTURES_OFFSET;
-                    continue;
-                }
-
-                moves.scores[idx] += Self::mvv_lva_score(board, m);
-
-                if Self::see(board, m, -100) {
-                    moves.scores[idx] += Self::WINNING_CAPTURES_OFFSET;
-                } else {
-                    moves.scores[idx] += Self::LOSING_CAPTURES_OFFSET;
-                }
-            }
-
-            moves.scores[idx] += match m.promotion() {
-                PieceType::Knight => Self::KNIGHT_PROMOTION_SCORE,
-                PieceType::Bishop => Self::BISHOP_PROMOTION_SCORE,
-                PieceType::Rook => Self::ROOK_PROMOTION_SCORE,
-                PieceType::Queen => Self::QUEEN_PROMOTION_SCORE,
-                PieceType::None => 0,
-                _ => unreachable!(),
-            };
+            moves.scores[idx] = self.score_move(moves[idx], board, ply, hash_move);
         }
+    }
+
+    #[inline(always)]
+    fn score_move(&self, m: Move, board: &Board, ply: Ply, hash_move: Option<Move>) -> Value {
+        if Some(m) == hash_move {
+            return Self::HASH_MOVE_SCORE;
+        }
+
+        if m.is_quiet() {
+            if self.is_killer(board, m, ply) {
+                return Self::KILLER_MOVE_SCORE;
+            }
+
+            if m.is_castling() {
+                return Self::CASTLING_SCORE;
+            }
+
+            return Self::HISTORY_MOVE_OFFSET + self.history_score(m);
+        }
+
+        let mut score = 0;
+        if m.is_capture() {
+            if m.is_ep() {
+                return Self::WINNING_CAPTURES_OFFSET;
+            }
+
+            score += Self::mvv_lva_score(board, m);
+
+            if Self::see(board, m, -100) {
+                score += Self::WINNING_CAPTURES_OFFSET;
+            } else {
+                score += Self::LOSING_CAPTURES_OFFSET;
+            }
+        }
+
+        score += match m.promotion() {
+            PieceType::Knight => Self::KNIGHT_PROMOTION_SCORE,
+            PieceType::Bishop => Self::BISHOP_PROMOTION_SCORE,
+            PieceType::Rook => Self::ROOK_PROMOTION_SCORE,
+            PieceType::Queen => Self::QUEEN_PROMOTION_SCORE,
+            PieceType::None => 0,
+            _ => unreachable!(),
+        };
+        score
     }
 
     #[inline(always)]
