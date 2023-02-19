@@ -115,8 +115,7 @@ impl TryFrom<&str> for UCICommand {
                 .split_terminator("setoption name ")
                 .nth(1)
                 .ok_or("Could not parse option.")?
-                .split_whitespace()
-                .into_iter();
+                .split_whitespace();
 
             let name = words
                 .by_ref()

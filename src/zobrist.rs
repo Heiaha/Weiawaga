@@ -10,7 +10,7 @@ impl Rng {
         self.0 ^= self.0 >> 12;
         self.0 ^= self.0 << 25;
         self.0 ^= self.0 >> 27;
-        return self.0.wrapping_mul(2685821657736338717);
+        self.0.wrapping_mul(2685821657736338717)
     }
 }
 

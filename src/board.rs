@@ -100,7 +100,7 @@ impl Board {
 
     #[inline(always)]
     pub fn eval(&self) -> Value {
-        self.network.eval(&self) * self.ctm.factor()
+        self.network.eval(self) * self.ctm.factor()
     }
 
     #[inline(always)]
@@ -1182,7 +1182,7 @@ impl Board {
             .or(Err("Unable to parse full move counter."))?
             .max(1);
 
-        if pieces_placement.split("/").count() != Rank::N_RANKS {
+        if pieces_placement.split('/').count() != Rank::N_RANKS {
             return Err("Pieces Placement FEN should have 8 ranks.");
         }
 
@@ -1194,7 +1194,7 @@ impl Board {
             self.hasher.update_color();
         }
 
-        let ranks = pieces_placement.split("/");
+        let ranks = pieces_placement.split('/');
         for (rank_idx, rank_fen) in ranks.enumerate() {
             let mut idx = (7 - rank_idx) * 8;
 

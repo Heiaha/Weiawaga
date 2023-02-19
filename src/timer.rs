@@ -27,11 +27,11 @@ pub enum TimeControl {
 
 impl TimeControl {
     pub fn parse_next<T: FromStr>(split: &mut SplitWhitespace) -> Result<T, &'static str> {
-        Ok(split
+        split
             .next()
             .ok_or("Must provide a value")?
             .parse()
-            .or(Err("Unable to parse value."))?)
+            .or(Err("Unable to parse value."))
     }
 }
 
