@@ -59,7 +59,7 @@ impl MoveSorter {
 
             score += Self::mvv_lva_score(board, m);
 
-            if Self::see(board, m, -100) {
+            if Self::see(board, m) {
                 score += Self::WINNING_CAPTURES_OFFSET;
             } else {
                 score += Self::LOSING_CAPTURES_OFFSET;
@@ -118,14 +118,14 @@ impl MoveSorter {
         self.history_scores[m.from_sq().index()][m.to_sq().index()]
     }
 
-    pub fn see(board: &Board, m: Move, threshold: Value) -> bool {
+    pub fn see(board: &Board, m: Move) -> bool {
         if m.promotion() != PieceType::None {
             return true;
         }
 
         let from_sq = m.from_sq();
         let to_sq = m.to_sq();
-        let mut value = Self::SEE_PIECE_TYPE[board.piece_type_at(to_sq).index()] - threshold;
+        let mut value = Self::SEE_PIECE_TYPE[board.piece_type_at(to_sq).index()];
 
         if value < 0 {
             return false;
