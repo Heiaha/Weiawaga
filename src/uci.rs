@@ -82,55 +82,51 @@ impl TryFrom<&str> for UCICommand {
             Ok(Self::Quit)
         } else if line == "isready" {
             Ok(Self::IsReady)
-        } else if line.starts_with("go") {
-            let time_control = TimeControl::try_from(line)?;
+        } else if let Some(tc_info) = line.strip_prefix("go") {
+            let time_control = TimeControl::try_from(tc_info.trim())?;
             Ok(Self::Go(time_control))
-        } else if line.starts_with("position") {
-            let position_str = line.trim_start_matches("position ");
+        } else if let Some(position_str) = line.strip_prefix("position") {
+            let position_str = position_str.trim();
+
             let fen = if position_str.starts_with("startpos") {
                 None
             } else {
-                Some(String::from(position_str.trim_start_matches("fen")))
-            };
-            let mut move_strs = Vec::new();
-            if line.contains("moves") {
-                if let Some(moves_str) = line.split_terminator("moves ").nth(1) {
-                    moves_str
+                Some(
+                    position_str
+                        .trim_start_matches("fen")
                         .split_whitespace()
+                        .take_while(|p| *p != "moves")
                         .map(String::from)
-                        .for_each(|move_str| move_strs.push(move_str));
+                        .fold(String::new(), |a, b| format!("{} {}", a, b)),
+                )
+            };
+
+            let mut move_strs = Vec::new();
+            if let Some(moves_str) = position_str.split_terminator("moves").nth(1) {
+                for move_str in moves_str.split_whitespace() {
+                    move_strs.push(String::from(move_str));
                 }
             }
+
             Ok(Self::Position(fen, move_strs))
-        } else if line.starts_with("perft") {
-            let depth = line
-                .split_whitespace()
-                .nth(1)
-                .ok_or("perft command requires a depth.")?
+        } else if let Some(perft_depth) = line.strip_prefix("perft") {
+            let depth = perft_depth
+                .trim()
                 .parse()
                 .or(Err("Unable to parse depth."))?;
             Ok(Self::Perft(depth))
-        } else if line.starts_with("setoption") {
-            let mut words = line
-                .split_terminator("setoption name ")
-                .nth(1)
-                .ok_or("Could not parse option.")?
-                .split_whitespace();
+        } else if let Some(option_info) = line.strip_prefix("setoption") {
+            let mut option_iter = option_info.split_whitespace();
+            if option_iter.next() != Some("name") {
+                return Err("Option must include a 'name' part.");
+            }
 
-            let name = words
+            let name = option_iter
                 .by_ref()
                 .take_while(|word| *word != "value")
-                .map(String::from)
-                .fold(String::new(), |a, b| format!("{} {}", a, b))
-                .trim()
-                .to_string();
+                .collect();
 
-            let value = words
-                .by_ref()
-                .map(String::from)
-                .fold(String::new(), |a, b| format!("{} {}", a, b))
-                .trim()
-                .to_string();
+            let value = option_iter.collect();
 
             Ok(Self::Option(name, value))
         } else {

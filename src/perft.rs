@@ -4,7 +4,7 @@ use super::board::*;
 use super::move_list::*;
 use super::types::*;
 
-pub fn perft(board: &mut Board, depth: Depth) -> u128 {
+fn perft(board: &mut Board, depth: Depth) -> u128 {
     let moves: MoveList = MoveList::from(board);
 
     if depth == 1 {
@@ -28,20 +28,25 @@ pub fn print_perft(board: &mut Board, depth: Depth) -> u128 {
     let mut nodes = 0;
     for m in moves {
         print!("{}: ", m);
-        board.push(m);
-        let move_nodes = perft(board, depth - 1);
-        board.pop();
+        let move_nodes;
+        if depth <= 1 {
+            move_nodes = 1;
+        } else {
+            board.push(m);
+            move_nodes = perft(board, depth - 1);
+            board.pop();
+        }
         nodes += move_nodes;
         println!("{}", move_nodes);
     }
-    let elapsed = now.elapsed().as_millis() / 1000;
+    let elapsed = now.elapsed().as_secs_f32();
     println!();
     println!("{:?}", board);
     println!("FEN: {}", board);
-    println!("Hash: {}", board.hash());
+    println!("Hash: {:#x}", board.hash());
     println!("Nodes: {}", nodes);
-    if elapsed > 0 {
-        println!("NPS: {:.0}", nodes / elapsed);
+    if elapsed > 0.0 {
+        println!("NPS: {:.0}", nodes as f32 / elapsed);
         println!("Elapsed: {:.1} seconds", elapsed);
     }
     nodes

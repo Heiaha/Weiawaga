@@ -44,7 +44,7 @@ impl SearchMaster {
                     println!("id author {}", env!("CARGO_PKG_AUTHORS"));
                     println!("option name Hash type spin default 16 min 1 max 65536");
                     println!("option name Threads type spin default 1 min 1 max 512");
-                    println!("option name Move Overhead type spin default 0 min 0 max 5000");
+                    println!("option name Overhead type spin default 0 min 0 max 5000");
                     println!("uciok");
                 }
                 UCICommand::Position(fen, move_strs) => {
@@ -69,7 +69,7 @@ impl SearchMaster {
         }
     }
 
-    pub fn go(&mut self, time_control: TimeControl) {
+    fn go(&mut self, time_control: TimeControl) {
         self.stop.store(false, Ordering::SeqCst);
 
         let best_move = thread::scope(|s| {
@@ -151,16 +151,13 @@ impl SearchMaster {
                     );
                 }
             }
-            "Move Overhead" => {
+            "Overhead" => {
                 if let Ok(overhead) = value.parse() {
                     self.overhead = Duration::from_millis(overhead);
-                    println!(
-                        "info string set Move Overhead to {}",
-                        self.overhead.as_millis()
-                    );
+                    println!("info string set Overhead to {}", self.overhead.as_millis());
                 } else {
                     eprintln!(
-                        "info string ERROR: error parsing Move Overhead value; value remains at {}.",
+                        "info string ERROR: error parsing Overhead value; value remains at {}.",
                         self.overhead.as_millis()
                     );
                 }
