@@ -86,7 +86,6 @@ impl TryFrom<&str> for UCICommand {
             let time_control = TimeControl::try_from(tc_info)?;
             Ok(Self::Go(time_control))
         } else if let Some(position_str) = line.strip_prefix("position ") {
-
             let fen = if position_str.starts_with("startpos") {
                 None
             } else if let Some(fen_str) = position_str.strip_prefix("fen ") {
@@ -110,9 +109,7 @@ impl TryFrom<&str> for UCICommand {
 
             Ok(Self::Position(fen, move_strs))
         } else if let Some(perft_depth) = line.strip_prefix("perft ") {
-            let depth = perft_depth
-                .parse()
-                .or(Err("Unable to parse depth."))?;
+            let depth = perft_depth.parse().or(Err("Unable to parse depth."))?;
             Ok(Self::Perft(depth))
         } else if let Some(option_info) = line.strip_prefix("setoption ") {
             let mut option_iter = option_info.split_whitespace();
