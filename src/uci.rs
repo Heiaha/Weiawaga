@@ -82,23 +82,23 @@ impl TryFrom<&str> for UCICommand {
             Ok(Self::Quit)
         } else if line == "isready" {
             Ok(Self::IsReady)
-        } else if let Some(tc_info) = line.strip_prefix("go") {
-            let time_control = TimeControl::try_from(tc_info.trim())?;
+        } else if let Some(tc_info) = line.strip_prefix("go ") {
+            let time_control = TimeControl::try_from(tc_info)?;
             Ok(Self::Go(time_control))
-        } else if let Some(position_str) = line.strip_prefix("position") {
-            let position_str = position_str.trim();
+        } else if let Some(position_str) = line.strip_prefix("position ") {
 
             let fen = if position_str.starts_with("startpos") {
                 None
-            } else {
+            } else if let Some(fen_str) = position_str.strip_prefix("fen ") {
                 Some(
-                    position_str
-                        .trim_start_matches("fen")
+                    fen_str
                         .split_whitespace()
                         .take_while(|p| *p != "moves")
                         .map(String::from)
                         .fold(String::new(), |a, b| format!("{} {}", a, b)),
                 )
+            } else {
+                return Err("Unable to parse position.");
             };
 
             let mut move_strs = Vec::new();
@@ -109,13 +109,12 @@ impl TryFrom<&str> for UCICommand {
             }
 
             Ok(Self::Position(fen, move_strs))
-        } else if let Some(perft_depth) = line.strip_prefix("perft") {
+        } else if let Some(perft_depth) = line.strip_prefix("perft ") {
             let depth = perft_depth
-                .trim()
                 .parse()
                 .or(Err("Unable to parse depth."))?;
             Ok(Self::Perft(depth))
-        } else if let Some(option_info) = line.strip_prefix("setoption") {
+        } else if let Some(option_info) = line.strip_prefix("setoption ") {
             let mut option_iter = option_info.split_whitespace();
             if option_iter.next() != Some("name") {
                 return Err("Option must include a 'name' part.");
