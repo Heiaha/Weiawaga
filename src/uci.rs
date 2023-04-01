@@ -63,6 +63,7 @@ pub enum UCICommand {
     Perft(Depth),
     Option(String, String),
     Eval,
+    Fen,
 }
 
 impl TryFrom<&str> for UCICommand {
@@ -78,17 +79,20 @@ impl TryFrom<&str> for UCICommand {
             Ok(Self::UCI)
         } else if line == "eval" {
             Ok(Self::Eval)
+        } else if line == "fen" {
+            Ok(Self::Fen)
         } else if line == "quit" {
             Ok(Self::Quit)
         } else if line == "isready" {
             Ok(Self::IsReady)
-        } else if let Some(tc_info) = line.strip_prefix("go ") {
+        } else if let Some(tc_info) = line.strip_prefix("go") {
             let time_control = TimeControl::try_from(tc_info)?;
             Ok(Self::Go(time_control))
-        } else if let Some(position_str) = line.strip_prefix("position ") {
+        } else if let Some(position_str) = line.strip_prefix("position") {
+            let position_str = position_str.trim();
             let fen = if position_str.starts_with("startpos") {
                 None
-            } else if let Some(fen_str) = position_str.strip_prefix("fen ") {
+            } else if let Some(fen_str) = position_str.strip_prefix("fen") {
                 Some(
                     fen_str
                         .split_whitespace()
@@ -100,12 +104,12 @@ impl TryFrom<&str> for UCICommand {
                 return Err("Unable to parse position.");
             };
 
-            let mut move_strs = Vec::new();
-            if let Some(moves_str) = position_str.split_terminator("moves").nth(1) {
-                for move_str in moves_str.split_whitespace() {
-                    move_strs.push(String::from(move_str));
-                }
-            }
+            let move_strs = position_str
+                .split_whitespace()
+                .skip_while(|p| *p != "moves")
+                .skip(1)
+                .map(String::from)
+                .collect();
 
             Ok(Self::Position(fen, move_strs))
         } else if let Some(perft_depth) = line.strip_prefix("perft ") {

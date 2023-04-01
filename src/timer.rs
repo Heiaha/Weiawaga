@@ -39,7 +39,11 @@ impl TryFrom<&str> for TimeControl {
     type Error = &'static str;
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        let mut result = Ok(Self::Infinite);
+        let mut result = Err("Unable to parse go parameters.");
+
+        if s.is_empty() {
+            return Ok(Self::Infinite);
+        }
 
         let mut wtime = None;
         let mut btime = None;

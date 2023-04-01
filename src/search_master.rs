@@ -62,6 +62,9 @@ impl SearchMaster {
                 UCICommand::Eval => {
                     println!("{}", self.board.eval());
                 }
+                UCICommand::Fen => {
+                    println!("{}", self.board);
+                }
                 _ => {
                     eprintln!("Unexpected UCI Command.");
                 }
