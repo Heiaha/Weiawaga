@@ -155,7 +155,7 @@ impl MoveSorter {
 
             // We know at this point that there must be a piece, so find the least valuable attacker.
             let attacking_pt = PieceType::iter(PieceType::Pawn, PieceType::King)
-                .find(|pt| stm_attackers & board.bitboard_of_pt(*pt) != Bitboard::ZERO)
+                .find(|&pt| stm_attackers & board.bitboard_of_pt(pt) != Bitboard::ZERO)
                 .unwrap();
 
             ctm = !ctm;
@@ -175,13 +175,14 @@ impl MoveSorter {
                 .lsb()
                 .bb();
 
-            if attacking_pt == PieceType::Pawn
-                || attacking_pt == PieceType::Bishop
-                || attacking_pt == PieceType::Queen
-            {
+            if matches!(
+                attacking_pt,
+                PieceType::Pawn | PieceType::Bishop | PieceType::Queen
+            ) {
                 attackers |= attacks::bishop_attacks(to_sq, occ) & diagonal_sliders;
             }
-            if attacking_pt == PieceType::Rook || attacking_pt == PieceType::Queen {
+
+            if matches!(attacking_pt, PieceType::Rook | PieceType::Queen) {
                 attackers |= attacks::rook_attacks(to_sq, occ) & orthogonal_sliders;
             }
         }
