@@ -218,12 +218,17 @@ impl<'a> Search<'a> {
         }
 
         ///////////////////////////////////////////////////////////////////
+        // Check if we're in a pv node
+        ///////////////////////////////////////////////////////////////////
+        let is_pv = alpha != beta - 1;
+
+        ///////////////////////////////////////////////////////////////////
         // Probe the hash table and adjust the value.
         // If appropriate, produce a cutoff.
         ///////////////////////////////////////////////////////////////////
         let mut hash_move = None;
         if let Some(tt_entry) = self.tt.probe(board) {
-            if tt_entry.depth() >= depth {
+            if tt_entry.depth() >= depth && !is_pv {
                 match tt_entry.flag() {
                     Bound::Exact => return tt_entry.value(),
                     Bound::Lower => alpha = max(alpha, tt_entry.value()),
@@ -235,11 +240,6 @@ impl<'a> Search<'a> {
             }
             hash_move = Some(tt_entry.best_move());
         }
-
-        ///////////////////////////////////////////////////////////////////
-        // Check if we're in a pv node
-        ///////////////////////////////////////////////////////////////////
-        let is_pv = alpha != beta - 1;
 
         ///////////////////////////////////////////////////////////////////
         // Reverse Futility Pruning
