@@ -362,7 +362,13 @@ impl<'a> Search<'a> {
         alpha
     }
 
-    fn q_search(&mut self, board: &mut Board, mut alpha: Value, beta: Value, ply: Ply) -> Value {
+    fn q_search(
+        &mut self,
+        board: &mut Board,
+        mut alpha: Value,
+        mut beta: Value,
+        ply: Ply,
+    ) -> Value {
         if self.stop || self.timer.stop_check() {
             self.stop = true;
             return 0;
@@ -385,6 +391,14 @@ impl<'a> Search<'a> {
 
         let mut hash_move = None;
         if let Some(tt_entry) = self.tt.probe(board) {
+            match tt_entry.flag() {
+                Bound::Exact => return tt_entry.value(),
+                Bound::Lower => alpha = max(alpha, tt_entry.value()),
+                Bound::Upper => beta = min(beta, tt_entry.value()),
+            }
+            if alpha >= beta {
+                return tt_entry.value();
+            }
             hash_move = Some(tt_entry.best_move());
         }
 
