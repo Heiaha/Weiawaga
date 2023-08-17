@@ -71,23 +71,13 @@ impl Bitboard {
     }
 
     pub fn fill(self, dir: Direction) -> Self {
-        let mut result = self;
         match dir {
-            Direction::North => {
-                result |= result << 8;
-                result |= result << 16;
-                result |= result << 32;
-            }
-            Direction::South => {
-                result |= result >> 8;
-                result |= result >> 16;
-                result |= result >> 32;
-            }
+            Direction::North => self | (self << 8) | (self << 16) | (self << 32),
+            Direction::South => self | (self >> 8) | (self >> 16) | (self >> 32),
             _ => {
                 panic!("Filling a file by something other than North or South.")
             }
         }
-        result
     }
 }
 

@@ -131,43 +131,25 @@ impl SearchMaster {
     }
 
     fn set_option(&mut self, name: String, value: String) {
-        match name.as_ref() {
-            "Hash" => {
-                if let Ok(mb_size) = value.parse() {
-                    self.tt = TT::new(mb_size);
-                    println!("info string set Hash to {}MB", self.tt.mb_size());
-                } else {
-                    eprintln!(
-                        "info string ERROR: error parsing Hash value; value remains at {}MB",
-                        self.tt.mb_size()
-                    );
-                }
+        let result = match (name.as_ref(), value.parse::<u128>()) {
+            ("Hash", Ok(parsed_value)) => {
+                self.tt = TT::new(parsed_value as usize);
+                format!("Hash to {}MB", self.tt.mb_size())
             }
-            "Threads" => {
-                if let Ok(num_threads) = value.parse() {
-                    self.num_threads = num_threads;
-                    println!("info string set Threads to {}", self.num_threads);
-                } else {
-                    eprintln!(
-                        "info string ERROR: error parsing Threads value; value remains at {}.",
-                        self.num_threads
-                    );
-                }
+            ("Threads", Ok(parsed_value)) => {
+                self.num_threads = parsed_value as u16;
+                format!("Threads to {}", self.num_threads)
             }
-            "Overhead" => {
-                if let Ok(overhead) = value.parse() {
-                    self.overhead = Duration::from_millis(overhead);
-                    println!("info string set Overhead to {}", self.overhead.as_millis());
-                } else {
-                    eprintln!(
-                        "info string ERROR: error parsing Overhead value; value remains at {}.",
-                        self.overhead.as_millis()
-                    );
-                }
+            ("Overhead", Ok(parsed_value)) => {
+                self.overhead = Duration::from_millis(parsed_value as u64);
+                format!("Overhead to {}ms", self.overhead.as_millis())
             }
             _ => {
-                eprintln!("Option not recognized.")
+                eprintln!("info string ERROR: Option not recognized or parsing error.");
+                return;
             }
-        }
+        };
+
+        println!("info string set {}", result);
     }
 }

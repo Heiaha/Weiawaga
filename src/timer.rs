@@ -173,23 +173,24 @@ impl Timer {
 
     pub fn stop_check(&mut self) -> bool {
         self.times_checked += 1;
-        if self.times_checked & Self::CHECK_FLAG == 0
-            && self.stop.load(sync::atomic::Ordering::Relaxed)
-        {
+
+        let should_check = self.times_checked & Self::CHECK_FLAG == 0;
+
+        if should_check && self.stop.load(sync::atomic::Ordering::Relaxed) {
             return true;
         }
 
         let stop = match self.control {
             TimeControl::Infinite => false,
             TimeControl::FixedDuration(duration) => {
-                if self.times_checked & Self::CHECK_FLAG == 0 {
+                if should_check {
                     self.elapsed() + self.overhead >= duration
                 } else {
                     false
                 }
             }
             TimeControl::Variable { .. } => {
-                if self.times_checked & Self::CHECK_FLAG == 0 {
+                if should_check {
                     self.elapsed() + self.overhead >= self.time_maximum
                 } else {
                     false
@@ -198,6 +199,7 @@ impl Timer {
             TimeControl::FixedDepth(_) => false,
             TimeControl::FixedNodes(nodes) => self.times_checked >= nodes,
         };
+
         if stop {
             self.stop.store(true, sync::atomic::Ordering::Relaxed);
         }

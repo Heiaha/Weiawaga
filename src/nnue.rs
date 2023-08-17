@@ -80,14 +80,16 @@ impl Network {
             [bucket_idx..bucket_idx + self.input_layer.activations.len()]
             .iter();
 
-        self.input_layer
+        output += self
+            .input_layer
             .activations
             .iter()
-            .map(|x| Self::clipped_relu(*x))
             .zip(weights)
-            .for_each(|(clipped_activation, weight)| {
-                output += (clipped_activation as Value) * (*weight as Value)
-            });
+            .map(|(activation, weight)| {
+                (Self::clipped_relu(*activation) as Value) * (*weight as Value)
+            })
+            .sum::<Value>();
+
         output / (Self::SCALE * Self::SCALE) as Value
     }
 
