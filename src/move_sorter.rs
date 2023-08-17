@@ -57,13 +57,12 @@ impl MoveSorter {
                 return Self::WINNING_CAPTURES_OFFSET;
             }
 
-            score += Self::mvv_lva_score(board, m);
-
-            if Self::see(board, m) {
-                score += Self::WINNING_CAPTURES_OFFSET;
-            } else {
-                score += Self::LOSING_CAPTURES_OFFSET;
-            }
+            score += Self::mvv_lva_score(board, m)
+                + if Self::see(board, m) {
+                    Self::WINNING_CAPTURES_OFFSET
+                } else {
+                    Self::LOSING_CAPTURES_OFFSET
+                };
         }
 
         score += match m.promotion() {
@@ -85,8 +84,10 @@ impl MoveSorter {
 
     pub fn add_killer(&mut self, board: &Board, m: Move, ply: Ply) {
         let color = board.ctm().index();
-        self.killer_moves[color][ply].rotate_right(1);
-        self.killer_moves[color][ply][0] = Some(m);
+        let killer_moves = &mut self.killer_moves[color][ply];
+
+        killer_moves.rotate_right(1);
+        killer_moves[0] = Some(m);
     }
 
     pub fn add_history(&mut self, m: Move, depth: Depth) {
@@ -105,12 +106,7 @@ impl MoveSorter {
     }
 
     fn is_killer(&self, board: &Board, m: Move, ply: usize) -> bool {
-        for killer_move in self.killer_moves[board.ctm().index()][ply] {
-            if Some(m) == killer_move {
-                return true;
-            }
-        }
-        false
+        self.killer_moves[board.ctm().index()][ply].contains(&Some(m))
     }
 
     #[inline(always)]
