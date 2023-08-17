@@ -39,7 +39,9 @@ impl TryFrom<&str> for TimeControl {
     type Error = &'static str;
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        let mut result = Err("Unable to parse go parameters.");
+        if s.is_empty() {
+            return Ok(TimeControl::Infinite)
+        }
 
         if s.is_empty() {
             return Ok(Self::Infinite);
@@ -54,14 +56,14 @@ impl TryFrom<&str> for TimeControl {
         let mut split = s.split_whitespace();
         while let Some(key) = split.next() {
             match key {
-                "infinite" => result = Ok(Self::Infinite),
+                "infinite" => return Ok(Self::Infinite),
                 "movetime" => {
-                    result = Ok(Self::FixedDuration(Duration::from_millis(
+                    return Ok(Self::FixedDuration(Duration::from_millis(
                         Self::parse_next(&mut split)?,
                     )))
                 }
-                "nodes" => result = Ok(Self::FixedNodes(Self::parse_next(&mut split)?)),
-                "depth" => result = Ok(Self::FixedDepth(Self::parse_next(&mut split)?)),
+                "nodes" => return Ok(Self::FixedNodes(Self::parse_next(&mut split)?)),
+                "depth" => return Ok(Self::FixedDepth(Self::parse_next(&mut split)?)),
                 "wtime" => wtime = Some(Duration::from_millis(Self::parse_next(&mut split)?)),
                 "btime" => btime = Some(Duration::from_millis(Self::parse_next(&mut split)?)),
                 "winc" => winc = Some(Duration::from_millis(Self::parse_next(&mut split)?)),
@@ -76,7 +78,7 @@ impl TryFrom<&str> for TimeControl {
         }
 
         if let (Some(wtime), Some(btime)) = (wtime, btime) {
-            result = Ok(Self::Variable {
+            return Ok(Self::Variable {
                 wtime,
                 btime,
                 winc,
@@ -84,7 +86,7 @@ impl TryFrom<&str> for TimeControl {
                 moves_to_go,
             });
         }
-        result
+        Err("Unable to parse go parameters.")
     }
 }
 
