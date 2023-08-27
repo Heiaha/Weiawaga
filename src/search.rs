@@ -514,7 +514,7 @@ impl<'a> Search<'a> {
 
         let elapsed = self.timer.elapsed();
 
-        println!("info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv}",
+        println!("info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} pv {pv}",
                  m = m,
                  depth = depth,
                  sel_depth = self.sel_depth,
@@ -522,7 +522,6 @@ impl<'a> Search<'a> {
                  score_str = score_str,
                  nodes = self.nodes,
                  nps = (self.nodes as f64 / elapsed.as_secs_f64()) as u64,
-                 hashfull = self.tt.hashfull(),
                  pv = self.get_pv(board, depth));
     }
 
