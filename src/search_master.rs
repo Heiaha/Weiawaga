@@ -38,6 +38,7 @@ impl SearchMaster {
                 }
                 UCICommand::UCINewGame => {
                     self.board.reset();
+                    self.tt.clear();
                 }
                 UCICommand::UCI => {
                     println!("id name Weiawaga v{}", env!("CARGO_PKG_VERSION"));
@@ -105,8 +106,6 @@ impl SearchMaster {
             Some(m) => println!("bestmove {}", m),
             None => println!("bestmove (none)"),
         }
-
-        self.tt.clear();
     }
 
     fn set_board(&mut self, fen: Option<String>, move_strs: Vec<String>) {
