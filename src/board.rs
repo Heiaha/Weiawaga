@@ -226,10 +226,9 @@ impl Board {
             self.history[self.ply].half_move_counter(),
         ) as usize;
 
-        self.history[..self.ply]
+        self.history[self.ply - lookback..self.ply]
             .iter()
             .rev()
-            .take(lookback)
             .skip(1)
             .step_by(2)
             .any(|entry| self.material_hash() == entry.material_hash())

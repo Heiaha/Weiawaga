@@ -99,13 +99,20 @@ impl TT {
 
     #[inline(always)]
     pub fn insert(&self, board: &Board, depth: Depth, value: Value, best_move: Move, flag: Bound) {
-        self.table[self.index(board)]
-            .write(board.hash(), TTEntry::new(value, best_move, depth, flag))
+        unsafe {
+            self.table
+                .get_unchecked(self.index(board))
+                .write(board.hash(), TTEntry::new(value, best_move, depth, flag))
+        }
     }
 
     #[inline(always)]
     pub fn probe(&self, board: &Board) -> Option<TTEntry> {
-        self.table[self.index(board)].read(board.hash())
+        unsafe {
+            self.table
+                .get_unchecked(self.index(board))
+                .read(board.hash())
+        }
     }
 
     pub fn clear(&mut self) {

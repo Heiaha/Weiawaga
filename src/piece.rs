@@ -99,7 +99,7 @@ impl fmt::Display for Piece {
 }
 
 impl Piece {
-    pub const N_PIECES: usize = 13;
+    pub const N_PIECES: usize = 12;
     const PIECE_STR: &'static str = "PNBRQK  pnbrqk ";
 }
 
