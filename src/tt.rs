@@ -142,6 +142,7 @@ impl TT {
     }
 
     #[inline(always)]
+    #[allow(unused_variables)]
     pub fn prefetch(&self, board: &Board) {
         #[cfg(target_arch = "x86_64")]
         unsafe {
