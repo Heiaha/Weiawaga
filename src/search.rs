@@ -287,6 +287,10 @@ impl<'a> Search<'a> {
             ///////////////////////////////////////////////////////////////////
             board.push(m);
 
+            if depth > 1 {
+                self.tt.prefetch(board);
+            }
+
             if idx == 0 {
                 value = -self.search(board, depth - 1, -beta, -alpha, ply + 1);
             } else {

@@ -1,3 +1,5 @@
+#[cfg(target_arch = "x86_64")]
+use core::arch::x86_64;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::board::*;
@@ -137,6 +139,15 @@ impl TT {
             .take(1000)
             .filter(|&entry| entry.is_used())
             .count()
+    }
+
+    #[inline(always)]
+    pub fn prefetch(&self, board: &Board) {
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            let ptr = self.table.get_unchecked(self.index(board)) as *const AtomicEntry as *const i8;
+            x86_64::_mm_prefetch(ptr, x86_64::_MM_HINT_T0);
+        }
     }
 }
 
