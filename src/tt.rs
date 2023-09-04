@@ -146,7 +146,8 @@ impl TT {
     pub fn prefetch(&self, board: &Board) {
         #[cfg(target_arch = "x86_64")]
         unsafe {
-            let ptr = self.table.get_unchecked(self.index(board)) as *const AtomicEntry as *const i8;
+            let ptr =
+                self.table.get_unchecked(self.index(board)) as *const AtomicEntry as *const i8;
             x86_64::_mm_prefetch(ptr, x86_64::_MM_HINT_T0);
         }
     }
