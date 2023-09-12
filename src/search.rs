@@ -68,7 +68,7 @@ impl<'a> Search<'a> {
             // by a lot.
             ///////////////////////////////////////////////////////////////////
             if depth >= Self::SEARCHES_WO_TIMER_UPDATE {
-                self.timer.update(value);
+                self.timer.update(best_move);
             }
 
             ///////////////////////////////////////////////////////////////////
@@ -541,7 +541,7 @@ impl<'a> Search<'a> {
 
 impl<'a> Search<'a> {
     const PRINT_CURRMOVENUMBER_TIME: Duration = Duration::from_millis(3000);
-    const SEARCHES_WO_TIMER_UPDATE: Depth = 4;
+    const SEARCHES_WO_TIMER_UPDATE: Depth = 8;
     const RFP_MAX_DEPTH: Depth = 8;
     const RFP_MARGIN_MULTIPLIER: Value = 120;
     const ASPIRATION_WINDOW: Value = 25;

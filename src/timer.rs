@@ -1,3 +1,4 @@
+use crate::moov::Move;
 use std::cmp::min;
 use std::str::{FromStr, SplitWhitespace};
 use std::sync;
@@ -99,7 +100,7 @@ pub struct Timer {
     time_target: Duration,
     time_maximum: Duration,
     overhead: Duration,
-    last_score: Value,
+    best_move: Move,
 }
 
 impl Timer {
@@ -132,9 +133,16 @@ impl Timer {
             }
             .unwrap_or(Duration::ZERO);
 
-            let target = time.min(time / moves_to_go.unwrap_or(40) + inc);
-            time_target = target;
-            time_maximum = target + (time - target) / 4;
+            let mtg = moves_to_go.unwrap_or(
+                (Self::MTG_INTERCEPT
+                    + Self::MTG_EVAL_WEIGHT * (board.simple_eval().abs() as f32)
+                    + Self::MTG_MOVE_WEIGHT * (board.fullmove_number() as f32))
+                    .ceil()
+                    .max(1.0) as u32,
+            );
+
+            time_target = min(time / mtg + inc, time);
+            time_maximum = time_target + (time - time_target) / 4;
         }
 
         Self {
@@ -144,7 +152,7 @@ impl Timer {
             overhead,
             time_target,
             time_maximum,
-            last_score: 0,
+            best_move: Move::NULL,
             times_checked: 0,
         }
     }
@@ -217,21 +225,18 @@ impl Timer {
         self.start_time.elapsed()
     }
 
-    pub fn update(&mut self, score: Value) {
-        let diff = score - self.last_score;
-        self.last_score = score;
-
-        if diff > -25 {
-            return;
+    pub fn update(&mut self, best_move: Move) {
+        if !self.best_move.is_null() && best_move != self.best_move {
+            self.time_target = min(self.time_maximum, self.time_target * 3 / 2);
         }
 
-        if diff > -75 {
-            self.time_target = min(self.time_maximum, self.time_target * 5 / 4);
-        }
-        self.time_target = min(self.time_maximum, self.time_target * 3 / 2);
+        self.best_move = best_move;
     }
 }
 
 impl Timer {
     const CHECK_FLAG: u64 = 0x1000 - 1;
+    const MTG_INTERCEPT: f32 = 52.52;
+    const MTG_EVAL_WEIGHT: f32 = -0.01833;
+    const MTG_MOVE_WEIGHT: f32 = -0.465764;
 }

@@ -1230,6 +1230,22 @@ impl Board {
         Ok(())
     }
 
+    pub fn simple_eval_c(&self, color: Color) -> Value {
+        const PIECE_VALUES: [Value; PieceType::N_PIECE_TYPES] = [100, 305, 333, 563, 950, 0];
+
+        let mut eval = 0;
+        for piece_type in PieceType::iter(PieceType::Pawn, PieceType::Queen) {
+            eval += self.bitboard_of(color, piece_type).pop_count()
+                * PIECE_VALUES[piece_type.index()] as Value;
+        }
+
+        eval
+    }
+
+    pub fn simple_eval(&self) -> Value {
+        self.simple_eval_c(Color::White) - self.simple_eval_c(Color::Black)
+    }
+
     #[inline(always)]
     pub fn ctm(&self) -> Color {
         self.ctm
@@ -1248,6 +1264,10 @@ impl Board {
     #[inline(always)]
     pub fn material_hash(&self) -> Hash {
         self.hasher.material_hash()
+    }
+
+    pub fn fullmove_number(&self) -> usize {
+        self.ply / 2 + 1
     }
 }
 
