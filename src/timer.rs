@@ -238,5 +238,5 @@ impl Timer {
     const CHECK_FLAG: u64 = 0x1000 - 1;
     const MTG_INTERCEPT: f32 = 52.52;
     const MTG_EVAL_WEIGHT: f32 = -0.01833;
-    const MTG_MOVE_WEIGHT: f32 = -0.465764;
+    const MTG_MOVE_WEIGHT: f32 = -0.4657;
 }
