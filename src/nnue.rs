@@ -95,10 +95,10 @@ impl Network {
 
     #[inline(always)]
     fn clipped_relu(x: i16) -> i16 {
-        x.max(0).min(Self::SCALE)
+        x.clamp(0, Self::SCALE)
     }
 }
 
 impl Network {
-    const SCALE: i16 = 64;
+    const SCALE: i16 = 127;
 }
