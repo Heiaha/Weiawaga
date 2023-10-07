@@ -1,13 +1,13 @@
-use crate::moov::Move;
 use std::cmp::min;
 use std::str::{FromStr, SplitWhitespace};
 use std::sync;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 
 use super::board::*;
 use super::color::*;
+use super::moov::*;
 use super::types::*;
 
 // Some ideas taken from asymptote, which has a very elegant timer implementation.
