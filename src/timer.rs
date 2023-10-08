@@ -41,10 +41,6 @@ impl TryFrom<&str> for TimeControl {
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         if s.is_empty() {
-            return Ok(TimeControl::Infinite);
-        }
-
-        if s.is_empty() {
             return Ok(Self::Infinite);
         }
 
