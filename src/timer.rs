@@ -1,8 +1,8 @@
 use std::cmp::min;
 use std::str::{FromStr, SplitWhitespace};
 use std::sync;
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use super::board::*;
