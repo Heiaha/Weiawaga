@@ -62,11 +62,10 @@ impl SQ {
     }
 
     #[inline(always)]
-    pub fn relative(self, color: Color) -> Self {
-        if color == Color::White {
-            self
-        } else {
-            self.square_mirror()
+    pub fn relative(self, c: Color) -> Self {
+        match c {
+            Color::White => self,
+            Color::Black => self.square_mirror(),
         }
     }
 
@@ -170,10 +169,10 @@ pub enum Direction {
 
 impl Direction {
     pub fn relative(self, c: Color) -> Direction {
-        if c == Color::White {
-            return self;
+        match c {
+            Color::White => self,
+            Color::Black => Direction::from(-(self as i8)),
         }
-        Direction::from(-(self as i8))
     }
 }
 

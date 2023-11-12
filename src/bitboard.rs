@@ -97,46 +97,41 @@ impl Bitboard {
 
     #[inline(always)]
     pub fn oo_mask(c: Color) -> Self {
-        if c == Color::White {
-            Self::WHITE_OO_MASK
-        } else {
-            Self::BLACK_OO_MASK
+        match c {
+            Color::White => Self::WHITE_OO_MASK,
+            Color::Black => Self::BLACK_OO_MASK,
         }
     }
 
     #[inline(always)]
     pub fn ooo_mask(c: Color) -> Self {
-        if c == Color::White {
-            Self::WHITE_OOO_MASK
-        } else {
-            Self::BLACK_OOO_MASK
+        match c {
+            Color::White => Self::WHITE_OOO_MASK,
+            Color::Black => Self::BLACK_OOO_MASK,
         }
     }
 
     #[inline(always)]
     pub fn oo_blockers_mask(c: Color) -> Self {
-        if c == Color::White {
-            Self::WHITE_OO_BLOCKERS_AND_ATTACKERS_MASK
-        } else {
-            Self::BLACK_OO_BLOCKERS_AND_ATTACKERS_MASK
+        match c {
+            Color::White => Self::WHITE_OO_BLOCKERS_AND_ATTACKERS_MASK,
+            Color::Black => Self::BLACK_OO_BLOCKERS_AND_ATTACKERS_MASK,
         }
     }
 
     #[inline(always)]
     pub fn ooo_blockers_mask(c: Color) -> Self {
-        if c == Color::White {
-            Self::WHITE_OOO_BLOCKERS_AND_ATTACKERS_MASK
-        } else {
-            Self::BLACK_OOO_BLOCKERS_AND_ATTACKERS_MASK
+        match c {
+            Color::White => Self::WHITE_OOO_BLOCKERS_AND_ATTACKERS_MASK,
+            Color::Black => Self::BLACK_OOO_BLOCKERS_AND_ATTACKERS_MASK,
         }
     }
 
     #[inline(always)]
     pub fn ignore_ooo_danger(c: Color) -> Self {
-        if c == Color::White {
-            Self::WHITE_OOO_DANGER
-        } else {
-            Self::BLACK_OOO_DANGER
+        match c {
+            Color::White => Self::WHITE_OOO_DANGER,
+            Color::Black => Self::BLACK_OOO_DANGER,
         }
     }
 }
