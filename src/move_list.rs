@@ -41,13 +41,13 @@ impl MoveList {
 
     pub fn from(board: &Board) -> Self {
         let mut moves = Self::new();
-        board.generate_legal_moves(&mut moves);
+        board.generate_legal_moves::<true>(&mut moves);
         moves
     }
 
     pub fn from_q(board: &Board) -> Self {
         let mut moves = Self::new();
-        board.generate_legal_q_moves(&mut moves);
+        board.generate_legal_moves::<false>(&mut moves);
         moves
     }
 
