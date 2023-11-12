@@ -398,14 +398,6 @@ impl Board {
         let their_orth_sliders = self.orthogonal_sliders_c(them);
 
         ///////////////////////////////////////////////////////////////////
-        // General purpose bitboards.
-        ///////////////////////////////////////////////////////////////////
-
-        let mut b1;
-        let mut b2;
-        let mut b3;
-
-        ///////////////////////////////////////////////////////////////////
         // Danger squares for the king
         ///////////////////////////////////////////////////////////////////
         let mut danger = Bitboard::ZERO;
@@ -416,30 +408,33 @@ impl Board {
         danger |= attacks::pawn_attacks_bb(self.bitboard_of(them, PieceType::Pawn), them)
             | attacks::king_attacks(their_king);
 
-        b1 = self.bitboard_of(them, PieceType::Knight);
-        for sq in b1 {
-            danger |= attacks::knight_attacks(sq);
-        }
+        danger |= self
+            .bitboard_of(them, PieceType::Knight)
+            .map(attacks::knight_attacks)
+            .reduce(|a, b| a | b)
+            .unwrap_or(Bitboard::ZERO);
 
-        b1 = their_diag_sliders;
-        for sq in b1 {
-            danger |= attacks::bishop_attacks(sq, all ^ our_king.bb());
-        }
+        danger |= their_diag_sliders
+            .clone()
+            .map(|sq| attacks::bishop_attacks(sq, all ^ our_king.bb()))
+            .reduce(|a, b| a | b)
+            .unwrap_or(Bitboard::ZERO);
 
-        b1 = their_orth_sliders;
-        for sq in b1 {
-            danger |= attacks::rook_attacks(sq, all ^ our_king.bb());
-        }
+        danger |= their_orth_sliders
+            .clone()
+            .map(|sq| attacks::rook_attacks(sq, all ^ our_king.bb()))
+            .reduce(|a, b| a | b)
+            .unwrap_or(Bitboard::ZERO);
 
         ///////////////////////////////////////////////////////////////////
         // The king can move to any square that isn't attacked or occupied
         // by one of our pieces.
         ///////////////////////////////////////////////////////////////////
 
-        b1 = attacks::king_attacks(our_king) & !(us_bb | danger);
+        let king_attacks = attacks::king_attacks(our_king) & !(us_bb | danger);
 
-        moves.make_q(our_king, b1 & !them_bb);
-        moves.make_c(our_king, b1 & them_bb);
+        moves.make_q(our_king, king_attacks & !them_bb);
+        moves.make_c(our_king, king_attacks & them_bb);
 
         ///////////////////////////////////////////////////////////////////
         // The capture mask consists of destination squares containing enemy
@@ -471,16 +466,16 @@ impl Board {
         let mut pinned = Bitboard::ZERO;
 
         for sq in candidates {
-            b1 = Bitboard::between(our_king, sq) & us_bb;
+            let potentially_pinned = Bitboard::between(our_king, sq) & us_bb;
 
             ///////////////////////////////////////////////////////////////////
             // Do the squares between an enemy slider and our king contain any
             // pieces? If yes, that piece is pinned. Otherwise, we are checked.
             ///////////////////////////////////////////////////////////////////
-            if b1 == Bitboard::ZERO {
+            if potentially_pinned == Bitboard::ZERO {
                 checkers ^= sq.bb();
-            } else if b1.is_single() {
-                pinned ^= b1;
+            } else if potentially_pinned.is_single() {
+                pinned ^= potentially_pinned;
             }
         }
 
@@ -510,10 +505,11 @@ impl Board {
                                     .bb()
                                     .shift(Direction::South.relative(us))
                         {
-                            b1 = attacks::pawn_attacks_sq(self.history[self.ply].epsq(), them)
-                                & self.bitboard_of(us, PieceType::Pawn)
-                                & not_pinned;
-                            for sq in b1 {
+                            let pawns =
+                                attacks::pawn_attacks_sq(self.history[self.ply].epsq(), them)
+                                    & self.bitboard_of(us, PieceType::Pawn)
+                                    & not_pinned;
+                            for sq in pawns {
                                 moves.push(Move::new(
                                     sq,
                                     self.history[self.ply].epsq(),
@@ -521,8 +517,9 @@ impl Board {
                                 ));
                             }
                         }
-                        b1 = self.attackers_from_c(checker_square, all, us) & not_pinned;
-                        for sq in b1 {
+                        let checker_attackers =
+                            self.attackers_from_c(checker_square, all, us) & not_pinned;
+                        for sq in checker_attackers {
                             if self.piece_type_at(sq) == PieceType::Pawn
                                 && sq.rank().relative(us) == Rank::Seven
                             {
@@ -556,10 +553,11 @@ impl Board {
                 capture_mask = them_bb;
                 quiet_mask = !all;
                 if self.history[self.ply].epsq() != SQ::None {
-                    b2 = attacks::pawn_attacks_sq(self.history[self.ply].epsq(), them)
-                        & self.bitboard_of(us, PieceType::Pawn);
-                    b1 = b2 & not_pinned;
-                    for sq in b1 {
+                    let epsq_attackers =
+                        attacks::pawn_attacks_sq(self.history[self.ply].epsq(), them)
+                            & self.bitboard_of(us, PieceType::Pawn);
+                    let unpinned_epsq_attackers = epsq_attackers & not_pinned;
+                    for sq in unpinned_epsq_attackers {
                         ///////////////////////////////////////////////////////////////////
                         // From surge:
                         // This piece of evil bit-fiddling magic prevents the infamous 'pseudo-pinned' e.p. case,
@@ -600,10 +598,12 @@ impl Board {
                     // Pinned pawns can only capture ep if they are pinned diagonally
                     // and the ep square is in line with the king.
                     ///////////////////////////////////////////////////////////////////
-                    b1 = b2 & pinned & Bitboard::line(self.history[self.ply].epsq(), our_king);
-                    if b1 != Bitboard::ZERO {
+                    let pinned_epsq_attackers = epsq_attackers
+                        & pinned
+                        & Bitboard::line(self.history[self.ply].epsq(), our_king);
+                    if pinned_epsq_attackers != Bitboard::ZERO {
                         moves.push(Move::new(
-                            b1.lsb(),
+                            pinned_epsq_attackers.lsb(),
                             self.history[self.ply].epsq(),
                             MoveFlags::EnPassant,
                         ));
@@ -643,50 +643,55 @@ impl Board {
                 // For each pinned rook, bishop, or queen, only include attacks
                 // that are aligned with our king.
                 ///////////////////////////////////////////////////////////////////
-                b1 = !(not_pinned | self.bitboard_of(us, PieceType::Knight));
-                for sq in b1 {
-                    b2 = attacks::attacks(self.piece_type_at(sq), sq, all)
+                let pinned_pieces = !(not_pinned | self.bitboard_of(us, PieceType::Knight));
+                for sq in pinned_pieces {
+                    let attacks_along_pin = attacks::attacks(self.piece_type_at(sq), sq, all)
                         & Bitboard::line(our_king, sq);
                     if QUIET {
-                        moves.make_q(sq, b2 & quiet_mask);
+                        moves.make_q(sq, attacks_along_pin & quiet_mask);
                     }
-                    moves.make_c(sq, b2 & capture_mask);
+                    moves.make_c(sq, attacks_along_pin & capture_mask);
                 }
 
                 ///////////////////////////////////////////////////////////////////
                 // For each pinned pawn
                 ///////////////////////////////////////////////////////////////////
-                b1 = !not_pinned & self.bitboard_of(us, PieceType::Pawn);
-                for sq in b1 {
+                let pinned_pawns = !not_pinned & self.bitboard_of(us, PieceType::Pawn);
+                for sq in pinned_pawns {
                     ///////////////////////////////////////////////////////////////////
                     // Quiet promotions are impossible since the square in front of the
                     // pawn will be occupied
                     ///////////////////////////////////////////////////////////////////
                     if sq.rank() == Rank::Seven.relative(us) {
-                        b2 = attacks::pawn_attacks_sq(sq, us)
-                            & capture_mask
-                            & Bitboard::line(our_king, sq);
-                        moves.make_pc(sq, b2);
+                        moves.make_pc(
+                            sq,
+                            attacks::pawn_attacks_sq(sq, us)
+                                & capture_mask
+                                & Bitboard::line(our_king, sq),
+                        );
                     } else {
-                        b2 = attacks::pawn_attacks_sq(sq, us)
-                            & them_bb
-                            & Bitboard::line(sq, our_king);
-                        moves.make_c(sq, b2);
+                        moves.make_c(
+                            sq,
+                            attacks::pawn_attacks_sq(sq, us)
+                                & them_bb
+                                & Bitboard::line(sq, our_king),
+                        );
 
                         ///////////////////////////////////////////////////////////////////
                         // Single and double pawn pushes
                         ///////////////////////////////////////////////////////////////////
                         if QUIET {
-                            b2 = sq.bb().shift(Direction::North.relative(us))
+                            let single_pinned_pushes = sq.bb().shift(Direction::North.relative(us))
                                 & !all
                                 & Bitboard::line(our_king, sq);
-                            b3 = (b2 & Rank::Three.relative(us).bb())
-                                .shift(Direction::North.relative(us))
+                            let double_pinned_pushes = (single_pinned_pushes
+                                & Rank::Three.relative(us).bb())
+                            .shift(Direction::North.relative(us))
                                 & !all
                                 & Bitboard::line(our_king, sq);
 
-                            moves.make_q(sq, b2);
-                            moves.make_dp(sq, b3);
+                            moves.make_q(sq, single_pinned_pushes);
+                            moves.make_dp(sq, double_pinned_pushes);
                         }
                     }
                 }
@@ -696,41 +701,41 @@ impl Board {
         ///////////////////////////////////////////////////////////////////
         // Non-pinned moves from here
         ///////////////////////////////////////////////////////////////////
-        b1 = self.bitboard_of(us, PieceType::Knight) & not_pinned;
-        for sq in b1 {
-            b2 = attacks::knight_attacks(sq);
-            moves.make_c(sq, b2 & capture_mask);
+        for sq in self.bitboard_of(us, PieceType::Knight) & not_pinned {
+            let knight_attacks = attacks::knight_attacks(sq);
+            moves.make_c(sq, knight_attacks & capture_mask);
             if QUIET {
-                moves.make_q(sq, b2 & quiet_mask);
+                moves.make_q(sq, knight_attacks & quiet_mask);
             }
         }
 
-        b1 = our_diag_sliders & not_pinned;
-        for sq in b1 {
-            b2 = attacks::bishop_attacks(sq, all);
-            moves.make_c(sq, b2 & capture_mask);
+        for sq in our_diag_sliders & not_pinned {
+            let diag_attacks = attacks::bishop_attacks(sq, all);
+            moves.make_c(sq, diag_attacks & capture_mask);
             if QUIET {
-                moves.make_q(sq, b2 & quiet_mask);
+                moves.make_q(sq, diag_attacks & quiet_mask);
             }
         }
 
-        b1 = our_orth_sliders & not_pinned;
-        for sq in b1 {
-            b2 = attacks::rook_attacks(sq, all);
-            moves.make_c(sq, b2 & capture_mask);
+        for sq in our_orth_sliders & not_pinned {
+            let orth_attacks = attacks::rook_attacks(sq, all);
+            moves.make_c(sq, orth_attacks & capture_mask);
             if QUIET {
-                moves.make_q(sq, b2 & quiet_mask);
+                moves.make_q(sq, orth_attacks & quiet_mask);
             }
         }
 
-        b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & !Rank::Seven.relative(us).bb();
-        b2 = b1.shift(Direction::North.relative(us)) & !all;
-        b3 = (b2 & Rank::Three.relative(us).bb()).shift(Direction::North.relative(us)) & quiet_mask;
+        let back_pawns =
+            self.bitboard_of(us, PieceType::Pawn) & not_pinned & !Rank::Seven.relative(us).bb();
+        let mut single_pushes = back_pawns.shift(Direction::North.relative(us)) & !all;
+        let double_pushes = (single_pushes & Rank::Three.relative(us).bb())
+            .shift(Direction::North.relative(us))
+            & quiet_mask;
 
-        b2 &= quiet_mask;
+        single_pushes &= quiet_mask;
 
         if QUIET {
-            for sq in b2 {
+            for sq in single_pushes {
                 moves.push(Move::new(
                     sq - Direction::North.relative(us),
                     sq,
@@ -738,7 +743,7 @@ impl Board {
                 ));
             }
 
-            for sq in b3 {
+            for sq in double_pushes {
                 moves.push(Move::new(
                     sq - Direction::NorthNorth.relative(us),
                     sq,
@@ -747,10 +752,10 @@ impl Board {
             }
         }
 
-        b2 = b1.shift(Direction::NorthWest.relative(us)) & capture_mask;
-        b3 = b1.shift(Direction::NorthEast.relative(us)) & capture_mask;
+        let northwest_captures = back_pawns.shift(Direction::NorthWest.relative(us)) & capture_mask;
+        let northeast_captures = back_pawns.shift(Direction::NorthEast.relative(us)) & capture_mask;
 
-        for sq in b2 {
+        for sq in northwest_captures {
             moves.push(Move::new(
                 sq - Direction::NorthWest.relative(us),
                 sq,
@@ -758,7 +763,7 @@ impl Board {
             ));
         }
 
-        for sq in b3 {
+        for sq in northeast_captures {
             moves.push(Move::new(
                 sq - Direction::NorthEast.relative(us),
                 sq,
@@ -766,11 +771,13 @@ impl Board {
             ));
         }
 
-        b1 = self.bitboard_of(us, PieceType::Pawn) & not_pinned & Rank::Seven.relative(us).bb();
+        let seventh_rank_pawns =
+            self.bitboard_of(us, PieceType::Pawn) & not_pinned & Rank::Seven.relative(us).bb();
 
-        if b1 != Bitboard::ZERO {
-            b2 = b1.shift(Direction::North.relative(us)) & quiet_mask;
-            for sq in b2 {
+        if seventh_rank_pawns != Bitboard::ZERO {
+            let quiet_promotions =
+                seventh_rank_pawns.shift(Direction::North.relative(us)) & quiet_mask;
+            for sq in quiet_promotions {
                 moves.push(Move::new(
                     sq - Direction::North.relative(us),
                     sq,
@@ -795,9 +802,11 @@ impl Board {
                 }
             }
 
-            b2 = b1.shift(Direction::NorthWest.relative(us)) & capture_mask;
-            b3 = b1.shift(Direction::NorthEast.relative(us)) & capture_mask;
-            for sq in b2 {
+            let northwest_promotions =
+                seventh_rank_pawns.shift(Direction::NorthWest.relative(us)) & capture_mask;
+            let northeast_promotions =
+                seventh_rank_pawns.shift(Direction::NorthEast.relative(us)) & capture_mask;
+            for sq in northwest_promotions {
                 moves.push(Move::new(
                     sq - Direction::NorthWest.relative(us),
                     sq,
@@ -822,7 +831,7 @@ impl Board {
                 }
             }
 
-            for sq in b3 {
+            for sq in northeast_promotions {
                 moves.push(Move::new(
                     sq - Direction::NorthEast.relative(us),
                     sq,
