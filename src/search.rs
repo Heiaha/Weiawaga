@@ -267,6 +267,10 @@ impl<'a> Search<'a> {
             }
         }
 
+        if Self::can_apply_iid(depth, hash_move) {
+            depth -= 2;
+        }
+
         ///////////////////////////////////////////////////////////////////
         // Generate moves, score, and begin searching
         // recursively.
@@ -456,6 +460,11 @@ impl<'a> Search<'a> {
     }
 
     #[inline(always)]
+    fn can_apply_iid(depth: Depth, hash_move: Option<Move>) -> bool {
+        depth >= Self::IID_MIN_DEPTH && hash_move.is_none()
+    }
+
+    #[inline(always)]
     fn can_apply_rfp(depth: Depth, in_check: bool, is_pv: bool, beta: Value) -> bool {
         depth <= Self::RFP_MAX_DEPTH && !in_check && !is_pv && !Self::is_checkmate(beta)
     }
@@ -548,6 +557,7 @@ impl<'a> Search<'a> {
     const NULL_MIN_DEPTH: Depth = 2;
     const NULL_MIN_DEPTH_REDUCTION: Depth = 3;
     const NULL_DEPTH_DIVIDER: Depth = 4;
+    const IID_MIN_DEPTH: Depth = 4;
     const LMR_MOVE_WO_REDUCTION: usize = 2;
     const LMR_MIN_DEPTH: Depth = 2;
     const LMR_BASE_REDUCTION: f32 = 0.75;
