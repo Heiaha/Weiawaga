@@ -454,6 +454,7 @@ impl<'a> Search<'a> {
     ) -> bool {
         !is_pv
             && !in_check
+            && board.peek() != Move::NULL
             && depth >= Self::NULL_MIN_DEPTH
             && board.has_non_pawn_material()
             && board.eval() >= beta
