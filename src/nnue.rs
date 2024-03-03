@@ -1,4 +1,3 @@
-use super::board::*;
 use super::nnue_weights::*;
 use super::piece::*;
 use super::square::*;
@@ -30,8 +29,8 @@ pub struct Network {
 impl Network {
     pub fn new() -> Self {
         Self {
-            input_layer: Layer::new(&NNUE_INPUT_WEIGHTS, &NNUE_INPUT_BIASES),
-            hidden_layer: Layer::new(&NNUE_HIDDEN_WEIGHTS, &NNUE_HIDDEN_BIASES),
+            input_layer: Layer::new(&INPUT_LAYER_WEIGHT, &INPUT_LAYER_BIAS),
+            hidden_layer: Layer::new(&L1_WEIGHT, &L1_BIAS),
         }
     }
 
@@ -71,26 +70,19 @@ impl Network {
             .for_each(|(activation, weight)| *activation -= weight);
     }
 
-    pub fn eval(&self, board: &Board) -> Value {
-        let bucket = (board.all_pieces().pop_count() as usize - 1) / 4;
-        let bucket_idx = bucket * self.input_layer.activations.len();
-        let mut output = self.hidden_layer.biases[bucket] as Value;
-
-        let weights = self.hidden_layer.weights
-            [bucket_idx..bucket_idx + self.input_layer.activations.len()]
-            .iter();
-
+    pub fn eval(&self) -> Value {
+        let mut output = self.hidden_layer.biases[0] as Value;
         output += self
             .input_layer
             .activations
             .iter()
-            .zip(weights)
+            .zip(self.hidden_layer.weights)
             .map(|(activation, weight)| {
                 (Self::clipped_relu(*activation) as Value) * (*weight as Value)
             })
             .sum::<Value>();
 
-        output / (Self::SCALE * Self::SCALE) as Value
+        Self::NNUE2SCORE * output / (Self::SCALE * Self::SCALE) as Value
     }
 
     #[inline(always)]
@@ -100,5 +92,6 @@ impl Network {
 }
 
 impl Network {
-    const SCALE: i16 = 127;
+    const SCALE: i16 = 64;
+    const NNUE2SCORE: Value = 600;
 }

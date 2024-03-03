@@ -100,7 +100,7 @@ impl Board {
 
     #[inline(always)]
     pub fn eval(&self) -> Value {
-        self.network.eval(self) * self.ctm.factor()
+        self.network.eval() * self.ctm.factor()
     }
 
     #[inline(always)]
