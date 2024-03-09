@@ -23,8 +23,6 @@ https://lichess.org/@/Weiawaga
     - [Null move pruning](https://www.chessprogramming.org/Null_Move_Pruning)
     - [Check extensions](https://www.chessprogramming.org/Check_Extensions)
 - [NNUE](https://www.chessprogramming.org/NNUE) evaluation
-    - Incremental updating 
-    - Buckets
 - Move ordering
     - [Hash move](https://www.chessprogramming.org/Hash_Move)
     - [Static exchange evaluation](https://www.chessprogramming.org/Static_Exchange_Evaluation)
