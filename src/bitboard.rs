@@ -346,7 +346,8 @@ static mut BETWEEN_BB: [[Bitboard; SQ::N_SQUARES]; SQ::N_SQUARES] =
 static mut LINES_BB: [[Bitboard; SQ::N_SQUARES]; SQ::N_SQUARES] =
     [[B!(0); SQ::N_SQUARES]; SQ::N_SQUARES];
 
-fn init_between(between_bb: &mut [[Bitboard; SQ::N_SQUARES]; SQ::N_SQUARES]) {
+fn init_between() -> [[Bitboard; SQ::N_SQUARES]; SQ::N_SQUARES] {
+    let mut between_bb = [[B!(0); SQ::N_SQUARES]; SQ::N_SQUARES];
     for sq1 in Bitboard::ALL {
         for sq2 in Bitboard::ALL {
             let sqs = sq1.bb() | sq2.bb();
@@ -359,9 +360,11 @@ fn init_between(between_bb: &mut [[Bitboard; SQ::N_SQUARES]; SQ::N_SQUARES]) {
             }
         }
     }
+    between_bb
 }
 
-fn init_lines(lines_bb: &mut [[Bitboard; SQ::N_SQUARES]; SQ::N_SQUARES]) {
+fn init_lines() -> [[Bitboard; SQ::N_SQUARES]; SQ::N_SQUARES] {
+    let mut lines_bb = [[B!(0); SQ::N_SQUARES]; SQ::N_SQUARES];
     for sq1 in Bitboard::ALL {
         for sq2 in Bitboard::ALL {
             if sq1.file() == sq2.file() || sq1.rank() == sq2.rank() {
@@ -379,11 +382,12 @@ fn init_lines(lines_bb: &mut [[Bitboard; SQ::N_SQUARES]; SQ::N_SQUARES]) {
             }
         }
     }
+    lines_bb
 }
 
 pub fn init_bb() {
     unsafe {
-        init_between(&mut BETWEEN_BB);
-        init_lines(&mut LINES_BB);
+        BETWEEN_BB = init_between();
+        LINES_BB = init_lines();
     }
 }

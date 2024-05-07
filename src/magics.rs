@@ -97,10 +97,16 @@ pub static mut BISHOP_MAGICS: Magics = Magics {
 //////////////////////////////////////////////
 
 fn init_magics_type(
-    magics: &mut Magics,
     magic_init: &[MagicInit; 64],
     slow_attacks_gen: fn(SQ, Bitboard) -> Bitboard,
-) {
+    shift: u8,
+) -> Magics {
+    let mut magics = Magics {
+        masks: [Bitboard::ZERO; SQ::N_SQUARES],
+        magics: [Bitboard::ZERO; SQ::N_SQUARES],
+        attacks: [&[]; SQ::N_SQUARES],
+        shift,
+    };
     for sq in Bitboard::ALL {
         let edges = ((Rank::One.bb() | Rank::Eight.bb()) & !sq.rank().bb())
             | ((File::A.bb() | File::H.bb()) & !sq.file().bb());
@@ -125,15 +131,12 @@ fn init_magics_type(
         }
         magics.attacks[sq.index()] = unsafe { &ATTACKS_TABLE[base..base + size] };
     }
+    magics
 }
 
 pub fn init_magics() {
     unsafe {
-        init_magics_type(&mut ROOK_MAGICS, &ROOK_MAGICS_INIT, rook_attacks_for_init);
-        init_magics_type(
-            &mut BISHOP_MAGICS,
-            &BISHOP_MAGICS_INIT,
-            bishop_attacks_for_init,
-        );
+        ROOK_MAGICS = init_magics_type(&ROOK_MAGICS_INIT, rook_attacks_for_init, 64 - 12);
+        BISHOP_MAGICS = init_magics_type(&BISHOP_MAGICS_INIT, bishop_attacks_for_init, 64 - 9);
     }
 }

@@ -576,7 +576,8 @@ pub enum Bound {
 
 pub static mut LMR_TABLE: [[Depth; 64]; 64] = [[0; 64]; 64];
 
-fn init_lmr_table(lmr_table: &mut [[Depth; 64]; 64]) {
+fn init_lmr_table() -> [[Depth; 64]; 64] {
+    let mut lmr_table = [[0; 64]; 64];
     for depth in 1..64 {
         for move_number in 1..64 {
             lmr_table[depth][move_number] = (Search::LMR_BASE_REDUCTION
@@ -584,10 +585,11 @@ fn init_lmr_table(lmr_table: &mut [[Depth; 64]; 64]) {
                 as Depth;
         }
     }
+    lmr_table
 }
 
 pub fn init_search() {
     unsafe {
-        init_lmr_table(&mut LMR_TABLE);
+        LMR_TABLE = init_lmr_table();
     }
 }
