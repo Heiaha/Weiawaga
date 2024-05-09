@@ -70,17 +70,18 @@ impl Network {
             .for_each(|(activation, weight)| *activation -= weight);
     }
 
+    #[inline(always)]
     pub fn eval(&self) -> Value {
-        let mut output = self.hidden_layer.biases[0] as Value;
-        output += self
-            .input_layer
-            .activations
-            .iter()
-            .zip(self.hidden_layer.weights)
-            .map(|(activation, weight)| {
-                (Self::clipped_relu(*activation) as Value) * (*weight as Value)
-            })
-            .sum::<Value>();
+        let output = self.hidden_layer.biases[0] as Value
+            + self
+                .input_layer
+                .activations
+                .iter()
+                .zip(self.hidden_layer.weights)
+                .map(|(activation, weight)| {
+                    (Self::clipped_relu(*activation) as Value) * (*weight as Value)
+                })
+                .sum::<Value>();
 
         Self::NNUE2SCORE * output / (Self::SCALE * Self::SCALE) as Value
     }
