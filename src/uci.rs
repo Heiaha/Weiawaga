@@ -84,47 +84,13 @@ impl TryFrom<&str> for UCICommand {
                 if let Some(tc_info) = line.strip_prefix("go") {
                     let time_control = TimeControl::try_from(tc_info)?;
                     Self::Go(time_control)
-                } else if let Some(position_str) = line.strip_prefix("position") {
-                    let position_str = position_str.trim();
-                    let fen = if position_str.starts_with("startpos") {
-                        None
-                    } else if let Some(fen_str) = position_str.strip_prefix("fen") {
-                        let fen_parts: Vec<&str> = fen_str
-                            .split_whitespace()
-                            .take_while(|p| *p != "moves")
-                            .collect();
-
-                        if !fen_parts.is_empty() {
-                            Some(fen_parts.join(" "))
-                        } else {
-                            None
-                        }
-                    } else {
-                        return Err("Unable to parse position.");
-                    };
-
-                    let move_strs = position_str
-                        .split_whitespace()
-                        .skip_while(|p| *p != "moves")
-                        .skip(1)
-                        .map(String::from)
-                        .collect();
-
-                    Self::Position(fen, move_strs)
+                } else if let Some(position_str) = line.strip_prefix("position ") {
+                    Self::parse_position(position_str)?
                 } else if let Some(perft_depth) = line.strip_prefix("perft ") {
                     let depth = perft_depth.parse().or(Err("Unable to parse depth."))?;
                     Self::Perft(depth)
-                } else if let Some(option_info) = line.strip_prefix("setoption ") {
-                    let mut option_iter = option_info.split_whitespace();
-                    if option_iter.next() != Some("name") {
-                        return Err("Option must include a 'name' part.");
-                    }
-                    let name = option_iter
-                        .by_ref()
-                        .take_while(|word| *word != "value")
-                        .collect();
-                    let value = option_iter.collect();
-                    Self::Option(name, value)
+                } else if let Some(option_str) = line.strip_prefix("setoption ") {
+                    Self::parse_option(option_str)?
                 } else {
                     return Err("Unknown command.");
                 }
@@ -132,5 +98,49 @@ impl TryFrom<&str> for UCICommand {
         };
 
         Ok(command)
+    }
+}
+
+impl UCICommand {
+    fn parse_position(position_str: &str) -> Result<Self, &'static str> {
+        let position_str = position_str.trim();
+        let fen = if position_str.starts_with("startpos") {
+            None
+        } else if let Some(fen_str) = position_str.strip_prefix("fen") {
+            let fen_parts: Vec<&str> = fen_str
+                .split_whitespace()
+                .take_while(|p| *p != "moves")
+                .collect();
+
+            if !fen_parts.is_empty() {
+                Some(fen_parts.join(" "))
+            } else {
+                None
+            }
+        } else {
+            return Err("Unable to parse position.");
+        };
+
+        let move_strs = position_str
+            .split_whitespace()
+            .skip_while(|p| *p != "moves")
+            .skip(1)
+            .map(String::from)
+            .collect();
+
+        Ok(Self::Position(fen, move_strs))
+    }
+
+    fn parse_option(option_str: &str) -> Result<Self, &'static str> {
+        let mut option_iter = option_str.split_whitespace();
+        if option_iter.next() != Some("name") {
+            return Err("Option must include a 'name' part.");
+        }
+        let name = option_iter
+            .by_ref()
+            .take_while(|word| *word != "value")
+            .collect();
+        let value = option_iter.collect();
+        Ok(Self::Option(name, value))
     }
 }

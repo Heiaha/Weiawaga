@@ -134,7 +134,6 @@ impl MoveSorter {
 
         let mut occ = board.all_pieces() ^ from_sq.bb();
         let mut attackers = board.attackers(to_sq, occ);
-        let mut stm_attackers;
 
         let diagonal_sliders = board.diagonal_sliders();
         let orthogonal_sliders = board.orthogonal_sliders();
@@ -142,7 +141,7 @@ impl MoveSorter {
         let mut ctm = !board.ctm();
         loop {
             attackers &= occ;
-            stm_attackers = attackers & board.all_pieces_c(ctm);
+            let stm_attackers = attackers & board.all_pieces_c(ctm);
 
             if stm_attackers == Bitboard::ZERO {
                 break;

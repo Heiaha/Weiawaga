@@ -42,21 +42,19 @@ impl Network {
 
     #[inline(always)]
     pub fn activate(&mut self, piece: Piece, sq: SQ) {
-        let feature_idx =
-            (piece.index() * SQ::N_SQUARES + sq.index()) * self.input_layer.activations.len();
-        let weights = self.input_layer.weights
-            [feature_idx..feature_idx + self.input_layer.activations.len()]
-            .iter();
-
-        self.input_layer
-            .activations
-            .iter_mut()
-            .zip(weights)
-            .for_each(|(activation, weight)| *activation += weight);
+        self.update_activation(piece, sq, |activation, weight| *activation += weight);
     }
 
     #[inline(always)]
     pub fn deactivate(&mut self, piece: Piece, sq: SQ) {
+        self.update_activation(piece, sq, |activation, weight| *activation -= weight);
+    }
+
+    #[inline(always)]
+    fn update_activation<F>(&mut self, piece: Piece, sq: SQ, mut update_fn: F)
+    where
+        F: FnMut(&mut i16, &i16),
+    {
         let feature_idx =
             (piece.index() * SQ::N_SQUARES + sq.index()) * self.input_layer.activations.len();
         let weights = self.input_layer.weights
@@ -67,7 +65,7 @@ impl Network {
             .activations
             .iter_mut()
             .zip(weights)
-            .for_each(|(activation, weight)| *activation -= weight);
+            .for_each(|(activation, weight)| update_fn(activation, weight));
     }
 
     #[inline(always)]
