@@ -17,7 +17,6 @@ pub struct Search<'a> {
     tt: &'a TT,
     nodes: u64,
     move_sorter: MoveSorter,
-    excluded_moves: [Move; 256],
 }
 
 impl<'a> Search<'a> {
@@ -30,7 +29,6 @@ impl<'a> Search<'a> {
             sel_depth: 0,
             nodes: 0,
             move_sorter: MoveSorter::new(),
-            excluded_moves: [Move::NULL; 256],
         }
     }
 
