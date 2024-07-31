@@ -17,6 +17,7 @@ pub struct Search<'a> {
     tt: &'a TT,
     nodes: u64,
     move_sorter: MoveSorter,
+    excluded_moves: [Move; 256],
 }
 
 impl<'a> Search<'a> {
@@ -29,6 +30,7 @@ impl<'a> Search<'a> {
             sel_depth: 0,
             nodes: 0,
             move_sorter: MoveSorter::new(),
+            excluded_moves: [Move::NULL; 256],
         }
     }
 
@@ -239,7 +241,7 @@ impl<'a> Search<'a> {
                 }
             }
             hash_move = Some(tt_entry.best_move());
-        } else if Self::can_apply_iid(depth) {
+        } else if Self::can_apply_iid(depth, in_check, is_pv) {
             depth -= Self::IID_DEPTH_REDUCTION;
         }
 
@@ -459,8 +461,8 @@ impl<'a> Search<'a> {
     }
 
     #[inline(always)]
-    fn can_apply_iid(depth: Depth) -> bool {
-        depth >= Self::IID_MIN_DEPTH
+    fn can_apply_iid(depth: Depth, in_check: bool, is_pv: bool) -> bool {
+        depth >= Self::IID_MIN_DEPTH && !in_check && !is_pv
     }
 
     #[inline(always)]
