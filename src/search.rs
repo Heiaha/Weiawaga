@@ -239,6 +239,8 @@ impl<'a> Search<'a> {
                 }
             }
             hash_move = Some(tt_entry.best_move());
+        } else if Self::can_apply_iid(depth) {
+            depth -= Self::IID_DEPTH_REDUCTION;
         }
 
         ///////////////////////////////////////////////////////////////////
@@ -265,10 +267,6 @@ impl<'a> Search<'a> {
             if value >= beta {
                 return beta;
             }
-        }
-
-        if Self::can_apply_iid(depth, hash_move) {
-            depth -= Self::IID_DEPTH_REDUCTION;
         }
 
         ///////////////////////////////////////////////////////////////////
@@ -461,8 +459,8 @@ impl<'a> Search<'a> {
     }
 
     #[inline(always)]
-    fn can_apply_iid(depth: Depth, hash_move: Option<Move>) -> bool {
-        depth >= Self::IID_MIN_DEPTH && hash_move.is_none()
+    fn can_apply_iid(depth: Depth) -> bool {
+        depth >= Self::IID_MIN_DEPTH
     }
 
     #[inline(always)]
