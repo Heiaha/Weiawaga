@@ -13,13 +13,11 @@ use super::types::*;
 // in an integer number of cache chunks. The is for a 16 bit Move.
 // https://www.youtube.com/watch?v=WDIkqP4JbkE
 
-#[cfg(target_pointer_width = "128")]
-const MAX_MOVES: usize = 248;
 #[cfg(target_pointer_width = "64")]
 pub const MAX_MOVES: usize = 252;
 #[cfg(target_pointer_width = "32")]
 const MAX_MOVES: usize = 254;
-#[cfg(any(target_pointer_width = "16", target_pointer_width = "8",))]
+#[cfg(any(target_pointer_width = "16"))]
 const MAX_MOVES: usize = 255;
 
 pub struct MoveList {

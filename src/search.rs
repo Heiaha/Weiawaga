@@ -115,9 +115,9 @@ impl<'a> Search<'a> {
         // Check the hash table for the current
         // position, primarily for move ordering.
         ///////////////////////////////////////////////////////////////////
-        let mut hash_move = None;
+        let mut hash_move = Move::NULL;
         if let Some(tt_entry) = self.tt.probe(board) {
-            hash_move = Some(tt_entry.best_move());
+            hash_move = tt_entry.best_move();
         }
 
         ///////////////////////////////////////////////////////////////////
@@ -226,8 +226,8 @@ impl<'a> Search<'a> {
         // Probe the hash table and adjust the value.
         // If appropriate, produce a cutoff.
         ///////////////////////////////////////////////////////////////////
-        let mut hash_move = None;
-        if let Some(tt_entry) = self.tt.probe(board) {
+        let tt_entry = self.tt.probe(board);
+        if let Some(tt_entry) = tt_entry {
             if tt_entry.depth() >= depth && !is_pv {
                 match tt_entry.flag() {
                     Bound::Exact => return tt_entry.value(),
@@ -238,7 +238,6 @@ impl<'a> Search<'a> {
                     return tt_entry.value();
                 }
             }
-            hash_move = Some(tt_entry.best_move());
         } else if Self::can_apply_iid(depth, in_check, is_pv) {
             depth -= Self::IID_DEPTH_REDUCTION;
         }
@@ -247,7 +246,11 @@ impl<'a> Search<'a> {
         // Reverse Futility Pruning
         ///////////////////////////////////////////////////////////////////
         if Self::can_apply_rfp(depth, in_check, is_pv, beta) {
-            let eval = board.eval();
+            let eval = if let Some(tt_entry) = tt_entry {
+                tt_entry.value()
+            } else {
+                board.eval()
+            };
             if eval - Self::rfp_margin(depth) >= beta {
                 return eval;
             }
@@ -280,8 +283,12 @@ impl<'a> Search<'a> {
         let mut idx = 0;
 
         let mut moves = MoveList::from(board);
-        self.move_sorter
-            .score_moves(&mut moves, board, ply, hash_move);
+        self.move_sorter.score_moves(
+            &mut moves,
+            board,
+            ply,
+            tt_entry.map_or(Move::NULL, |entry| entry.best_move()),
+        );
 
         while let Some(m) = moves.next_best() {
             ///////////////////////////////////////////////////////////////////
@@ -395,7 +402,7 @@ impl<'a> Search<'a> {
         }
         alpha = max(alpha, value);
 
-        let mut hash_move = None;
+        let mut hash_move = Move::NULL;
         if let Some(tt_entry) = self.tt.probe(board) {
             match tt_entry.flag() {
                 Bound::Exact => return tt_entry.value(),
@@ -405,7 +412,7 @@ impl<'a> Search<'a> {
             if alpha >= beta {
                 return tt_entry.value();
             }
-            hash_move = Some(tt_entry.best_move());
+            hash_move = tt_entry.best_move();
         }
 
         let mut moves = MoveList::from_q(board);

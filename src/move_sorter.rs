@@ -21,21 +21,15 @@ impl MoveSorter {
         }
     }
 
-    pub fn score_moves(
-        &self,
-        moves: &mut MoveList,
-        board: &Board,
-        ply: Ply,
-        hash_move: Option<Move>,
-    ) {
+    pub fn score_moves(&self, moves: &mut MoveList, board: &Board, ply: Ply, hash_move: Move) {
         for idx in 0..moves.len() {
             moves.scores[idx] = self.score_move(moves[idx], board, ply, hash_move);
         }
     }
 
     #[inline(always)]
-    fn score_move(&self, m: Move, board: &Board, ply: Ply, hash_move: Option<Move>) -> Value {
-        if Some(m) == hash_move {
+    fn score_move(&self, m: Move, board: &Board, ply: Ply, hash_move: Move) -> Value {
+        if m == hash_move {
             return Self::HASH_MOVE_SCORE;
         }
 
