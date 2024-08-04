@@ -9,14 +9,14 @@ use super::square::*;
 use super::types::*;
 
 pub struct MoveSorter {
-    killer_moves: [[[Option<Move>; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],
+    killer_moves: [[[Move; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],
     history_scores: [[Value; SQ::N_SQUARES]; SQ::N_SQUARES],
 }
 
 impl MoveSorter {
     pub fn new() -> Self {
         Self {
-            killer_moves: [[[None; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],
+            killer_moves: [[[Move::NULL; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],
             history_scores: [[0; SQ::N_SQUARES]; SQ::N_SQUARES],
         }
     }
@@ -81,7 +81,7 @@ impl MoveSorter {
         let killer_moves = &mut self.killer_moves[color][ply];
 
         killer_moves.rotate_right(1);
-        killer_moves[0] = Some(m);
+        killer_moves[0] = m;
     }
 
     pub fn add_history(&mut self, m: Move, depth: Depth) {
@@ -99,7 +99,7 @@ impl MoveSorter {
     }
 
     fn is_killer(&self, board: &Board, m: Move, ply: usize) -> bool {
-        self.killer_moves[board.ctm().index()][ply].contains(&Some(m))
+        self.killer_moves[board.ctm().index()][ply].contains(&m)
     }
 
     #[inline(always)]
