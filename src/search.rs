@@ -276,8 +276,6 @@ impl<'a> Search<'a> {
         // Generate moves, score, and begin searching
         // recursively.
         ///////////////////////////////////////////////////////////////////
-        let mut value;
-        let mut reduced_depth;
         let mut tt_flag = Bound::Upper;
         let mut best_move = Move::NULL;
         let mut idx = 0;
@@ -300,28 +298,31 @@ impl<'a> Search<'a> {
                 self.tt.prefetch(board);
             }
 
+            let mut value;
             if idx == 0 {
                 value = -self.search(board, depth - 1, -beta, -alpha, ply + 1);
             } else {
                 ///////////////////////////////////////////////////////////////////
                 // Late move reductions.
                 ///////////////////////////////////////////////////////////////////
-                reduced_depth = depth;
-                if Self::can_apply_lmr(m, depth, idx) {
-                    reduced_depth -= Self::late_move_reduction(depth, idx);
-                }
+                let mut reduction = if Self::can_apply_lmr(m, depth, idx) {
+                    Self::late_move_reduction(depth, idx)
+                } else {
+                    0
+                };
+
                 loop {
-                    value = -self.search(board, reduced_depth - 1, -alpha - 1, -alpha, ply + 1);
+                    value = -self.search(board, depth - reduction - 1, -alpha - 1, -alpha, ply + 1);
                     if value > alpha {
-                        value = -self.search(board, reduced_depth - 1, -beta, -alpha, ply + 1);
+                        value = -self.search(board, depth - reduction - 1, -beta, -alpha, ply + 1);
                     }
 
                     ///////////////////////////////////////////////////////////////////
                     // A reduced depth may bring us above alpha. This is relatively
                     // unusual, but if so we need the exact score so we do a full search.
                     ///////////////////////////////////////////////////////////////////
-                    if reduced_depth < depth && value > alpha {
-                        reduced_depth = depth;
+                    if reduction > 0 && value > alpha {
+                        reduction = 0;
                     } else {
                         break;
                     }
@@ -395,12 +396,12 @@ impl<'a> Search<'a> {
 
         self.sel_depth = max(self.sel_depth, ply);
 
-        let mut value = board.eval();
+        let eval = board.eval();
 
-        if value >= beta {
+        if eval >= beta {
             return beta;
         }
-        alpha = max(alpha, value);
+        alpha = max(alpha, eval);
 
         let mut hash_move = Move::NULL;
         if let Some(tt_entry) = self.tt.probe(board) {
@@ -431,7 +432,7 @@ impl<'a> Search<'a> {
             }
 
             board.push(m);
-            value = -self.q_search(board, -beta, -alpha, ply + 1);
+            let value = -self.q_search(board, -beta, -alpha, ply + 1);
             board.pop();
 
             if self.stop {
