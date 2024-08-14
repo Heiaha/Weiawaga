@@ -247,15 +247,15 @@ impl Board {
 
     pub fn push_null(&mut self) {
         self.ply += 1;
-        self.history[self.ply] = HistoryEntry::new(
-            self.history[self.ply - 1].entry(),
-            Move::NULL,
-            self.history[self.ply - 1].half_move_counter() + 1,
-            0,
-            Piece::None,
-            SQ::None,
-            self.history[self.ply - 1].material_hash(),
-        );
+
+        self.history[self.ply] = HistoryEntry::default()
+            .with_entry(self.history[self.ply - 1].entry())
+            .with_moov(Move::NULL)
+            .with_half_move_counter(self.history[self.ply - 1].half_move_counter() + 1)
+            .with_plies_from_null(0)
+            .with_captured(Piece::None)
+            .with_epsq(SQ::None)
+            .with_material_hash(self.history[self.ply - 1].material_hash());
 
         if self.history[self.ply - 1].epsq() != SQ::None {
             self.hasher
@@ -321,15 +321,14 @@ impl Board {
                 self.set_piece_at(Piece::make_piece(self.ctm, m.promotion()), m.to_sq());
             }
         };
-        self.history[self.ply] = HistoryEntry::new(
-            self.history[self.ply - 1].entry() | m.to_sq().bb() | m.from_sq().bb(),
-            m,
-            half_move_counter,
-            self.history[self.ply - 1].plies_from_null() + 1,
-            captured,
-            epsq,
-            self.material_hash(),
-        );
+        self.history[self.ply] = HistoryEntry::default()
+            .with_entry(self.history[self.ply - 1].entry() | m.to_sq().bb() | m.from_sq().bb())
+            .with_moov(m)
+            .with_half_move_counter(half_move_counter)
+            .with_plies_from_null(self.history[self.ply - 1].plies_from_null() + 1)
+            .with_captured(captured)
+            .with_epsq(epsq)
+            .with_material_hash(self.material_hash());
         self.ctm = !self.ctm;
         self.hasher.update_color();
     }
@@ -990,7 +989,7 @@ impl Board {
             }
         }
 
-        self.history[self.ply].set_entry(Bitboard::ALL_CASTLING_MASK);
+        self.history[self.ply] = self.history[self.ply].with_entry(Bitboard::ALL_CASTLING_MASK);
         for (symbol, mask) in "KQkq".chars().zip([
             Bitboard::WHITE_OO_MASK,
             Bitboard::WHITE_OOO_MASK,
@@ -998,17 +997,19 @@ impl Board {
             Bitboard::BLACK_OOO_MASK,
         ]) {
             if castling_ability.contains(symbol) {
-                self.history[self.ply].set_entry(self.history[self.ply].entry() & !mask);
+                self.history[self.ply] =
+                    self.history[self.ply].with_entry(self.history[self.ply].entry() & !mask);
             }
         }
 
         if en_passant_square != "-" {
             let sq = SQ::try_from(en_passant_square)?;
-            self.history[self.ply].set_epsq(sq);
+            self.history[self.ply] = self.history[self.ply].with_epsq(sq);
             self.hasher.update_ep(sq.file());
         }
-        self.history[self.ply].set_half_move_counter(halfmove_clock);
-        self.history[self.ply].set_material_hash(self.hasher.material_hash());
+        self.history[self.ply] = self.history[self.ply].with_half_move_counter(halfmove_clock);
+        self.history[self.ply] =
+            self.history[self.ply].with_material_hash(self.hasher.material_hash());
         Ok(())
     }
 
@@ -1182,26 +1183,6 @@ pub struct HistoryEntry {
 }
 
 impl HistoryEntry {
-    pub fn new(
-        entry: Bitboard,
-        moov: Move,
-        half_move_counter: u16,
-        plies_from_null: u16,
-        captured: Piece,
-        epsq: SQ,
-        material_hash: Hash,
-    ) -> Self {
-        Self {
-            entry,
-            moov,
-            half_move_counter,
-            plies_from_null,
-            captured,
-            epsq,
-            material_hash,
-        }
-    }
-
     #[inline(always)]
     pub fn entry(&self) -> Bitboard {
         self.entry
@@ -1238,28 +1219,45 @@ impl HistoryEntry {
     }
 
     #[inline(always)]
-    pub fn set_captured(&mut self, pc: Piece) {
-        self.captured = pc;
-    }
-
-    #[inline(always)]
-    pub fn set_epsq(&mut self, sq: SQ) {
-        self.epsq = sq;
-    }
-
-    #[inline(always)]
-    pub fn set_entry(&mut self, entry: Bitboard) {
+    pub fn with_entry(&mut self, entry: Bitboard) -> Self {
         self.entry = entry;
+        *self
     }
 
     #[inline(always)]
-    pub fn set_half_move_counter(&mut self, half_move_counter: u16) {
+    pub fn with_moov(&mut self, moov: Move) -> Self {
+        self.moov = moov;
+        *self
+    }
+
+    #[inline(always)]
+    pub fn with_captured(&mut self, pc: Piece) -> Self {
+        self.captured = pc;
+        *self
+    }
+
+    #[inline(always)]
+    pub fn with_epsq(&mut self, sq: SQ) -> Self {
+        self.epsq = sq;
+        *self
+    }
+
+    #[inline(always)]
+    pub fn with_half_move_counter(&mut self, half_move_counter: u16) -> Self {
         self.half_move_counter = half_move_counter;
+        *self
     }
 
     #[inline(always)]
-    pub fn set_material_hash(&mut self, material_hash: Hash) {
+    pub fn with_plies_from_null(&mut self, plies_from_null: u16) -> Self {
+        self.plies_from_null = plies_from_null;
+        *self
+    }
+
+    #[inline(always)]
+    pub fn with_material_hash(&mut self, material_hash: Hash) -> Self {
         self.material_hash = material_hash;
+        *self
     }
 }
 
