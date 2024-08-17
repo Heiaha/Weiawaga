@@ -44,7 +44,6 @@ impl Hasher {
         }
     }
 
-    #[inline(always)]
     pub fn move_piece(&mut self, pc: Piece, from_sq: SQ, to_sq: SQ) {
         let pc_index = pc.index() * SQ::N_SQUARES;
         let update = self.zobrist_table[pc_index + from_sq.index()]
@@ -53,35 +52,29 @@ impl Hasher {
         self.material_hash ^= update;
     }
 
-    #[inline(always)]
     pub fn update_piece(&mut self, pc: Piece, sq: SQ) {
         let update = self.zobrist_table[pc.index() * SQ::N_SQUARES + sq.index()];
         self.hash ^= update;
         self.material_hash ^= update;
     }
 
-    #[inline(always)]
     pub fn update_ep(&mut self, file: File) {
         self.hash ^= self.zobrist_ep[file.index()];
     }
 
-    #[inline(always)]
     pub fn update_color(&mut self) {
         self.hash ^= self.zobrist_color;
     }
 
-    #[inline(always)]
     pub fn clear(&mut self) {
         self.hash = 0;
         self.material_hash = 0;
     }
 
-    #[inline(always)]
     pub fn hash(&self) -> Hash {
         self.hash
     }
 
-    #[inline(always)]
     pub fn material_hash(&self) -> Hash {
         self.material_hash
     }

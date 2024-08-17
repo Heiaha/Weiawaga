@@ -49,12 +49,10 @@ impl Board {
         self.network = Network::new();
     }
 
-    #[inline(always)]
     pub fn piece_at(&self, sq: SQ) -> Piece {
         self.board[sq.index()]
     }
 
-    #[inline(always)]
     pub fn piece_type_at(&self, sq: SQ) -> PieceType {
         self.board[sq.index()].type_of()
     }
@@ -92,58 +90,47 @@ impl Board {
         self.board[from_sq.index()] = Piece::None;
     }
 
-    #[inline(always)]
     pub fn move_piece(&mut self, from_sq: SQ, to_sq: SQ) {
         self.remove_piece(to_sq);
         self.move_piece_quiet(from_sq, to_sq);
     }
 
-    #[inline(always)]
     pub fn eval(&self) -> Value {
         self.network.eval() * self.ctm.factor()
     }
 
-    #[inline(always)]
     pub fn bitboard_of(&self, c: Color, pt: PieceType) -> Bitboard {
         self.piece_type_bb[pt.index()] & self.color_bb[c.index()]
     }
 
-    #[inline(always)]
     pub fn bitboard_of_pc(&self, pc: Piece) -> Bitboard {
         self.piece_type_bb[pc.type_of().index()] & self.color_bb[pc.color_of().index()]
     }
 
-    #[inline(always)]
     pub fn bitboard_of_pt(&self, pt: PieceType) -> Bitboard {
         self.piece_type_bb[pt.index()]
     }
 
-    #[inline(always)]
     pub fn diagonal_sliders(&self) -> Bitboard {
         self.bitboard_of_pt(PieceType::Bishop) | self.bitboard_of_pt(PieceType::Queen)
     }
 
-    #[inline(always)]
     pub fn orthogonal_sliders(&self) -> Bitboard {
         self.bitboard_of_pt(PieceType::Rook) | self.bitboard_of_pt(PieceType::Queen)
     }
 
-    #[inline(always)]
     pub fn diagonal_sliders_c(&self, color: Color) -> Bitboard {
         self.bitboard_of(color, PieceType::Bishop) | self.bitboard_of(color, PieceType::Queen)
     }
 
-    #[inline(always)]
     pub fn orthogonal_sliders_c(&self, color: Color) -> Bitboard {
         self.bitboard_of(color, PieceType::Rook) | self.bitboard_of(color, PieceType::Queen)
     }
 
-    #[inline(always)]
     pub fn all_pieces(&self) -> Bitboard {
         self.color_bb[Color::White.index()] | self.color_bb[Color::Black.index()]
     }
 
-    #[inline(always)]
     pub fn all_pieces_c(&self, color: Color) -> Bitboard {
         self.color_bb[color.index()]
     }
@@ -195,12 +182,10 @@ impl Board {
         self.is_attacked(self.bitboard_of(self.ctm, PieceType::King).lsb())
     }
 
-    #[inline(always)]
     pub fn peek(&self) -> Move {
         self.history[self.ply].moov()
     }
 
-    #[inline(always)]
     fn is_insufficient_material(&self) -> bool {
         match self.all_pieces().pop_count() {
             2 => true,
@@ -214,12 +199,10 @@ impl Board {
         }
     }
 
-    #[inline(always)]
     fn is_fifty(&self) -> bool {
         self.history[self.ply].half_move_counter() >= 100
     }
 
-    #[inline(always)]
     fn is_repetition(&self) -> bool {
         let lookback = min(
             self.history[self.ply].plies_from_null(),
@@ -234,12 +217,10 @@ impl Board {
             .any(|entry| self.material_hash() == entry.material_hash())
     }
 
-    #[inline(always)]
     pub fn is_draw(&self) -> bool {
         self.is_fifty() || self.is_insufficient_material() || self.is_repetition()
     }
 
-    #[inline(always)]
     pub fn has_non_pawn_material(&self) -> bool {
         self.bitboard_of(self.ctm, PieceType::Pawn) | self.bitboard_of(self.ctm, PieceType::King)
             != self.all_pieces_c(self.ctm)
@@ -1029,22 +1010,18 @@ impl Board {
         self.simple_eval_c(Color::White) - self.simple_eval_c(Color::Black)
     }
 
-    #[inline(always)]
     pub fn ctm(&self) -> Color {
         self.ctm
     }
 
-    #[inline(always)]
     pub fn ply(&self) -> usize {
         self.ply
     }
 
-    #[inline(always)]
     pub fn hash(&self) -> Hash {
         self.hasher.hash()
     }
 
-    #[inline(always)]
     pub fn material_hash(&self) -> Hash {
         self.hasher.material_hash()
     }
@@ -1183,78 +1160,64 @@ pub struct HistoryEntry {
 }
 
 impl HistoryEntry {
-    #[inline(always)]
     pub fn entry(&self) -> Bitboard {
         self.entry
     }
 
-    #[inline(always)]
     pub fn moov(&self) -> Move {
         self.moov
     }
 
-    #[inline(always)]
     pub fn captured(&self) -> Piece {
         self.captured
     }
 
-    #[inline(always)]
     pub fn epsq(&self) -> SQ {
         self.epsq
     }
 
-    #[inline(always)]
     pub fn half_move_counter(&self) -> u16 {
         self.half_move_counter
     }
 
-    #[inline(always)]
     pub fn plies_from_null(&self) -> u16 {
         self.plies_from_null
     }
 
-    #[inline(always)]
     pub fn material_hash(&self) -> Hash {
         self.material_hash
     }
 
-    #[inline(always)]
     pub fn with_entry(&mut self, entry: Bitboard) -> Self {
         self.entry = entry;
         *self
     }
 
-    #[inline(always)]
     pub fn with_moov(&mut self, moov: Move) -> Self {
         self.moov = moov;
         *self
     }
 
-    #[inline(always)]
     pub fn with_captured(&mut self, pc: Piece) -> Self {
         self.captured = pc;
         *self
     }
 
-    #[inline(always)]
     pub fn with_epsq(&mut self, sq: SQ) -> Self {
         self.epsq = sq;
         *self
     }
 
-    #[inline(always)]
     pub fn with_half_move_counter(&mut self, half_move_counter: u16) -> Self {
         self.half_move_counter = half_move_counter;
         *self
     }
 
-    #[inline(always)]
     pub fn with_plies_from_null(&mut self, plies_from_null: u16) -> Self {
         self.plies_from_null = plies_from_null;
         *self
     }
 
-    #[inline(always)]
     pub fn with_material_hash(&mut self, material_hash: Hash) -> Self {
         self.material_hash = material_hash;
         *self

@@ -8,42 +8,34 @@ use super::types::*;
 pub struct Move(MoveInt);
 
 impl Move {
-    #[inline(always)]
     pub fn new(from_sq: SQ, to_sq: SQ, flags: MoveFlags) -> Self {
         Self(((flags as MoveInt) << 12) | ((from_sq as MoveInt) << 6) | (to_sq as MoveInt))
     }
 
-    #[inline(always)]
     pub fn to_sq(&self) -> SQ {
         SQ::from((self.0 & 0x3f) as u8)
     }
 
-    #[inline(always)]
     pub fn from_sq(&self) -> SQ {
         SQ::from(((self.0 >> 6) & 0x3f) as u8)
     }
 
-    #[inline(always)]
     pub fn flags(&self) -> MoveFlags {
         MoveFlags::from(((self.0 >> 12) & 0xf) as u8)
     }
 
-    #[inline(always)]
     pub fn is_quiet(&self) -> bool {
         (self.0 >> 12) & 0b1100 == 0
     }
 
-    #[inline(always)]
     pub fn is_capture(&self) -> bool {
         (self.0 >> 12) & 0b0100 != 0
     }
 
-    #[inline(always)]
     pub fn is_ep(&self) -> bool {
         self.flags() == MoveFlags::EnPassant
     }
 
-    #[inline(always)]
     pub fn promotion(&self) -> PieceType {
         match self.flags() {
             MoveFlags::PrKnight | MoveFlags::PcKnight => PieceType::Knight,
@@ -54,19 +46,16 @@ impl Move {
         }
     }
 
-    #[inline(always)]
     pub fn is_castling(&self) -> bool {
         matches!(self.flags(), MoveFlags::OO | MoveFlags::OOO)
     }
 
-    #[inline(always)]
     pub fn is_null(&self) -> bool {
         *self == Move::NULL
     }
 }
 
 impl From<MoveInt> for Move {
-    #[inline(always)]
     fn from(m: MoveInt) -> Self {
         Self(m)
     }
@@ -107,7 +96,6 @@ impl Default for MoveFlags {
 }
 
 impl From<u8> for MoveFlags {
-    #[inline(always)]
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
     }

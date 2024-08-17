@@ -20,14 +20,12 @@ pub enum Diagonal {
 }
 
 impl Diagonal {
-    #[inline(always)]
     pub fn bb(self) -> Bitboard {
         Self::DIAGONAL_BB[self as usize]
     }
 }
 
 impl From<u8> for Diagonal {
-    #[inline(always)]
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
     }
@@ -74,14 +72,12 @@ pub enum AntiDiagonal {
 }
 
 impl AntiDiagonal {
-    #[inline(always)]
     pub fn bb(self) -> Bitboard {
         Self::ANTIDIAGONAL_BB[self as usize]
     }
 }
 
 impl From<u8> for AntiDiagonal {
-    #[inline(always)]
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
     }

@@ -21,27 +21,22 @@ pub enum Piece {
 }
 
 impl Piece {
-    #[inline(always)]
     pub fn index(self) -> usize {
         self as usize - 2 * self.color_of().index()
     }
 
-    #[inline(always)]
     pub fn flip(self) -> Piece {
         Self::from(self as u8 ^ 0b1000)
     }
 
-    #[inline(always)]
     pub fn type_of(self) -> PieceType {
         PieceType::from(self as u8 & 0b111)
     }
 
-    #[inline(always)]
     pub fn color_of(self) -> Color {
         Color::from((self as u8 & 0b1000) >> 3)
     }
 
-    #[inline(always)]
     pub fn make_piece(color: Color, pt: PieceType) -> Self {
         Self::from(((color as u8) << 3) + pt as u8)
     }
@@ -49,7 +44,7 @@ impl Piece {
     // Use this iterator pattern for Piece, PieceType, and Bitboard iterator for SQ
     // until we can return to Step implementation once it's stabilized.
     // https://github.com/rust-lang/rust/issues/42168
-    #[inline(always)]
+
     pub fn iter(start: Self, end: Self) -> impl Iterator<Item = Self> {
         (start as u8..=end as u8)
             .filter(|n| !matches!(n, 0b0110 | 0b0111)) // Skip over 6 and 7, as they're not assigned to a piece so as to align color bits
@@ -58,7 +53,6 @@ impl Piece {
 }
 
 impl From<u8> for Piece {
-    #[inline(always)]
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
     }
@@ -115,19 +109,16 @@ pub enum PieceType {
 }
 
 impl PieceType {
-    #[inline(always)]
     pub fn index(self) -> usize {
         self as usize
     }
 
-    #[inline(always)]
     pub fn iter(start: Self, end: Self) -> impl Iterator<Item = Self> {
         (start as u8..=end as u8).map(Self::from)
     }
 }
 
 impl From<u8> for PieceType {
-    #[inline(always)]
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
     }

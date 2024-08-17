@@ -450,7 +450,6 @@ impl<'a> Search<'a> {
         alpha
     }
 
-    #[inline(always)]
     fn can_apply_null(
         board: &Board,
         depth: Depth,
@@ -466,33 +465,27 @@ impl<'a> Search<'a> {
             && board.eval() >= beta
     }
 
-    #[inline(always)]
     fn can_apply_iid(depth: Depth, in_check: bool, is_pv: bool) -> bool {
         depth >= Self::IID_MIN_DEPTH && !in_check && !is_pv
     }
 
-    #[inline(always)]
     fn can_apply_rfp(depth: Depth, in_check: bool, is_pv: bool, beta: Value) -> bool {
         depth <= Self::RFP_MAX_DEPTH && !in_check && !is_pv && !Self::is_checkmate(beta)
     }
 
-    #[inline(always)]
     fn can_apply_lmr(m: Move, depth: Depth, move_index: usize) -> bool {
         depth >= Self::LMR_MIN_DEPTH && move_index >= Self::LMR_MOVE_WO_REDUCTION && m.is_quiet()
     }
 
-    #[inline(always)]
     fn null_reduction(depth: Depth) -> Depth {
         // Idea of dividing in null move depth taken from Cosette
         Self::NULL_MIN_DEPTH_REDUCTION + (depth - Self::NULL_MIN_DEPTH) / Self::NULL_DEPTH_DIVIDER
     }
 
-    #[inline(always)]
     fn rfp_margin(depth: Depth) -> Value {
         Self::RFP_MARGIN_MULTIPLIER * (depth as Value)
     }
 
-    #[inline(always)]
     fn late_move_reduction(depth: Depth, move_index: usize) -> Depth {
         // LMR table idea from Ethereal
         unsafe { LMR_TABLE[min(depth as usize, 63)][min(move_index, 63)] }

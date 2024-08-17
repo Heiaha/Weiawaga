@@ -26,22 +26,18 @@ impl SQ {
         Self::from(((rank as u8) << 3) + (file as u8))
     }
 
-    #[inline(always)]
     pub fn bb(self) -> Bitboard {
         Self::SQUARES_BB[self as usize]
     }
 
-    #[inline(always)]
     pub fn index(self) -> usize {
         self as usize
     }
 
-    #[inline(always)]
     pub fn rank(self) -> Rank {
         Rank::from(self as u8 >> 3)
     }
 
-    #[inline(always)]
     pub fn file(self) -> File {
         File::from(self as u8 & 7)
     }
@@ -56,12 +52,10 @@ impl SQ {
         AntiDiagonal::from((value >> 3) + (value & 7))
     }
 
-    #[inline(always)]
     pub fn square_mirror(self) -> Self {
         Self::from(self as u8 ^ 0x38)
     }
 
-    #[inline(always)]
     pub fn relative(self, c: Color) -> Self {
         match c {
             Color::White => self,
@@ -69,7 +63,6 @@ impl SQ {
         }
     }
 
-    #[inline(always)]
     pub fn iter(start: Self, end: Self) -> impl Iterator<Item = Self> {
         (start as u8..=end as u8).map(Self::from)
     }
@@ -78,7 +71,6 @@ impl SQ {
 impl Add<Direction> for SQ {
     type Output = Self;
 
-    #[inline(always)]
     fn add(self, dir: Direction) -> Self {
         Self::from((self as u8).wrapping_add(dir as u8))
     }
@@ -87,14 +79,12 @@ impl Add<Direction> for SQ {
 impl Sub<Direction> for SQ {
     type Output = Self;
 
-    #[inline(always)]
     fn sub(self, dir: Direction) -> Self {
         Self::from((self as u8).wrapping_sub(dir as u8))
     }
 }
 
 impl From<u8> for SQ {
-    #[inline(always)]
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
     }
@@ -177,7 +167,6 @@ impl Direction {
 }
 
 impl From<i8> for Direction {
-    #[inline(always)]
     fn from(n: i8) -> Self {
         unsafe { std::mem::transmute::<i8, Self>(n) }
     }

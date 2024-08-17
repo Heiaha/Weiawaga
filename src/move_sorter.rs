@@ -27,7 +27,6 @@ impl MoveSorter {
         }
     }
 
-    #[inline(always)]
     fn score_move(&self, m: Move, board: &Board, ply: Ply, hash_move: Move) -> Value {
         if m == hash_move {
             return Self::HASH_MOVE_SCORE;
@@ -70,7 +69,6 @@ impl MoveSorter {
         score
     }
 
-    #[inline(always)]
     fn mvv_lva_score(board: &Board, m: Move) -> Value {
         Self::MVV_LVA_SCORES[board.piece_type_at(m.to_sq()).index() * PieceType::N_PIECE_TYPES
             + board.piece_type_at(m.from_sq()).index()]
@@ -102,7 +100,6 @@ impl MoveSorter {
         self.killer_moves[board.ctm().index()][ply].contains(&m)
     }
 
-    #[inline(always)]
     fn history_score(&self, m: Move) -> Value {
         self.history_scores[m.from_sq().index()][m.to_sq().index()]
     }

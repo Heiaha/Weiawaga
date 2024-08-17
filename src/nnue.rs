@@ -34,27 +34,25 @@ impl Network {
         }
     }
 
-    #[inline(always)]
     pub fn move_piece(&mut self, piece: Piece, from_sq: SQ, to_sq: SQ) {
         self.deactivate(piece, from_sq);
         self.activate(piece, to_sq);
     }
 
-    #[inline(always)]
     pub fn activate(&mut self, piece: Piece, sq: SQ) {
         self.update_activation(piece, sq, |activation, weight| *activation += weight);
     }
 
-    #[inline(always)]
     pub fn deactivate(&mut self, piece: Piece, sq: SQ) {
         self.update_activation(piece, sq, |activation, weight| *activation -= weight);
     }
 
-    #[inline(always)]
-    fn update_activation<F>(&mut self, piece: Piece, sq: SQ, mut update_fn: F)
-    where
-        F: FnMut(&mut i16, &i16),
-    {
+    fn update_activation(
+        &mut self,
+        piece: Piece,
+        sq: SQ,
+        mut update_fn: impl FnMut(&mut i16, &i16),
+    ) {
         let feature_idx =
             (piece.index() * SQ::N_SQUARES + sq.index()) * self.input_layer.activations.len();
         let weights = self.input_layer.weights
@@ -68,7 +66,6 @@ impl Network {
             .for_each(|(activation, weight)| update_fn(activation, weight));
     }
 
-    #[inline(always)]
     pub fn eval(&self) -> Value {
         let output = self.hidden_layer.biases[0] as Value
             + self
@@ -84,7 +81,6 @@ impl Network {
         Self::NNUE2SCORE * output / (Self::SCALE * Self::SCALE) as Value
     }
 
-    #[inline(always)]
     fn clipped_relu(x: i16) -> i16 {
         x.clamp(0, Self::SCALE)
     }

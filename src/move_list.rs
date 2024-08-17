@@ -57,7 +57,6 @@ impl MoveList {
         self.moves[..self.len].contains(&m)
     }
 
-    #[inline(always)]
     pub fn push(&mut self, m: Move) {
         self.moves[self.len] = m;
         self.len += 1;

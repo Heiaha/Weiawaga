@@ -13,19 +13,16 @@ pub enum File {
 }
 
 impl File {
-    #[inline(always)]
     pub fn bb(self) -> Bitboard {
         Self::FILE_BB[self as usize]
     }
 
-    #[inline(always)]
     pub fn index(self) -> usize {
         self as usize
     }
 }
 
 impl From<u8> for File {
-    #[inline(always)]
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
     }

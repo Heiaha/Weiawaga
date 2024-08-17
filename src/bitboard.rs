@@ -18,34 +18,28 @@ macro_rules! B {
 }
 
 impl Bitboard {
-    #[inline(always)]
     pub fn lsb(&self) -> SQ {
         SQ::from(self.0.trailing_zeros() as u8)
     }
 
-    #[inline(always)]
     pub fn msb(&self) -> SQ {
         SQ::from((63 - self.0.leading_zeros()) as u8)
     }
 
-    #[inline(always)]
     pub fn pop_lsb(&mut self) -> SQ {
         let s = self.lsb();
         self.0 &= self.0 - 1;
         s
     }
 
-    #[inline(always)]
     pub fn is_several(&self) -> bool {
         self.0 & (self.0.wrapping_sub(1)) != 0
     }
 
-    #[inline(always)]
     pub fn is_single(&self) -> bool {
         self.0 != 0 && !self.is_several()
     }
 
-    #[inline(always)]
     pub fn pop_count(&self) -> Value {
         self.0.count_ones() as Value
     }
@@ -65,7 +59,6 @@ impl Bitboard {
         }
     }
 
-    #[inline(always)]
     pub fn reverse(self) -> Self {
         Self(self.0.reverse_bits())
     }
@@ -86,16 +79,14 @@ impl Bitboard {
 //////////////////////////////////////////////
 
 impl Bitboard {
-    #[inline(always)]
     pub fn line(sq1: SQ, sq2: SQ) -> Self {
         unsafe { LINES_BB[sq1.index()][sq2.index()] }
     }
-    #[inline(always)]
+
     pub fn between(sq1: SQ, sq2: SQ) -> Self {
         unsafe { BETWEEN_BB[sq1.index()][sq2.index()] }
     }
 
-    #[inline(always)]
     pub fn oo_mask(c: Color) -> Self {
         match c {
             Color::White => Self::WHITE_OO_MASK,
@@ -103,7 +94,6 @@ impl Bitboard {
         }
     }
 
-    #[inline(always)]
     pub fn ooo_mask(c: Color) -> Self {
         match c {
             Color::White => Self::WHITE_OOO_MASK,
@@ -111,7 +101,6 @@ impl Bitboard {
         }
     }
 
-    #[inline(always)]
     pub fn oo_blockers_mask(c: Color) -> Self {
         match c {
             Color::White => Self::WHITE_OO_BLOCKERS_AND_ATTACKERS_MASK,
@@ -119,7 +108,6 @@ impl Bitboard {
         }
     }
 
-    #[inline(always)]
     pub fn ooo_blockers_mask(c: Color) -> Self {
         match c {
             Color::White => Self::WHITE_OOO_BLOCKERS_AND_ATTACKERS_MASK,
@@ -127,7 +115,6 @@ impl Bitboard {
         }
     }
 
-    #[inline(always)]
     pub fn ignore_ooo_danger(c: Color) -> Self {
         match c {
             Color::White => Self::WHITE_OOO_DANGER,
@@ -152,7 +139,6 @@ where
 {
     type Output = Self;
 
-    #[inline(always)]
     fn shl(self, rhs: T) -> Self::Output {
         Self(self.0 << rhs)
     }
@@ -162,7 +148,6 @@ impl<T> ShlAssign<T> for Bitboard
 where
     Hash: ShlAssign<T>,
 {
-    #[inline(always)]
     fn shl_assign(&mut self, rhs: T) {
         self.0 <<= rhs;
     }
@@ -174,7 +159,6 @@ where
 {
     type Output = Self;
 
-    #[inline(always)]
     fn shr(self, rhs: T) -> Self::Output {
         Self(self.0 >> rhs)
     }
@@ -184,7 +168,6 @@ impl<T> ShrAssign<T> for Bitboard
 where
     Hash: ShrAssign<T>,
 {
-    #[inline(always)]
     fn shr_assign(&mut self, rhs: T) {
         self.0 >>= rhs;
     }
@@ -197,14 +180,12 @@ where
 impl BitAnd for Bitboard {
     type Output = Self;
 
-    #[inline(always)]
     fn bitand(self, rhs: Self) -> Self::Output {
         Self(self.0 & rhs.0)
     }
 }
 
 impl BitAndAssign for Bitboard {
-    #[inline(always)]
     fn bitand_assign(&mut self, rhs: Self) {
         self.0 &= rhs.0;
     }
@@ -213,14 +194,12 @@ impl BitAndAssign for Bitboard {
 impl BitOr for Bitboard {
     type Output = Self;
 
-    #[inline(always)]
     fn bitor(self, rhs: Self) -> Self::Output {
         Self(self.0 | rhs.0)
     }
 }
 
 impl BitOrAssign for Bitboard {
-    #[inline(always)]
     fn bitor_assign(&mut self, rhs: Self) {
         self.0 |= rhs.0;
     }
@@ -229,14 +208,12 @@ impl BitOrAssign for Bitboard {
 impl BitXor for Bitboard {
     type Output = Self;
 
-    #[inline(always)]
     fn bitxor(self, rhs: Self) -> Self::Output {
         Self(self.0 ^ rhs.0)
     }
 }
 
 impl BitXorAssign for Bitboard {
-    #[inline(always)]
     fn bitxor_assign(&mut self, rhs: Self) {
         self.0 ^= rhs.0;
     }
@@ -245,7 +222,6 @@ impl BitXorAssign for Bitboard {
 impl Not for Bitboard {
     type Output = Self;
 
-    #[inline(always)]
     fn not(self) -> Self::Output {
         Self(!self.0)
     }
@@ -258,7 +234,6 @@ impl Not for Bitboard {
 impl Mul for Bitboard {
     type Output = Self;
 
-    #[inline(always)]
     fn mul(self, rhs: Self) -> Self::Output {
         Self(self.0.wrapping_mul(rhs.0))
     }
@@ -267,7 +242,6 @@ impl Mul for Bitboard {
 impl Sub for Bitboard {
     type Output = Self;
 
-    #[inline(always)]
     fn sub(self, rhs: Self) -> Self::Output {
         Self(self.0.wrapping_sub(rhs.0))
     }

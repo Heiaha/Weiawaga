@@ -14,24 +14,20 @@ pub enum Rank {
 }
 
 impl Rank {
-    #[inline(always)]
     pub fn bb(self) -> Bitboard {
         Self::RANK_BB[self as usize]
     }
 
-    #[inline(always)]
     pub fn index(self) -> usize {
         self as usize
     }
 
-    #[inline(always)]
     pub fn relative(self, c: Color) -> Self {
         Self::from((self as u8) ^ (c as u8 * 7))
     }
 }
 
 impl From<u8> for Rank {
-    #[inline(always)]
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
     }

@@ -84,37 +84,30 @@ const PAWN_ATTACKS: [[Bitboard; SQ::N_SQUARES]; Color::N_COLORS] = [
 
 ];
 
-#[inline(always)]
 pub fn rook_attacks(sq: SQ, occ: Bitboard) -> Bitboard {
     unsafe { ROOK_MAGICS.attacks[sq.index()][ROOK_MAGICS.index(sq, occ)] }
 }
 
-#[inline(always)]
 pub fn bishop_attacks(sq: SQ, occ: Bitboard) -> Bitboard {
     unsafe { BISHOP_MAGICS.attacks[sq.index()][BISHOP_MAGICS.index(sq, occ)] }
 }
 
-#[inline(always)]
 pub fn knight_attacks(sq: SQ) -> Bitboard {
     KNIGHT_ATTACKS[sq.index()]
 }
 
-#[inline(always)]
 pub fn king_attacks(sq: SQ) -> Bitboard {
     ADJACENT_ATTACKS[sq.index()]
 }
 
-#[inline(always)]
 pub fn pawn_attacks_bb(bb: Bitboard, color: Color) -> Bitboard {
     bb.shift(Direction::NorthWest.relative(color)) | bb.shift(Direction::NorthEast.relative(color))
 }
 
-#[inline(always)]
 pub fn pawn_attacks_sq(sq: SQ, color: Color) -> Bitboard {
     PAWN_ATTACKS[color.index()][sq.index()]
 }
 
-#[inline(always)]
 pub fn sliding_attacks(sq: SQ, occ: Bitboard, mask: Bitboard) -> Bitboard {
     (((mask & occ) - sq.bb() * Bitboard::TWO)
         ^ ((mask & occ).reverse() - sq.bb().reverse() * Bitboard::TWO).reverse())

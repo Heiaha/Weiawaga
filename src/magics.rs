@@ -72,7 +72,6 @@ pub struct Magics {
 }
 
 impl Magics {
-    #[inline(always)]
     pub fn index(&self, sq: SQ, occ: Bitboard) -> usize {
         (((occ & self.masks[sq.index()]) * self.magics[sq.index()]) >> self.shift).0 as usize
     }

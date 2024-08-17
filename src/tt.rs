@@ -29,22 +29,18 @@ impl TTEntry {
         }
     }
 
-    #[inline(always)]
     pub fn best_move(&self) -> Move {
         self.best_move
     }
 
-    #[inline(always)]
     pub fn depth(&self) -> Depth {
         self.depth
     }
 
-    #[inline(always)]
     pub fn value(&self) -> Value {
         self.value
     }
 
-    #[inline(always)]
     pub fn flag(&self) -> Bound {
         self.flag
     }
@@ -99,7 +95,6 @@ impl TT {
         }
     }
 
-    #[inline(always)]
     pub fn insert(&self, board: &Board, depth: Depth, value: Value, best_move: Move, flag: Bound) {
         unsafe {
             self.table
@@ -108,7 +103,6 @@ impl TT {
         }
     }
 
-    #[inline(always)]
     pub fn probe(&self, board: &Board) -> Option<TTEntry> {
         unsafe {
             self.table
@@ -123,7 +117,6 @@ impl TT {
             .for_each(|entry| *entry = AtomicEntry::default());
     }
 
-    #[inline(always)]
     fn index(&self, board: &Board) -> usize {
         (board.hash() & self.bitmask) as usize
     }
@@ -141,7 +134,6 @@ impl TT {
             .count()
     }
 
-    #[inline(always)]
     #[allow(unused_variables)]
     pub fn prefetch(&self, board: &Board) {
         #[cfg(target_arch = "x86_64")]

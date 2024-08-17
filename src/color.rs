@@ -10,12 +10,10 @@ pub enum Color {
 }
 
 impl Color {
-    #[inline(always)]
     pub fn index(self) -> usize {
         self as usize
     }
 
-    #[inline(always)]
     pub fn factor(&self) -> Value {
         if *self == Self::White {
             1
@@ -26,7 +24,6 @@ impl Color {
 }
 
 impl From<u8> for Color {
-    #[inline(always)]
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
     }
@@ -35,7 +32,6 @@ impl From<u8> for Color {
 impl Not for Color {
     type Output = Color;
 
-    #[inline(always)]
     fn not(self) -> Self {
         Color::from((self as u8) ^ 1)
     }

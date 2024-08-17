@@ -216,7 +216,6 @@ impl Timer {
         self.stop.store(true, sync::atomic::Ordering::SeqCst);
     }
 
-    #[inline(always)]
     pub fn elapsed(&self) -> Duration {
         self.start_time.elapsed()
     }
