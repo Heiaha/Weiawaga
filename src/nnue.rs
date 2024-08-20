@@ -7,16 +7,11 @@ use super::types::*;
 struct Layer {
     weights: &'static [i16],
     biases: &'static [i16],
-    activations: Vec<i16>, // used for incremental layer
 }
 
 impl Layer {
     pub fn new(weights: &'static [i16], biases: &'static [i16]) -> Self {
-        Self {
-            weights,
-            biases,
-            activations: Vec::from(biases),
-        }
+        Self { weights, biases }
     }
 }
 
@@ -24,13 +19,15 @@ impl Layer {
 pub struct Network {
     input_layer: Layer,
     hidden_layer: Layer,
+    accumulator: [i16; HIDDEN_LAYER_WEIGHT.len()],
 }
 
 impl Network {
     pub fn new() -> Self {
         Self {
             input_layer: Layer::new(&INPUT_LAYER_WEIGHT, &INPUT_LAYER_BIAS),
-            hidden_layer: Layer::new(&L1_WEIGHT, &L1_BIAS),
+            hidden_layer: Layer::new(&HIDDEN_LAYER_WEIGHT, &HIDDEN_LAYER_BIAS),
+            accumulator: INPUT_LAYER_BIAS,
         }
     }
 
@@ -54,39 +51,36 @@ impl Network {
         mut update_fn: impl FnMut(&mut i16, &i16),
     ) {
         let feature_idx =
-            (piece.index() * SQ::N_SQUARES + sq.index()) * self.input_layer.activations.len();
+            (piece.index() * SQ::N_SQUARES + sq.index()) * self.hidden_layer.weights.len();
         let weights = self.input_layer.weights
-            [feature_idx..feature_idx + self.input_layer.activations.len()]
+            [feature_idx..feature_idx + self.hidden_layer.weights.len()]
             .iter();
 
-        self.input_layer
-            .activations
+        self.accumulator
             .iter_mut()
             .zip(weights)
             .for_each(|(activation, weight)| update_fn(activation, weight));
     }
 
     pub fn eval(&self) -> Value {
-        let output = self.hidden_layer.biases[0] as Value
-            + self
-                .input_layer
-                .activations
-                .iter()
-                .zip(self.hidden_layer.weights)
-                .map(|(activation, weight)| {
-                    (Self::clipped_relu(*activation) as Value) * (*weight as Value)
-                })
-                .sum::<Value>();
+        let output = self
+            .accumulator
+            .iter()
+            .zip(self.hidden_layer.weights)
+            .map(|(activation, weight)| (Self::clipped_relu(*activation)) * (*weight as Value))
+            .sum::<Value>();
 
-        Self::NNUE2SCORE * output / (Self::SCALE * Self::SCALE) as Value
+        (Value::from(self.hidden_layer.biases[0]) + output / Self::INPUT_SCALE) * Self::NNUE2SCORE
+            / Self::HIDDEN_SCALE
     }
 
-    fn clipped_relu(x: i16) -> i16 {
-        x.clamp(0, Self::SCALE)
+    fn clipped_relu(x: i16) -> Value {
+        Value::from(x).clamp(0, Self::INPUT_SCALE)
     }
 }
 
 impl Network {
-    const SCALE: i16 = 64;
-    const NNUE2SCORE: Value = 600;
+    const INPUT_SCALE: Value = 255;
+    const HIDDEN_SCALE: Value = 64;
+    const NNUE2SCORE: Value = 400;
 }
