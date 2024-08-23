@@ -19,7 +19,7 @@ impl Layer {
 pub struct Network {
     input_layer: Layer,
     hidden_layer: Layer,
-    accumulator: [i16; HIDDEN_LAYER_WEIGHT.len()],
+    accumulator: [i16; INPUT_LAYER_BIAS.len()],
 }
 
 impl Network {
@@ -51,9 +51,9 @@ impl Network {
         mut update_fn: impl FnMut(&mut i16, &i16),
     ) {
         let feature_idx =
-            (piece.index() * SQ::N_SQUARES + sq.index()) * self.hidden_layer.weights.len();
+            (piece.index() * SQ::N_SQUARES + sq.index()) * self.input_layer.biases.len();
         let weights = self.input_layer.weights
-            [feature_idx..feature_idx + self.hidden_layer.weights.len()]
+            [feature_idx..feature_idx + self.input_layer.biases.len()]
             .iter();
 
         self.accumulator
