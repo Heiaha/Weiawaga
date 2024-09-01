@@ -1,4 +1,3 @@
-use std::cmp::min;
 use std::str::{FromStr, SplitWhitespace};
 use std::sync;
 use std::sync::atomic::AtomicBool;
@@ -130,7 +129,7 @@ impl Timer {
                     .max(1.0) as u32,
             );
 
-            time_target = min(time / mtg + inc.unwrap_or(Duration::ZERO), time);
+            time_target = time.min(time / mtg + inc.unwrap_or(Duration::ZERO));
             time_maximum = time_target + (time - time_target) / 4;
         }
 
@@ -215,7 +214,7 @@ impl Timer {
 
     pub fn update(&mut self, best_move: Move) {
         if !self.best_move.is_null() && best_move != self.best_move {
-            self.time_target = min(self.time_maximum, self.time_target * 3 / 2);
+            self.time_target = self.time_maximum.min(self.time_target * 3 / 2);
         }
 
         self.best_move = best_move;

@@ -1,4 +1,3 @@
-use std::cmp::{max, min};
 use std::time::Duration;
 
 use super::board::*;
@@ -187,8 +186,8 @@ impl<'a> Search<'a> {
         // some nodes when checkmate is near.
         ///////////////////////////////////////////////////////////////////
         let mate_value = Self::MATE - (ply as Value);
-        alpha = max(alpha, -mate_value);
-        beta = min(beta, mate_value - 1);
+        alpha = alpha.max(-mate_value);
+        beta = beta.min(mate_value - 1);
         if alpha >= beta {
             self.nodes += 1;
             return alpha;
@@ -231,8 +230,8 @@ impl<'a> Search<'a> {
             if tt_entry.depth() >= depth && !is_pv {
                 match tt_entry.flag() {
                     Bound::Exact => return tt_entry.value(),
-                    Bound::Lower => alpha = max(alpha, tt_entry.value()),
-                    Bound::Upper => beta = min(beta, tt_entry.value()),
+                    Bound::Lower => alpha = alpha.max(tt_entry.value()),
+                    Bound::Upper => beta = beta.min(tt_entry.value()),
                 }
                 if alpha >= beta {
                     return tt_entry.value();
@@ -394,21 +393,21 @@ impl<'a> Search<'a> {
             return 0;
         }
 
-        self.sel_depth = max(self.sel_depth, ply);
+        self.sel_depth = self.sel_depth.max(ply);
 
         let eval = board.eval();
 
         if eval >= beta {
             return beta;
         }
-        alpha = max(alpha, eval);
+        alpha = alpha.max(eval);
 
         let mut hash_move = Move::NULL;
         if let Some(tt_entry) = self.tt.probe(board) {
             match tt_entry.flag() {
                 Bound::Exact => return tt_entry.value(),
-                Bound::Lower => alpha = max(alpha, tt_entry.value()),
-                Bound::Upper => beta = min(beta, tt_entry.value()),
+                Bound::Lower => alpha = alpha.max(tt_entry.value()),
+                Bound::Upper => beta = beta.min(tt_entry.value()),
             }
             if alpha >= beta {
                 return tt_entry.value();
@@ -488,7 +487,7 @@ impl<'a> Search<'a> {
 
     fn late_move_reduction(depth: Depth, move_index: usize) -> Depth {
         // LMR table idea from Ethereal
-        unsafe { LMR_TABLE[min(depth as usize, 63)][min(move_index, 63)] }
+        unsafe { LMR_TABLE[depth.min(63) as usize][move_index.min(63)] }
     }
 
     fn is_checkmate(value: Value) -> bool {

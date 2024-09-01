@@ -1,4 +1,3 @@
-use std::cmp::min;
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -204,10 +203,9 @@ impl Board {
     }
 
     fn is_repetition(&self) -> bool {
-        let lookback = min(
-            self.history[self.ply].plies_from_null(),
-            self.history[self.ply].half_move_counter(),
-        ) as usize;
+        let lookback = self.history[self.ply]
+            .plies_from_null()
+            .min(self.history[self.ply].half_move_counter()) as usize;
 
         self.history[self.ply - lookback..self.ply]
             .iter()

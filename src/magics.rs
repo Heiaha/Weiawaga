@@ -1,5 +1,3 @@
-use std::cmp::max;
-
 use super::attacks::*;
 use super::bitboard::*;
 use super::file::*;
@@ -118,7 +116,7 @@ fn init_magics_type(
         let mut size = 0;
         loop {
             let index = magics.index(sq, subset);
-            size = max(size, index + 1);
+            size = size.max(index + 1);
 
             unsafe { ATTACKS_TABLE[base + index] = slow_attacks_gen(sq, subset) }
 
