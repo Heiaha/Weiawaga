@@ -15,10 +15,9 @@ impl Color {
     }
 
     pub fn factor(&self) -> Value {
-        if *self == Self::White {
-            1
-        } else {
-            -1
+        match *self {
+            Self::White => 1,
+            Self::Black => -1,
         }
     }
 }
@@ -39,7 +38,14 @@ impl Not for Color {
 
 impl fmt::Display for Color {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", if *self == Self::White { "w" } else { "b" })
+        write!(
+            f,
+            "{}",
+            match *self {
+                Self::White => "w",
+                Self::Black => "b",
+            }
+        )
     }
 }
 
