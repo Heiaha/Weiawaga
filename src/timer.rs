@@ -117,17 +117,10 @@ impl Timer {
             moves_to_go,
         } = control
         {
-            let time = if board.ctm() == Color::White {
-                wtime
-            } else {
-                btime
+            let (time, inc) = match board.ctm() {
+                Color::White => (wtime, winc),
+                Color::Black => (btime, binc),
             };
-            let inc = if board.ctm() == Color::White {
-                winc
-            } else {
-                binc
-            }
-            .unwrap_or(Duration::ZERO);
 
             let mtg = moves_to_go.unwrap_or(
                 (Self::MTG_INTERCEPT
@@ -137,7 +130,7 @@ impl Timer {
                     .max(1.0) as u32,
             );
 
-            time_target = min(time / mtg + inc, time);
+            time_target = min(time / mtg + inc.unwrap_or(Duration::ZERO), time);
             time_maximum = time_target + (time - time_target) / 4;
         }
 
