@@ -18,16 +18,31 @@ impl Layer {
 #[derive(Clone)]
 pub struct Network {
     input_layer: Layer,
-    hidden_layer: Layer,
+    hidden_layers: [Layer; 8],
+    psqt_layer: Layer,
+    psqt_value: i16,
     accumulator: [i16; INPUT_LAYER_BIAS.len()],
+    pop_count: i16,
 }
 
 impl Network {
     pub fn new() -> Self {
         Self {
             input_layer: Layer::new(&INPUT_LAYER_WEIGHT, &INPUT_LAYER_BIAS),
-            hidden_layer: Layer::new(&HIDDEN_LAYER_WEIGHT, &HIDDEN_LAYER_BIAS),
+            hidden_layers: [
+                Layer::new(&HIDDEN_LAYER_0_WEIGHT, &HIDDEN_LAYER_0_BIAS),
+                Layer::new(&HIDDEN_LAYER_1_WEIGHT, &HIDDEN_LAYER_1_BIAS),
+                Layer::new(&HIDDEN_LAYER_2_WEIGHT, &HIDDEN_LAYER_2_BIAS),
+                Layer::new(&HIDDEN_LAYER_3_WEIGHT, &HIDDEN_LAYER_3_BIAS),
+                Layer::new(&HIDDEN_LAYER_4_WEIGHT, &HIDDEN_LAYER_4_BIAS),
+                Layer::new(&HIDDEN_LAYER_5_WEIGHT, &HIDDEN_LAYER_5_BIAS),
+                Layer::new(&HIDDEN_LAYER_6_WEIGHT, &HIDDEN_LAYER_6_BIAS),
+                Layer::new(&HIDDEN_LAYER_7_WEIGHT, &HIDDEN_LAYER_7_BIAS),
+            ],
+            psqt_layer: Layer::new(&PSQT_LAYER_WEIGHT, &[]),
             accumulator: INPUT_LAYER_BIAS,
+            psqt_value: 0,
+            pop_count: 0,
         }
     }
 
@@ -50,27 +65,36 @@ impl Network {
         sq: SQ,
         mut update_fn: impl FnMut(&mut i16, &i16),
     ) {
-        let feature_idx =
-            (piece.index() * SQ::N_SQUARES + sq.index()) * self.input_layer.biases.len();
+        let feature_idx = piece.index() * SQ::N_SQUARES + sq.index();
+        let accumulator_idx = feature_idx * self.input_layer.biases.len();
         let weights = self.input_layer.weights
-            [feature_idx..feature_idx + self.input_layer.biases.len()]
+            [accumulator_idx..accumulator_idx + self.input_layer.biases.len()]
             .iter();
 
         self.accumulator
             .iter_mut()
             .zip(weights)
             .for_each(|(activation, weight)| update_fn(activation, weight));
+
+        update_fn(&mut self.psqt_value, &self.psqt_layer.weights[feature_idx]);
+        update_fn(&mut self.pop_count, &1);
     }
 
     pub fn eval(&self) -> Value {
+        let bucket = (self.pop_count as usize - 1) / 4;
+
+        let hidden_layer = &self.hidden_layers[bucket];
         let output = self
             .accumulator
             .iter()
-            .zip(self.hidden_layer.weights)
+            .zip(hidden_layer.weights)
             .map(|(activation, weight)| (Self::clipped_relu(*activation)) * (*weight as Value))
             .sum::<Value>();
 
-        (Value::from(self.hidden_layer.biases[0]) + output / Self::INPUT_SCALE) * Self::NNUE2SCORE
+        (Value::from(hidden_layer.biases[0])
+            + Value::from(self.psqt_value)
+            + output / Self::INPUT_SCALE)
+            * Self::NNUE2SCORE
             / Self::HIDDEN_SCALE
     }
 
