@@ -462,6 +462,7 @@ impl<'a> Search<'a> {
             && depth >= Self::NULL_MIN_DEPTH
             && board.has_non_pawn_material()
             && board.eval() >= beta
+            && !Self::is_checkmate(beta)
     }
 
     fn can_apply_iid(depth: Depth, in_check: bool, is_pv: bool) -> bool {
