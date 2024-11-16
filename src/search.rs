@@ -551,18 +551,18 @@ impl<'a> Search<'a> {
 impl<'a> Search<'a> {
     const PRINT_CURRMOVENUMBER_TIME: Duration = Duration::from_millis(3000);
     const SEARCHES_WO_TIMER_UPDATE: Depth = 8;
-    const RFP_MAX_DEPTH: Depth = 8;
-    const RFP_MARGIN_MULTIPLIER: Value = 120;
-    const ASPIRATION_WINDOW: Value = 25;
+    const RFP_MAX_DEPTH: Depth = 9;
+    const RFP_MARGIN_MULTIPLIER: Value = 63;
+    const ASPIRATION_WINDOW: Value = 61;
     const NULL_MIN_DEPTH: Depth = 2;
-    const NULL_MIN_DEPTH_REDUCTION: Depth = 3;
-    const NULL_DEPTH_DIVIDER: Depth = 4;
-    const IID_MIN_DEPTH: Depth = 4;
+    const NULL_MIN_DEPTH_REDUCTION: Depth = 1;
+    const NULL_DEPTH_DIVIDER: Depth = 2;
+    const IID_MIN_DEPTH: Depth = 7;
     const IID_DEPTH_REDUCTION: Depth = 2;
-    const LMR_MOVE_WO_REDUCTION: usize = 2;
+    const LMR_MOVE_WO_REDUCTION: usize = 3;
     const LMR_MIN_DEPTH: Depth = 2;
-    const LMR_BASE_REDUCTION: f32 = 0.75;
-    const LMR_MOVE_DIVIDER: f32 = 2.25;
+    const LMR_BASE_REDUCTION: f32 = 0.11;
+    const LMR_MOVE_DIVIDER: f32 = 1.56;
     const MATE: Value = 32000;
 }
 
