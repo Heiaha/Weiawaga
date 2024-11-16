@@ -17,7 +17,6 @@ pub enum Piece {
     BlackRook = 0b1011,
     BlackQueen = 0b1100,
     BlackKing = 0b1101,
-    None = 0b1110,
 }
 
 impl Piece {
@@ -71,12 +70,6 @@ impl TryFrom<char> for Piece {
     }
 }
 
-impl Default for Piece {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
 impl fmt::Display for Piece {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -105,7 +98,6 @@ pub enum PieceType {
     Rook,
     Queen,
     King,
-    None,
 }
 
 impl PieceType {
@@ -121,12 +113,6 @@ impl PieceType {
 impl From<u8> for PieceType {
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
-    }
-}
-
-impl Default for PieceType {
-    fn default() -> Self {
-        Self::None
     }
 }
 

@@ -59,19 +59,20 @@ impl MoveSorter {
         }
 
         score += match m.promotion() {
-            PieceType::Knight => Self::KNIGHT_PROMOTION_SCORE,
-            PieceType::Bishop => Self::BISHOP_PROMOTION_SCORE,
-            PieceType::Rook => Self::ROOK_PROMOTION_SCORE,
-            PieceType::Queen => Self::QUEEN_PROMOTION_SCORE,
-            PieceType::None => 0,
+            Some(PieceType::Knight) => Self::KNIGHT_PROMOTION_SCORE,
+            Some(PieceType::Bishop) => Self::BISHOP_PROMOTION_SCORE,
+            Some(PieceType::Rook) => Self::ROOK_PROMOTION_SCORE,
+            Some(PieceType::Queen) => Self::QUEEN_PROMOTION_SCORE,
+            None => 0,
             _ => unreachable!(),
         };
         score
     }
 
     fn mvv_lva_score(board: &Board, m: Move) -> Value {
-        Self::MVV_LVA_SCORES[board.piece_type_at(m.to_sq()).index() * PieceType::N_PIECE_TYPES
-            + board.piece_type_at(m.from_sq()).index()]
+        Self::MVV_LVA_SCORES[board.piece_type_at(m.to_sq()).unwrap().index()
+            * PieceType::N_PIECE_TYPES
+            + board.piece_type_at(m.from_sq()).unwrap().index()]
     }
 
     pub fn add_killer(&mut self, board: &Board, m: Move, ply: Ply) {
@@ -105,19 +106,25 @@ impl MoveSorter {
     }
 
     pub fn see(board: &Board, m: Move) -> bool {
-        if m.promotion() != PieceType::None {
+        if m.promotion().is_some() {
             return true;
         }
 
         let from_sq = m.from_sq();
         let to_sq = m.to_sq();
-        let mut value = Self::SEE_PIECE_TYPE[board.piece_type_at(to_sq).index()];
+
+        // We know we're dealing with a capture at this point, so just unwrap.
+        let mut captured_pt = board.piece_type_at(to_sq).unwrap();
+
+        let mut value = Self::SEE_PIECE_TYPE[captured_pt.index()];
 
         if value < 0 {
             return false;
         }
 
-        value -= Self::SEE_PIECE_TYPE[board.piece_type_at(from_sq).index()];
+        let mut attacking_pt = board.piece_type_at(from_sq).unwrap();
+
+        value -= Self::SEE_PIECE_TYPE[attacking_pt.index()];
 
         if value >= 0 {
             return true;
@@ -139,7 +146,7 @@ impl MoveSorter {
             }
 
             // We know at this point that there must be a piece, so find the least valuable attacker.
-            let attacking_pt = PieceType::iter(PieceType::Pawn, PieceType::King)
+            attacking_pt = PieceType::iter(PieceType::Pawn, PieceType::King)
                 .find(|&pt| stm_attackers & board.bitboard_of_pt(pt) != Bitboard::ZERO)
                 .unwrap();
 
@@ -172,7 +179,7 @@ impl MoveSorter {
             }
         }
 
-        ctm != board.piece_at(from_sq).color_of()
+        ctm != board.piece_at(from_sq).unwrap().color_of()
     }
 }
 

@@ -36,13 +36,13 @@ impl Move {
         self.flags() == MoveFlags::EnPassant
     }
 
-    pub fn promotion(&self) -> PieceType {
+    pub fn promotion(&self) -> Option<PieceType> {
         match self.flags() {
-            MoveFlags::PrKnight | MoveFlags::PcKnight => PieceType::Knight,
-            MoveFlags::PrBishop | MoveFlags::PcBishop => PieceType::Bishop,
-            MoveFlags::PrRook | MoveFlags::PcRook => PieceType::Rook,
-            MoveFlags::PrQueen | MoveFlags::PcQueen => PieceType::Queen,
-            _ => PieceType::None,
+            MoveFlags::PrKnight | MoveFlags::PcKnight => Some(PieceType::Knight),
+            MoveFlags::PrBishop | MoveFlags::PcBishop => Some(PieceType::Bishop),
+            MoveFlags::PrRook | MoveFlags::PcRook => Some(PieceType::Rook),
+            MoveFlags::PrQueen | MoveFlags::PcQueen => Some(PieceType::Queen),
+            _ => None,
         }
     }
 
@@ -63,7 +63,13 @@ impl From<MoveInt> for Move {
 
 impl fmt::Display for Move {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}{}{}", self.from_sq(), self.to_sq(), self.promotion())
+        write!(f, "{}{}", self.from_sq(), self.to_sq())?;
+
+        if let Some(promotion_pc) = self.promotion() {
+            write!(f, "{}", promotion_pc)?;
+        }
+
+        Ok(())
     }
 }
 

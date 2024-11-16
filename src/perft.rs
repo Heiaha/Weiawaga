@@ -26,6 +26,8 @@ pub fn print_perft(board: &mut Board, depth: Depth) -> u128 {
 
     let moves: MoveList = MoveList::from(board);
     let mut nodes = 0;
+    let hash = board.hash();
+    let material_hash = board.material_hash();
     for m in moves {
         print!("{}: ", m);
         let move_nodes;
@@ -39,6 +41,10 @@ pub fn print_perft(board: &mut Board, depth: Depth) -> u128 {
         nodes += move_nodes;
         println!("{}", move_nodes);
     }
+
+    assert_eq!(board.hash(), hash);
+    assert_eq!(board.material_hash(), material_hash);
+
     let elapsed = now.elapsed().as_secs_f32();
     println!();
     println!("{:?}", board);
