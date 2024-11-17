@@ -95,7 +95,7 @@ pub struct Timer {
     time_target: Duration,
     time_maximum: Duration,
     overhead: Duration,
-    last_best_move: Option<Move>,
+    best_move: Move,
 }
 
 impl Timer {
@@ -121,13 +121,13 @@ impl Timer {
                 Color::Black => (btime, binc),
             };
 
-            let mtg = moves_to_go.unwrap_or_else(|| {
+            let mtg = moves_to_go.unwrap_or(
                 (Self::MTG_INTERCEPT
                     + Self::MTG_EVAL_WEIGHT * (board.simple_eval().abs() as f32)
                     + Self::MTG_MOVE_WEIGHT * (board.fullmove_number() as f32))
                     .ceil()
-                    .max(1.0) as u32
-            });
+                    .max(1.0) as u32,
+            );
 
             time_target = time.min(time / mtg + inc.unwrap_or(Duration::ZERO));
             time_maximum = time_target + (time - time_target) / 4;
@@ -140,7 +140,7 @@ impl Timer {
             overhead,
             time_target,
             time_maximum,
-            last_best_move: None,
+            best_move: Move::NULL,
             times_checked: 0,
         }
     }
@@ -212,15 +212,12 @@ impl Timer {
         self.start_time.elapsed()
     }
 
-    pub fn update(&mut self, best_move: Option<Move>) {
-        if self
-            .last_best_move
-            .is_some_and(|last_move| Some(last_move) != best_move)
-        {
+    pub fn update(&mut self, best_move: Move) {
+        if !self.best_move.is_null() && best_move != self.best_move {
             self.time_target = self.time_maximum.min(self.time_target * 3 / 2);
         }
 
-        self.last_best_move = best_move;
+        self.best_move = best_move;
     }
 }
 

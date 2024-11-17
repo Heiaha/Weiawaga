@@ -130,7 +130,7 @@ impl SearchMaster {
     }
 
     fn set_option(&mut self, name: String, value: String) {
-        let result = match (name.as_str(), value.parse::<u128>()) {
+        let result = match (name.as_ref(), value.parse::<u128>()) {
             ("Hash", Ok(parsed_value)) => {
                 self.tt = TT::new(parsed_value as usize);
                 format!("Hash to {}MB", self.tt.mb_size())

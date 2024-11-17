@@ -17,6 +17,7 @@ pub enum Piece {
     BlackRook = 0b1011,
     BlackQueen = 0b1100,
     BlackKing = 0b1101,
+    None = 0b1110,
 }
 
 impl Piece {
@@ -61,11 +62,18 @@ impl TryFrom<char> for Piece {
     type Error = &'static str;
 
     fn try_from(value: char) -> Result<Self, Self::Error> {
-        Self::PIECE_STR
-            .chars()
-            .position(|c| c == value)
-            .map(|x| Self::from(x as u8))
-            .ok_or("Piece symbols should be one of \"KQRBNPkqrbnp\"")
+        if Self::PIECE_STR.contains(value) {
+            return Ok(Self::from(
+                Self::PIECE_STR.chars().position(|c| c == value).unwrap() as u8,
+            ));
+        }
+        Err("Piece symbols should be one of \"KQRBNPkqrbnp\"")
+    }
+}
+
+impl Default for Piece {
+    fn default() -> Self {
+        Self::None
     }
 }
 
@@ -77,7 +85,9 @@ impl fmt::Display for Piece {
             Self::PIECE_STR
                 .chars()
                 .nth(*self as usize)
-                .expect("Piece symbol should be valid.")
+                .unwrap()
+                .to_string()
+                .replace(" ", "")
         )
     }
 }
@@ -95,6 +105,7 @@ pub enum PieceType {
     Rook,
     Queen,
     King,
+    None,
 }
 
 impl PieceType {
@@ -113,6 +124,12 @@ impl From<u8> for PieceType {
     }
 }
 
+impl Default for PieceType {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
 impl fmt::Display for PieceType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -121,12 +138,14 @@ impl fmt::Display for PieceType {
             Self::PIECE_TYPE_STR
                 .chars()
                 .nth(*self as usize)
-                .expect("PieceType symbol should be valid.")
+                .unwrap()
+                .to_string()
+                .replace(" ", "")
         )
     }
 }
 
 impl PieceType {
     pub const N_PIECE_TYPES: usize = 6;
-    pub const PIECE_TYPE_STR: &'static str = "pnbrqk";
+    pub const PIECE_TYPE_STR: &'static str = "pnbrqk ";
 }
