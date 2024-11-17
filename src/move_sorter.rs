@@ -9,26 +9,32 @@ use super::square::*;
 use super::types::*;
 
 pub struct MoveSorter {
-    killer_moves: [[[Move; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],
+    killer_moves: [[[Option<Move>; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],
     history_scores: [[Value; SQ::N_SQUARES]; SQ::N_SQUARES],
 }
 
 impl MoveSorter {
     pub fn new() -> Self {
         Self {
-            killer_moves: [[[Move::NULL; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],
+            killer_moves: [[[None; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],
             history_scores: [[0; SQ::N_SQUARES]; SQ::N_SQUARES],
         }
     }
 
-    pub fn score_moves(&self, moves: &mut MoveList, board: &Board, ply: Ply, hash_move: Move) {
+    pub fn score_moves(
+        &self,
+        moves: &mut MoveList,
+        board: &Board,
+        ply: Ply,
+        hash_move: Option<Move>,
+    ) {
         for idx in 0..moves.len() {
             moves.scores[idx] = self.score_move(moves[idx], board, ply, hash_move);
         }
     }
 
-    fn score_move(&self, m: Move, board: &Board, ply: Ply, hash_move: Move) -> Value {
-        if m == hash_move {
+    fn score_move(&self, m: Move, board: &Board, ply: Ply, hash_move: Option<Move>) -> Value {
+        if Some(m) == hash_move {
             return Self::HASH_MOVE_SCORE;
         }
 
@@ -70,9 +76,15 @@ impl MoveSorter {
     }
 
     fn mvv_lva_score(board: &Board, m: Move) -> Value {
-        Self::MVV_LVA_SCORES[board.piece_type_at(m.to_sq()).unwrap().index()
+        Self::MVV_LVA_SCORES[board
+            .piece_type_at(m.to_sq())
+            .expect("No captured in MVVLVA.")
+            .index()
             * PieceType::N_PIECE_TYPES
-            + board.piece_type_at(m.from_sq()).unwrap().index()]
+            + board
+                .piece_type_at(m.from_sq())
+                .expect("No attacker in MVVLVA.")
+                .index()]
     }
 
     pub fn add_killer(&mut self, board: &Board, m: Move, ply: Ply) {
@@ -80,7 +92,7 @@ impl MoveSorter {
         let killer_moves = &mut self.killer_moves[color][ply];
 
         killer_moves.rotate_right(1);
-        killer_moves[0] = m;
+        killer_moves[0] = Some(m);
     }
 
     pub fn add_history(&mut self, m: Move, depth: Depth) {
@@ -98,7 +110,7 @@ impl MoveSorter {
     }
 
     fn is_killer(&self, board: &Board, m: Move, ply: usize) -> bool {
-        self.killer_moves[board.ctm().index()][ply].contains(&m)
+        self.killer_moves[board.ctm().index()][ply].contains(&Some(m))
     }
 
     fn history_score(&self, m: Move) -> Value {
@@ -113,8 +125,9 @@ impl MoveSorter {
         let from_sq = m.from_sq();
         let to_sq = m.to_sq();
 
-        // We know we're dealing with a capture at this point, so just unwrap.
-        let mut captured_pt = board.piece_type_at(to_sq).unwrap();
+        let Some(captured_pt) = board.piece_type_at(to_sq) else {
+            return false;
+        };
 
         let mut value = Self::SEE_PIECE_TYPE[captured_pt.index()];
 
@@ -122,7 +135,9 @@ impl MoveSorter {
             return false;
         }
 
-        let mut attacking_pt = board.piece_type_at(from_sq).unwrap();
+        let Some(mut attacking_pt) = board.piece_type_at(from_sq) else {
+            return false;
+        };
 
         value -= Self::SEE_PIECE_TYPE[attacking_pt.index()];
 
@@ -148,7 +163,7 @@ impl MoveSorter {
             // We know at this point that there must be a piece, so find the least valuable attacker.
             attacking_pt = PieceType::iter(PieceType::Pawn, PieceType::King)
                 .find(|&pt| stm_attackers & board.bitboard_of_pt(pt) != Bitboard::ZERO)
-                .unwrap();
+                .expect("No attacking pt found.");
 
             ctm = !ctm;
 
@@ -179,7 +194,10 @@ impl MoveSorter {
             }
         }
 
-        ctm != board.piece_at(from_sq).unwrap().color_of()
+        ctm != board
+            .piece_at(from_sq)
+            .expect("No piece at original attacking square.")
+            .color_of()
     }
 }
 

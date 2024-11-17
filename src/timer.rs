@@ -95,7 +95,7 @@ pub struct Timer {
     time_target: Duration,
     time_maximum: Duration,
     overhead: Duration,
-    best_move: Move,
+    last_best_move: Option<Move>,
 }
 
 impl Timer {
@@ -140,7 +140,7 @@ impl Timer {
             overhead,
             time_target,
             time_maximum,
-            best_move: Move::NULL,
+            last_best_move: None,
             times_checked: 0,
         }
     }
@@ -212,12 +212,15 @@ impl Timer {
         self.start_time.elapsed()
     }
 
-    pub fn update(&mut self, best_move: Move) {
-        if !self.best_move.is_null() && best_move != self.best_move {
+    pub fn update(&mut self, best_move: Option<Move>) {
+        if self
+            .last_best_move
+            .is_some_and(|last_move| Some(last_move) != best_move)
+        {
             self.time_target = self.time_maximum.min(self.time_target * 3 / 2);
         }
 
-        self.best_move = best_move;
+        self.last_best_move = best_move;
     }
 }
 

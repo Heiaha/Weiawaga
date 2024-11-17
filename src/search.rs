@@ -37,7 +37,7 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         let mut alpha = -Self::MATE;
         let mut beta = Self::MATE;
-        let mut best_move = Move::NULL;
+        let mut best_move = None;
         let mut value = 0;
         let mut depth = 1;
 
@@ -79,8 +79,10 @@ impl<'a> Search<'a> {
                 beta = Self::MATE;
             } else {
                 // Only print info if we're in the main thread
-                if self.id == 0 && !best_move.is_null() && !self.stop {
-                    self.print_info(&mut board, depth, best_move, value);
+                if self.id == 0 && !self.stop {
+                    if let Some(best_move) = best_move {
+                        self.print_info(&mut board, depth, best_move, value);
+                    }
                 }
                 alpha = value - Self::ASPIRATION_WINDOW;
                 beta = value + Self::ASPIRATION_WINDOW;
@@ -93,7 +95,7 @@ impl<'a> Search<'a> {
             self.timer.stop();
         }
 
-        Some(best_move)
+        best_move
     }
 
     fn search_root(
@@ -102,7 +104,7 @@ impl<'a> Search<'a> {
         mut depth: Depth,
         mut alpha: Value,
         beta: Value,
-    ) -> (Move, Value) {
+    ) -> (Option<Move>, Value) {
         ///////////////////////////////////////////////////////////////////
         // Check extension.
         ///////////////////////////////////////////////////////////////////
@@ -114,17 +116,14 @@ impl<'a> Search<'a> {
         // Check the hash table for the current
         // position, primarily for move ordering.
         ///////////////////////////////////////////////////////////////////
-        let mut hash_move = Move::NULL;
-        if let Some(tt_entry) = self.tt.probe(board) {
-            hash_move = tt_entry.best_move();
-        }
+        let hash_move = self.tt.probe(board).and_then(|entry| entry.best_move());
 
         ///////////////////////////////////////////////////////////////////
         // Score moves and begin searching recursively.
         ///////////////////////////////////////////////////////////////////
         let ply = 0;
         let mut value = -Self::MATE;
-        let mut best_move = Move::NULL;
+        let mut best_move = None;
         let mut idx = 0;
 
         let mut moves = MoveList::from(board);
@@ -147,7 +146,7 @@ impl<'a> Search<'a> {
             }
 
             if value > alpha {
-                best_move = m;
+                best_move = Some(m);
                 if value >= beta {
                     self.tt.insert(board, depth, beta, best_move, Bound::Lower);
                     return (best_move, beta);
@@ -158,8 +157,8 @@ impl<'a> Search<'a> {
             idx += 1;
         }
 
-        if best_move.is_null() && moves.len() > 0 {
-            best_move = moves[0];
+        if best_move.is_none() && moves.len() > 0 {
+            best_move = Some(moves[0]);
         }
 
         if !self.stop {
@@ -245,11 +244,8 @@ impl<'a> Search<'a> {
         // Reverse Futility Pruning
         ///////////////////////////////////////////////////////////////////
         if Self::can_apply_rfp(depth, in_check, is_pv, beta) {
-            let eval = if let Some(tt_entry) = tt_entry {
-                tt_entry.value()
-            } else {
-                board.eval()
-            };
+            let eval = tt_entry.map_or(board.eval(), |entry| entry.value());
+
             if eval - Self::rfp_margin(depth) >= beta {
                 return eval;
             }
@@ -276,7 +272,7 @@ impl<'a> Search<'a> {
         // recursively.
         ///////////////////////////////////////////////////////////////////
         let mut tt_flag = Bound::Upper;
-        let mut best_move = Move::NULL;
+        let mut best_move = None;
         let mut idx = 0;
 
         let mut moves = MoveList::from(board);
@@ -284,7 +280,7 @@ impl<'a> Search<'a> {
             &mut moves,
             board,
             ply,
-            tt_entry.map_or(Move::NULL, |entry| entry.best_move()),
+            tt_entry.and_then(|entry| entry.best_move()),
         );
 
         while let Some(m) = moves.next_best() {
@@ -338,7 +334,7 @@ impl<'a> Search<'a> {
             // Re-bound, check for cutoffs, and add killers and history.
             ///////////////////////////////////////////////////////////////////
             if value > alpha {
-                best_move = m;
+                best_move = Some(m);
                 if value >= beta {
                     if m.is_quiet() {
                         self.move_sorter.add_killer(board, m, ply);
@@ -365,8 +361,8 @@ impl<'a> Search<'a> {
             }
         }
 
-        if best_move.is_null() && moves.len() > 0 {
-            best_move = moves[0];
+        if best_move.is_none() && moves.len() > 0 {
+            best_move = Some(moves[0]);
         }
 
         if !self.stop {
@@ -402,7 +398,7 @@ impl<'a> Search<'a> {
         }
         alpha = alpha.max(eval);
 
-        let mut hash_move = Move::NULL;
+        let mut hash_move = None;
         if let Some(tt_entry) = self.tt.probe(board) {
             match tt_entry.flag() {
                 Bound::Exact => return tt_entry.value(),
@@ -458,7 +454,7 @@ impl<'a> Search<'a> {
     ) -> bool {
         !is_pv
             && !in_check
-            && board.peek() != Move::NULL
+            && board.peek().is_some()
             && depth >= Self::NULL_MIN_DEPTH
             && board.has_non_pawn_material()
             && board.eval() >= beta
@@ -502,11 +498,12 @@ impl<'a> Search<'a> {
 
         if let Some(tt_entry) = self.tt.probe(board) {
             let mut pv = String::new();
-            let hash_move = tt_entry.best_move();
-            if MoveList::from(board).contains(hash_move) {
-                board.push(hash_move);
-                pv = format!("{} {}", hash_move, self.get_pv(board, depth - 1));
-                board.pop();
+            if let Some(hash_move) = tt_entry.best_move() {
+                if MoveList::from(board).contains(hash_move) {
+                    board.push(hash_move);
+                    pv = format!("{} {}", hash_move, self.get_pv(board, depth - 1));
+                    board.pop();
+                }
             }
             return pv;
         }

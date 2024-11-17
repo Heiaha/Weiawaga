@@ -24,6 +24,10 @@ impl Move {
         MoveFlags::from(((self.0 >> 12) & 0xf) as u8)
     }
 
+    pub fn move_int(&self) -> MoveInt {
+        self.0
+    }
+
     pub fn is_quiet(&self) -> bool {
         (self.0 >> 12) & 0b1100 == 0
     }
@@ -49,10 +53,6 @@ impl Move {
     pub fn is_castling(&self) -> bool {
         matches!(self.flags(), MoveFlags::OO | MoveFlags::OOO)
     }
-
-    pub fn is_null(&self) -> bool {
-        *self == Move::NULL
-    }
 }
 
 impl From<MoveInt> for Move {
@@ -73,10 +73,6 @@ impl fmt::Display for Move {
     }
 }
 
-impl Move {
-    pub const NULL: Self = Self(0);
-}
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum MoveFlags {
     Quiet = 0b0000,
@@ -93,12 +89,6 @@ pub enum MoveFlags {
     PcBishop = 0b1101,
     PcRook = 0b1110,
     PcQueen = 0b1111,
-}
-
-impl Default for MoveFlags {
-    fn default() -> Self {
-        MoveFlags::Quiet
-    }
 }
 
 impl From<u8> for MoveFlags {

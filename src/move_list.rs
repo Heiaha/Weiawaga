@@ -21,7 +21,7 @@ const MAX_MOVES: usize = 254;
 const MAX_MOVES: usize = 255;
 
 pub struct MoveList {
-    moves: [Move; MAX_MOVES],
+    moves: [Option<Move>; MAX_MOVES],
     pub scores: [Value; MAX_MOVES],
     idx: usize,
     len: usize,
@@ -30,7 +30,7 @@ pub struct MoveList {
 impl MoveList {
     pub fn new() -> Self {
         Self {
-            moves: [Move::NULL; MAX_MOVES],
+            moves: [None; MAX_MOVES],
             scores: [0; MAX_MOVES],
             idx: 0,
             len: 0,
@@ -54,31 +54,31 @@ impl MoveList {
     }
 
     pub fn contains(&self, m: Move) -> bool {
-        self.moves[..self.len].contains(&m)
+        self.moves[..self.len].contains(&Some(m))
     }
 
     pub fn push(&mut self, m: Move) {
-        self.moves[self.len] = m;
+        self.moves[self.len] = Some(m);
         self.len += 1;
     }
 
     pub fn make_q(&mut self, from_sq: SQ, to: Bitboard) {
         for to_sq in to {
-            self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::Quiet);
+            self.moves[self.len] = Some(Move::new(from_sq, to_sq, MoveFlags::Quiet));
             self.len += 1;
         }
     }
 
     pub fn make_c(&mut self, from_sq: SQ, to: Bitboard) {
         for to_sq in to {
-            self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::Capture);
+            self.moves[self.len] = Some(Move::new(from_sq, to_sq, MoveFlags::Capture));
             self.len += 1;
         }
     }
 
     pub fn make_dp(&mut self, from_sq: SQ, to: Bitboard) {
         for to_sq in to {
-            self.moves[self.len] = Move::new(from_sq, to_sq, MoveFlags::DoublePush);
+            self.moves[self.len] = Some(Move::new(from_sq, to_sq, MoveFlags::DoublePush));
             self.len += 1;
         }
     }
@@ -91,7 +91,7 @@ impl MoveList {
                 MoveFlags::PcRook,
                 MoveFlags::PcBishop,
             ] {
-                self.moves[self.len] = Move::new(from_sq, to_sq, flag);
+                self.moves[self.len] = Some(Move::new(from_sq, to_sq, flag));
                 self.len += 1;
             }
         }
@@ -117,7 +117,7 @@ impl MoveList {
 
         let idx = self.idx;
         self.idx += 1;
-        Some(self.moves[idx])
+        self.moves[idx]
     }
 }
 
@@ -132,7 +132,7 @@ impl Iterator for MoveList {
 
         let idx = self.idx;
         self.idx += 1;
-        Some(self.moves[idx])
+        self.moves[idx]
     }
 }
 
@@ -140,7 +140,9 @@ impl Index<usize> for MoveList {
     type Output = Move;
 
     fn index(&self, i: usize) -> &Self::Output {
-        &self.moves[i]
+        self.moves[i]
+            .as_ref()
+            .expect("Tried to access an empty slot in MoveList")
     }
 }
 
@@ -148,7 +150,8 @@ impl fmt::Debug for MoveList {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut result = String::from('[');
         for i in 0..self.len {
-            result.push_str(format!("{}, ", self.moves[i]).as_ref());
+            let m = self.moves[i].expect("None found in MoveList");
+            result.push_str(format!("{}, ", m).as_str());
         }
         result.push(']');
         write!(f, "{}", result)

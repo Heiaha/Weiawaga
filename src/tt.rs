@@ -14,23 +14,27 @@ use super::types::*;
 #[derive(Eq, PartialEq, Copy, Clone)]
 pub struct TTEntry {
     value: Value,
-    best_move: Move,
+    best_move: MoveInt,
     depth: Depth,
     flag: Bound,
 }
 
 impl TTEntry {
-    pub fn new(value: Value, best_move: Move, depth: Depth, flag: Bound) -> Self {
+    pub fn new(value: Value, best_move: Option<Move>, depth: Depth, flag: Bound) -> Self {
         TTEntry {
-            best_move,
+            best_move: best_move.map(|m| m.move_int()).unwrap_or(0),
             depth,
             value,
             flag,
         }
     }
 
-    pub fn best_move(&self) -> Move {
-        self.best_move
+    pub fn best_move(&self) -> Option<Move> {
+        if self.best_move > 0 {
+            Some(Move::from(self.best_move))
+        } else {
+            None
+        }
     }
 
     pub fn depth(&self) -> Depth {
@@ -49,7 +53,7 @@ impl TTEntry {
 impl Default for TTEntry {
     fn default() -> Self {
         Self {
-            best_move: Move::NULL,
+            best_move: 0,
             depth: 0,
             value: 0,
             flag: Bound::Exact,
@@ -80,8 +84,8 @@ pub struct TT {
 
 impl TT {
     pub fn new(mb_size: usize) -> Self {
-        assert_eq!(std::mem::size_of::<TTEntry>(), 8);
-        let upper_limit = mb_size * 1024 * 1024 / std::mem::size_of::<AtomicEntry>() + 1;
+        assert_eq!(size_of::<TTEntry>(), 8);
+        let upper_limit = mb_size * 1024 * 1024 / size_of::<AtomicEntry>() + 1;
         let count = upper_limit.next_power_of_two() / 2;
         let mut table = Vec::with_capacity(count);
 
@@ -95,7 +99,14 @@ impl TT {
         }
     }
 
-    pub fn insert(&self, board: &Board, depth: Depth, value: Value, best_move: Move, flag: Bound) {
+    pub fn insert(
+        &self,
+        board: &Board,
+        depth: Depth,
+        value: Value,
+        best_move: Option<Move>,
+        flag: Bound,
+    ) {
         unsafe {
             self.table
                 .get_unchecked(self.index(board))

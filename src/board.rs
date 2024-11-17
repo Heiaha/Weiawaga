@@ -185,7 +185,7 @@ impl Board {
         self.is_attacked(self.bitboard_of(self.ctm, PieceType::King).lsb())
     }
 
-    pub fn peek(&self) -> Move {
+    pub fn peek(&self) -> Option<Move> {
         self.history[self.ply].moov()
     }
 
@@ -233,7 +233,6 @@ impl Board {
 
         self.history[self.ply] = HistoryEntry::default()
             .with_entry(self.history[self.ply - 1].entry())
-            .with_moov(Move::NULL)
             .with_half_move_counter(self.history[self.ply - 1].half_move_counter() + 1)
             .with_plies_from_null(0)
             .with_material_hash(self.history[self.ply - 1].material_hash());
@@ -311,7 +310,7 @@ impl Board {
         };
         self.history[self.ply] = HistoryEntry::default()
             .with_entry(self.history[self.ply - 1].entry() | m.to_sq().bb() | m.from_sq().bb())
-            .with_moov(m)
+            .with_moov(Some(m))
             .with_half_move_counter(half_move_counter)
             .with_plies_from_null(self.history[self.ply - 1].plies_from_null() + 1)
             .with_captured(captured)
@@ -321,11 +320,11 @@ impl Board {
         self.hasher.update_color();
     }
 
-    pub fn pop(&mut self) -> Move {
+    pub fn pop(&mut self) -> Option<Move> {
         self.ctm = !self.ctm;
         self.hasher.update_color();
 
-        let m = self.history[self.ply].moov();
+        let m = self.history[self.ply].moov()?;
         match m.flags() {
             MoveFlags::Quiet => {
                 self.move_piece_quiet(m.to_sq(), m.from_sq());
@@ -361,7 +360,7 @@ impl Board {
                 self.set_piece_at(
                     self.history[self.ply]
                         .captured()
-                        .expect("Tried to revert a capture move with no capture"),
+                        .expect("Tried to revert a capture move with no capture."),
                     m.to_sq(),
                 );
             }
@@ -370,13 +369,13 @@ impl Board {
                 self.set_piece_at(
                     self.history[self.ply]
                         .captured()
-                        .expect("Tried to revert a capture move with no capture"),
+                        .expect("Tried to revert a capture move with no capture."),
                     m.to_sq(),
                 );
             }
         }
         self.ply -= 1;
-        m
+        Some(m)
     }
 
     pub fn generate_legal_moves<const QUIET: bool>(&self, moves: &mut MoveList) {
@@ -490,21 +489,22 @@ impl Board {
             }
             1 => {
                 let checker_square = checkers.lsb();
-                let pt = self.piece_type_at(checker_square).unwrap();
+                let pt = self
+                    .piece_type_at(checker_square)
+                    .expect(format!("No checker at {}", checker_square).as_str());
                 match pt {
                     PieceType::Pawn | PieceType::Knight => {
                         ///////////////////////////////////////////////////////////////////
                         // If the checkers is a pawn, we have to look out for ep moves
                         // that can capture it.
                         ///////////////////////////////////////////////////////////////////
+                        let epsq = self.history[self.ply].epsq();
                         if pt == PieceType::Pawn
-                            && checkers
-                                == self.history[self.ply]
-                                    .epsq()
-                                    .map_or(Bitboard::ZERO, |sq| sq.bb())
-                                    .shift(Direction::South.relative(us))
+                            && epsq.is_some_and(|epsq| {
+                                checkers == epsq.bb().shift(Direction::South.relative(us))
+                            })
                         {
-                            let epsq = self.history[self.ply].epsq().unwrap();
+                            let epsq = epsq.expect("No epsq found for checker.");
                             let pawns = attacks::pawn_attacks_sq(epsq, them)
                                 & self.bitboard_of(us, PieceType::Pawn)
                                 & not_pinned;
@@ -630,7 +630,9 @@ impl Board {
                 ///////////////////////////////////////////////////////////////////
                 let pinned_pieces = !(not_pinned | self.bitboard_of(us, PieceType::Knight));
                 for sq in pinned_pieces {
-                    let pt = self.piece_type_at(sq).unwrap();
+                    let pt = self.piece_type_at(sq).expect(
+                        format!("Unexpected None for piece type at square {}.", sq).as_str(),
+                    );
                     let attacks_along_pin =
                         attacks::attacks(pt, sq, all) & Bitboard::line(our_king, sq);
                     if QUIET {
@@ -1075,10 +1077,10 @@ impl fmt::Display for Board {
                 match self.board[sq.index()] {
                     Some(pc) => {
                         if empty_squares != 0 {
-                            board_str.push_str(empty_squares.to_string().as_ref());
+                            board_str.push_str(empty_squares.to_string().as_str());
                             empty_squares = 0;
                         }
-                        board_str.push_str(pc.to_string().as_ref());
+                        board_str.push_str(pc.to_string().as_str());
                     }
                     None => {
                         empty_squares += 1;
@@ -1086,7 +1088,7 @@ impl fmt::Display for Board {
                 }
             }
             if empty_squares != 0 {
-                board_str.push_str(empty_squares.to_string().as_ref());
+                board_str.push_str(empty_squares.to_string().as_str());
             }
             if rank != Rank::One {
                 board_str.push('/');
@@ -1159,7 +1161,7 @@ pub struct HistoryEntry {
     entry: Bitboard,
     captured: Option<Piece>,
     epsq: Option<SQ>,
-    moov: Move,
+    moov: Option<Move>,
     material_hash: Hash,
     half_move_counter: u16,
     plies_from_null: u16,
@@ -1170,7 +1172,7 @@ impl HistoryEntry {
         self.entry
     }
 
-    pub fn moov(&self) -> Move {
+    pub fn moov(&self) -> Option<Move> {
         self.moov
     }
 
@@ -1199,7 +1201,7 @@ impl HistoryEntry {
         *self
     }
 
-    pub fn with_moov(&mut self, moov: Move) -> Self {
+    pub fn with_moov(&mut self, moov: Option<Move>) -> Self {
         self.moov = moov;
         *self
     }
