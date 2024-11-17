@@ -121,13 +121,13 @@ impl Timer {
                 Color::Black => (btime, binc),
             };
 
-            let mtg = moves_to_go.unwrap_or(
+            let mtg = moves_to_go.unwrap_or_else(|| {
                 (Self::MTG_INTERCEPT
                     + Self::MTG_EVAL_WEIGHT * (board.simple_eval().abs() as f32)
                     + Self::MTG_MOVE_WEIGHT * (board.fullmove_number() as f32))
                     .ceil()
-                    .max(1.0) as u32,
-            );
+                    .max(1.0) as u32
+            });
 
             time_target = time.min(time / mtg + inc.unwrap_or(Duration::ZERO));
             time_maximum = time_target + (time - time_target) / 4;

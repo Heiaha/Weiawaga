@@ -491,20 +491,21 @@ impl Board {
                 let checker_square = checkers.lsb();
                 let pt = self
                     .piece_type_at(checker_square)
-                    .expect(format!("No checker at {}", checker_square).as_str());
+                    .expect("Checker expected.");
                 match pt {
                     PieceType::Pawn | PieceType::Knight => {
                         ///////////////////////////////////////////////////////////////////
                         // If the checkers is a pawn, we have to look out for ep moves
                         // that can capture it.
                         ///////////////////////////////////////////////////////////////////
-                        let epsq = self.history[self.ply].epsq();
                         if pt == PieceType::Pawn
-                            && epsq.is_some_and(|epsq| {
+                            && self.history[self.ply].epsq().is_some_and(|epsq| {
                                 checkers == epsq.bb().shift(Direction::South.relative(us))
                             })
                         {
-                            let epsq = epsq.expect("No epsq found for checker.");
+                            let epsq = self.history[self.ply]
+                                .epsq()
+                                .expect("No epsq found for checker.");
                             let pawns = attacks::pawn_attacks_sq(epsq, them)
                                 & self.bitboard_of(us, PieceType::Pawn)
                                 & not_pinned;
@@ -630,9 +631,9 @@ impl Board {
                 ///////////////////////////////////////////////////////////////////
                 let pinned_pieces = !(not_pinned | self.bitboard_of(us, PieceType::Knight));
                 for sq in pinned_pieces {
-                    let pt = self.piece_type_at(sq).expect(
-                        format!("Unexpected None for piece type at square {}.", sq).as_str(),
-                    );
+                    let pt = self
+                        .piece_type_at(sq)
+                        .expect("Unexpected None for piece type.");
                     let attacks_along_pin =
                         attacks::attacks(pt, sq, all) & Bitboard::line(our_king, sq);
                     if QUIET {
@@ -886,22 +887,20 @@ impl Board {
                 Some(PieceType::Bishop) => MoveFlags::PrBishop,
                 Some(PieceType::Rook) => MoveFlags::PrRook,
                 None => {
-                    if self.piece_type_at(from_sq) == Some(PieceType::Pawn)
-                        && Some(to_sq) == self.history[self.ply].epsq()
-                    {
+                    let moved_pt = moved_pc.type_of();
+                    if moved_pt == PieceType::Pawn && Some(to_sq) == self.history[self.ply].epsq() {
                         MoveFlags::EnPassant
-                    } else if self.piece_type_at(from_sq) == Some(PieceType::Pawn)
-                        && (from_sq as i8 - to_sq as i8).abs() == 16
+                    } else if moved_pt == PieceType::Pawn
+                        && from_sq.relative(self.ctm) + Direction::NorthNorth
+                            == to_sq.relative(self.ctm)
                     {
                         MoveFlags::DoublePush
-                    } else if self.piece_type_at(from_sq) == Some(PieceType::King)
-                        && from_sq.file() == File::E
-                        && to_sq.file() == File::G
+                    } else if moved_pt == PieceType::King
+                        && (from_sq.file(), to_sq.file()) == (File::E, File::G)
                     {
                         MoveFlags::OO
-                    } else if self.piece_type_at(from_sq) == Some(PieceType::King)
-                        && from_sq.file() == File::E
-                        && to_sq.file() == File::C
+                    } else if moved_pt == PieceType::King
+                        && (from_sq.file(), to_sq.file()) == (File::E, File::C)
                     {
                         MoveFlags::OOO
                     } else {
@@ -934,22 +933,20 @@ impl Board {
         let pieces_placement = parts.next().ok_or("Invalid piece placement.")?;
         let ctm = parts
             .next()
-            .ok_or("Invalid color.")?
-            .chars()
-            .next()
+            .and_then(|s| s.chars().next())
             .ok_or("Invalid color.")?;
         let castling_ability = parts.next().ok_or("Invalid castling.")?;
         let en_passant_square = parts.next().unwrap_or("-");
         let halfmove_clock = parts
             .next()
             .unwrap_or("0")
-            .parse()
-            .or(Err("Unable to parse half move clock"))?;
+            .parse::<u16>()
+            .map_err(|_| "Unable to parse half move clock")?;
         let fullmove_counter = parts
             .next()
             .unwrap_or("1")
             .parse::<usize>()
-            .or(Err("Unable to parse full move counter."))?
+            .map_err(|_| "Unable to parse full move counter.")?
             .max(1);
 
         if pieces_placement.split('/').count() != Rank::N_RANKS {
@@ -1136,10 +1133,9 @@ impl fmt::Debug for Board {
             for file_idx in 0..=7 {
                 let file = File::from(file_idx);
                 let sq = SQ::encode(rank, file);
-                let pc_str = match self.piece_at(sq) {
-                    Some(pc) => pc.to_string(),
-                    None => "-".to_string(),
-                };
+                let pc_str = self
+                    .piece_at(sq)
+                    .map_or("-".to_string(), |pc| pc.to_string());
                 s.push_str(&pc_str);
                 s.push(' ');
                 if sq.file() == File::H {

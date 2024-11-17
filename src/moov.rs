@@ -65,8 +65,8 @@ impl fmt::Display for Move {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}", self.from_sq(), self.to_sq())?;
 
-        if let Some(promotion_pc) = self.promotion() {
-            write!(f, "{}", promotion_pc)?;
+        if let Some(promotion_pt) = self.promotion() {
+            write!(f, "{}", promotion_pt)?;
         }
 
         Ok(())

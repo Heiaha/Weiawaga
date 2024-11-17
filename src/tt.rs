@@ -22,7 +22,7 @@ pub struct TTEntry {
 impl TTEntry {
     pub fn new(value: Value, best_move: Option<Move>, depth: Depth, flag: Bound) -> Self {
         TTEntry {
-            best_move: best_move.map(|m| m.move_int()).unwrap_or(0),
+            best_move: best_move.map_or(0, |m| m.move_int()),
             depth,
             value,
             flag,
@@ -30,10 +30,9 @@ impl TTEntry {
     }
 
     pub fn best_move(&self) -> Option<Move> {
-        if self.best_move > 0 {
-            Some(Move::from(self.best_move))
-        } else {
-            None
+        match self.best_move {
+            0 => None,
+            1.. => Some(Move::from(self.best_move)),
         }
     }
 
