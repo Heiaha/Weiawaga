@@ -426,12 +426,6 @@ impl<'a> Search<'a> {
 
         let mut idx = 0;
         while let Some(m) = moves.next_best() {
-            if m.is_quiet() {
-                println!("{}", board);
-                println!("{}", m);
-                println!("{:?}", m.flags());
-            }
-            debug_assert!(!m.is_quiet());
             ///////////////////////////////////////////////////////////////////
             // Effectively a SEE check. Bad captures will have a score < 0
             // given by the SEE + the bad capture offset,
