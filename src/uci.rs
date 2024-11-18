@@ -35,7 +35,7 @@ impl UCI {
             .lines()
             .map(|line| line.expect("Unable to parse line."))
         {
-            match UCICommand::try_from(line.as_ref()) {
+            match UCICommand::try_from(line.as_str()) {
                 Ok(cmd) => match cmd {
                     UCICommand::Quit => return,
                     UCICommand::Stop => self.stop.store(true, sync::atomic::Ordering::SeqCst),

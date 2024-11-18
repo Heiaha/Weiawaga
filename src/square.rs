@@ -18,7 +18,6 @@ pub enum SQ {
     A6, B6, C6, D6, E6, F6, G6, H6,
     A7, B7, C7, D7, E7, F7, G7, H7,
     A8, B8, C8, D8, E8, F8, G8, H8,
-    None
 }
 
 impl SQ {
@@ -87,12 +86,6 @@ impl Sub<Direction> for SQ {
 impl From<u8> for SQ {
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
-    }
-}
-
-impl Default for SQ {
-    fn default() -> Self {
-        Self::None
     }
 }
 

@@ -7,6 +7,9 @@ edition = "2021"
 readme = "README.md"
 rust-version = "1.63"
 
+[dependencies]
+arrayvec = "0.7.6"
+
 [profile.release]
 opt-level = 3
 debug = false

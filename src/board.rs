@@ -16,7 +16,7 @@ use super::zobrist::*;
 
 #[derive(Clone)]
 pub struct Board {
-    board: [Piece; SQ::N_SQUARES],
+    board: [Option<Piece>; SQ::N_SQUARES],
     piece_type_bb: [Bitboard; PieceType::N_PIECE_TYPES],
     color_bb: [Bitboard; Color::N_COLORS],
     history: [HistoryEntry; Self::N_HISTORIES],
@@ -42,42 +42,46 @@ impl Board {
 
         self.color_bb = [Bitboard::ZERO; Color::N_COLORS];
         self.piece_type_bb = [Bitboard::ZERO; PieceType::N_PIECE_TYPES];
-        self.board = [Piece::None; SQ::N_SQUARES];
+        self.board = [None; SQ::N_SQUARES];
 
         self.hasher.clear();
         self.network = Network::new();
     }
 
-    pub fn piece_at(&self, sq: SQ) -> Piece {
+    pub fn piece_at(&self, sq: SQ) -> Option<Piece> {
         self.board[sq.index()]
     }
 
-    pub fn piece_type_at(&self, sq: SQ) -> PieceType {
-        self.board[sq.index()].type_of()
+    pub fn piece_type_at(&self, sq: SQ) -> Option<PieceType> {
+        self.board[sq.index()].map(|pc| pc.type_of())
     }
 
     pub fn set_piece_at(&mut self, pc: Piece, sq: SQ) {
         self.network.activate(pc, sq);
         self.hasher.update_piece(pc, sq);
 
-        self.board[sq.index()] = pc;
+        self.board[sq.index()] = Some(pc);
         self.color_bb[pc.color_of().index()] |= sq.bb();
         self.piece_type_bb[pc.type_of().index()] |= sq.bb();
     }
 
     pub fn remove_piece(&mut self, sq: SQ) {
-        let pc = self.piece_at(sq);
+        let pc = self
+            .piece_at(sq)
+            .expect("Tried to remove a piece from an empty square.");
 
         self.network.deactivate(pc, sq);
         self.hasher.update_piece(pc, sq);
 
         self.piece_type_bb[pc.type_of().index()] &= !sq.bb();
         self.color_bb[pc.color_of().index()] &= !sq.bb();
-        self.board[sq.index()] = Piece::None;
+        self.board[sq.index()] = None;
     }
 
     pub fn move_piece_quiet(&mut self, from_sq: SQ, to_sq: SQ) {
-        let pc = self.piece_at(from_sq);
+        let pc = self
+            .piece_at(from_sq)
+            .expect("Tried to move a piece off of an empty square.");
 
         self.network.move_piece(pc, from_sq, to_sq);
         self.hasher.move_piece(pc, from_sq, to_sq);
@@ -86,7 +90,7 @@ impl Board {
         self.piece_type_bb[pc.type_of().index()] ^= mask;
         self.color_bb[pc.color_of().index()] ^= mask;
         self.board[to_sq.index()] = self.board[from_sq.index()];
-        self.board[from_sq.index()] = Piece::None;
+        self.board[from_sq.index()] = None;
     }
 
     pub fn move_piece(&mut self, from_sq: SQ, to_sq: SQ) {
@@ -181,7 +185,7 @@ impl Board {
         self.is_attacked(self.bitboard_of(self.ctm, PieceType::King).lsb())
     }
 
-    pub fn peek(&self) -> Move {
+    pub fn peek(&self) -> Option<Move> {
         self.history[self.ply].moov()
     }
 
@@ -229,16 +233,12 @@ impl Board {
 
         self.history[self.ply] = HistoryEntry::default()
             .with_entry(self.history[self.ply - 1].entry())
-            .with_moov(Move::NULL)
             .with_half_move_counter(self.history[self.ply - 1].half_move_counter() + 1)
             .with_plies_from_null(0)
-            .with_captured(Piece::None)
-            .with_epsq(SQ::None)
             .with_material_hash(self.history[self.ply - 1].material_hash());
 
-        if self.history[self.ply - 1].epsq() != SQ::None {
-            self.hasher
-                .update_ep(self.history[self.ply - 1].epsq().file());
+        if let Some(epsq) = self.history[self.ply - 1].epsq() {
+            self.hasher.update_ep(epsq.file());
         }
 
         self.hasher.update_color();
@@ -248,19 +248,20 @@ impl Board {
     pub fn pop_null(&mut self) {
         self.ply -= 1;
         self.hasher.update_color();
-        if self.history[self.ply].epsq() != SQ::None {
-            self.hasher.update_ep(self.history[self.ply].epsq().file());
+
+        if let Some(epsq) = self.history[self.ply].epsq() {
+            self.hasher.update_ep(epsq.file());
         }
         self.ctm = !self.ctm;
     }
 
     pub fn push(&mut self, m: Move) {
         let mut half_move_counter = self.history[self.ply].half_move_counter() + 1;
-        let mut captured = Piece::None;
-        let mut epsq = SQ::None;
+        let mut captured = None;
+        let mut epsq = None;
         self.ply += 1;
 
-        if self.piece_type_at(m.from_sq()) == PieceType::Pawn {
+        if self.piece_type_at(m.from_sq()) == Some(PieceType::Pawn) {
             half_move_counter = 0;
         }
 
@@ -270,8 +271,8 @@ impl Board {
             }
             MoveFlags::DoublePush => {
                 self.move_piece_quiet(m.from_sq(), m.to_sq());
-                epsq = m.from_sq() + Direction::North.relative(self.ctm);
-                self.hasher.update_ep(epsq.file());
+                epsq = Some(m.from_sq() + Direction::North.relative(self.ctm));
+                epsq.map(|sq| self.hasher.update_ep(sq.file()));
             }
             MoveFlags::OO => {
                 self.move_piece_quiet(SQ::E1.relative(self.ctm), SQ::G1.relative(self.ctm));
@@ -297,12 +298,19 @@ impl Board {
                     self.remove_piece(m.to_sq());
                 }
                 self.remove_piece(m.from_sq());
-                self.set_piece_at(Piece::make_piece(self.ctm, m.promotion()), m.to_sq());
+                self.set_piece_at(
+                    Piece::make_piece(
+                        self.ctm,
+                        m.promotion()
+                            .expect("Tried to set a promotion piece for a non-promotion move."),
+                    ),
+                    m.to_sq(),
+                );
             }
         };
         self.history[self.ply] = HistoryEntry::default()
             .with_entry(self.history[self.ply - 1].entry() | m.to_sq().bb() | m.from_sq().bb())
-            .with_moov(m)
+            .with_moov(Some(m))
             .with_half_move_counter(half_move_counter)
             .with_plies_from_null(self.history[self.ply - 1].plies_from_null() + 1)
             .with_captured(captured)
@@ -312,18 +320,20 @@ impl Board {
         self.hasher.update_color();
     }
 
-    pub fn pop(&mut self) -> Move {
+    pub fn pop(&mut self) -> Option<Move> {
         self.ctm = !self.ctm;
         self.hasher.update_color();
 
-        let m = self.history[self.ply].moov();
+        let m = self.history[self.ply].moov()?;
         match m.flags() {
             MoveFlags::Quiet => {
                 self.move_piece_quiet(m.to_sq(), m.from_sq());
             }
             MoveFlags::DoublePush => {
                 self.move_piece_quiet(m.to_sq(), m.from_sq());
-                self.hasher.update_ep(self.history[self.ply].epsq().file());
+                self.history[self.ply]
+                    .epsq()
+                    .map(|sq| self.hasher.update_ep(sq.file()));
             }
             MoveFlags::OO => {
                 self.move_piece_quiet(SQ::G1.relative(self.ctm), SQ::E1.relative(self.ctm));
@@ -347,15 +357,25 @@ impl Board {
             MoveFlags::PcKnight | MoveFlags::PcBishop | MoveFlags::PcRook | MoveFlags::PcQueen => {
                 self.remove_piece(m.to_sq());
                 self.set_piece_at(Piece::make_piece(self.ctm, PieceType::Pawn), m.from_sq());
-                self.set_piece_at(self.history[self.ply].captured(), m.to_sq());
+                self.set_piece_at(
+                    self.history[self.ply]
+                        .captured()
+                        .expect("Tried to revert a capture move with no capture."),
+                    m.to_sq(),
+                );
             }
             MoveFlags::Capture => {
                 self.move_piece_quiet(m.to_sq(), m.from_sq());
-                self.set_piece_at(self.history[self.ply].captured(), m.to_sq());
+                self.set_piece_at(
+                    self.history[self.ply]
+                        .captured()
+                        .expect("Tried to revert a capture move with no capture."),
+                    m.to_sq(),
+                );
             }
         }
         self.ply -= 1;
-        m
+        Some(m)
     }
 
     pub fn generate_legal_moves<const QUIET: bool>(&self, moves: &mut MoveList) {
@@ -469,7 +489,9 @@ impl Board {
             }
             1 => {
                 let checker_square = checkers.lsb();
-                let pt = self.piece_at(checker_square).type_of();
+                let pt = self
+                    .piece_type_at(checker_square)
+                    .expect("Checker expected.");
                 match pt {
                     PieceType::Pawn | PieceType::Knight => {
                         ///////////////////////////////////////////////////////////////////
@@ -477,28 +499,24 @@ impl Board {
                         // that can capture it.
                         ///////////////////////////////////////////////////////////////////
                         if pt == PieceType::Pawn
-                            && checkers
-                                == self.history[self.ply]
-                                    .epsq()
-                                    .bb()
-                                    .shift(Direction::South.relative(us))
+                            && self.history[self.ply].epsq().is_some_and(|epsq| {
+                                checkers == epsq.bb().shift(Direction::South.relative(us))
+                            })
                         {
-                            let pawns =
-                                attacks::pawn_attacks_sq(self.history[self.ply].epsq(), them)
-                                    & self.bitboard_of(us, PieceType::Pawn)
-                                    & not_pinned;
+                            let epsq = self.history[self.ply]
+                                .epsq()
+                                .expect("No epsq found for checker.");
+                            let pawns = attacks::pawn_attacks_sq(epsq, them)
+                                & self.bitboard_of(us, PieceType::Pawn)
+                                & not_pinned;
                             for sq in pawns {
-                                moves.push(Move::new(
-                                    sq,
-                                    self.history[self.ply].epsq(),
-                                    MoveFlags::EnPassant,
-                                ));
+                                moves.push(Move::new(sq, epsq, MoveFlags::EnPassant));
                             }
                         }
                         let checker_attackers =
                             self.attackers_from_c(checker_square, all, us) & not_pinned;
                         for sq in checker_attackers {
-                            if self.piece_type_at(sq) == PieceType::Pawn
+                            if self.piece_type_at(sq) == Some(PieceType::Pawn)
                                 && sq.rank().relative(us) == Rank::Seven
                             {
                                 moves.push(Move::new(sq, checker_square, MoveFlags::PcQueen));
@@ -530,10 +548,9 @@ impl Board {
                 ///////////////////////////////////////////////////////////////////
                 capture_mask = them_bb;
                 quiet_mask = !all;
-                if self.history[self.ply].epsq() != SQ::None {
-                    let epsq_attackers =
-                        attacks::pawn_attacks_sq(self.history[self.ply].epsq(), them)
-                            & self.bitboard_of(us, PieceType::Pawn);
+                if let Some(epsq) = self.history[self.ply].epsq() {
+                    let epsq_attackers = attacks::pawn_attacks_sq(epsq, them)
+                        & self.bitboard_of(us, PieceType::Pawn);
                     let unpinned_epsq_attackers = epsq_attackers & not_pinned;
                     for sq in unpinned_epsq_attackers {
                         ///////////////////////////////////////////////////////////////////
@@ -556,33 +573,24 @@ impl Board {
                         ///////////////////////////////////////////////////////////////////
                         let attacks = attacks::sliding_attacks(
                             our_king,
-                            all ^ sq.bb()
-                                ^ self.history[self.ply]
-                                    .epsq()
-                                    .bb()
-                                    .shift(Direction::South.relative(us)),
+                            all ^ sq.bb() ^ epsq.bb().shift(Direction::South.relative(us)),
                             our_king.rank().bb(),
                         );
 
                         if (attacks & their_orth_sliders) == Bitboard::ZERO {
-                            moves.push(Move::new(
-                                sq,
-                                self.history[self.ply].epsq(),
-                                MoveFlags::EnPassant,
-                            ));
+                            moves.push(Move::new(sq, epsq, MoveFlags::EnPassant));
                         }
                     }
                     ///////////////////////////////////////////////////////////////////
                     // Pinned pawns can only capture ep if they are pinned diagonally
                     // and the ep square is in line with the king.
                     ///////////////////////////////////////////////////////////////////
-                    let pinned_epsq_attackers = epsq_attackers
-                        & pinned
-                        & Bitboard::line(self.history[self.ply].epsq(), our_king);
+                    let pinned_epsq_attackers =
+                        epsq_attackers & pinned & Bitboard::line(epsq, our_king);
                     if pinned_epsq_attackers != Bitboard::ZERO {
                         moves.push(Move::new(
                             pinned_epsq_attackers.lsb(),
-                            self.history[self.ply].epsq(),
+                            epsq,
                             MoveFlags::EnPassant,
                         ));
                     }
@@ -623,8 +631,11 @@ impl Board {
                 ///////////////////////////////////////////////////////////////////
                 let pinned_pieces = !(not_pinned | self.bitboard_of(us, PieceType::Knight));
                 for sq in pinned_pieces {
-                    let attacks_along_pin = attacks::attacks(self.piece_type_at(sq), sq, all)
-                        & Bitboard::line(our_king, sq);
+                    let pt = self
+                        .piece_type_at(sq)
+                        .expect("Unexpected None for piece type.");
+                    let attacks_along_pin =
+                        attacks::attacks(pt, sq, all) & Bitboard::line(our_king, sq);
                     if QUIET {
                         moves.make_q(sq, attacks_along_pin & quiet_mask);
                     }
@@ -837,72 +848,12 @@ impl Board {
     }
 
     pub fn push_str(&mut self, move_str: &str) -> Result<(), &'static str> {
-        if move_str.len() < 4 {
-            return Err("Move string must be at least four characters long.");
-        }
-        let from_sq = SQ::try_from(&move_str[..2])?;
-        let to_sq = SQ::try_from(&move_str[2..4])?;
+        let m = MoveList::from(&self)
+            .iter_moves()
+            .find(|m| m.to_string() == move_str)
+            .ok_or("Invalid move.")?;
 
-        let moved_pc = self.piece_at(from_sq);
-        if moved_pc == Piece::None {
-            return Err("No piece at the origin square.");
-        }
-        if moved_pc.color_of() != self.ctm {
-            return Err("Moved piece of the wrong color.");
-        }
-
-        let promo_pt = if let Some(pt_char) = move_str.chars().nth(4) {
-            Piece::try_from(pt_char)?.type_of()
-        } else {
-            PieceType::None
-        };
-
-        let flag = if self.piece_at(to_sq) != Piece::None {
-            match promo_pt {
-                PieceType::Queen => MoveFlags::PcQueen,
-                PieceType::Knight => MoveFlags::PcKnight,
-                PieceType::Bishop => MoveFlags::PcBishop,
-                PieceType::Rook => MoveFlags::PcRook,
-                PieceType::None => MoveFlags::Capture,
-                _ => {
-                    unreachable!()
-                }
-            }
-        } else {
-            match promo_pt {
-                PieceType::Queen => MoveFlags::PrQueen,
-                PieceType::Knight => MoveFlags::PrKnight,
-                PieceType::Bishop => MoveFlags::PrBishop,
-                PieceType::Rook => MoveFlags::PrRook,
-                PieceType::None => {
-                    if self.piece_type_at(from_sq) == PieceType::Pawn
-                        && to_sq == self.history[self.ply].epsq()
-                    {
-                        MoveFlags::EnPassant
-                    } else if self.piece_type_at(from_sq) == PieceType::Pawn
-                        && (from_sq as i8 - to_sq as i8).abs() == 16
-                    {
-                        MoveFlags::DoublePush
-                    } else if self.piece_type_at(from_sq) == PieceType::King
-                        && from_sq.file() == File::E
-                        && to_sq.file() == File::G
-                    {
-                        MoveFlags::OO
-                    } else if self.piece_type_at(from_sq) == PieceType::King
-                        && from_sq.file() == File::E
-                        && to_sq.file() == File::C
-                    {
-                        MoveFlags::OOO
-                    } else {
-                        MoveFlags::Quiet
-                    }
-                }
-                _ => {
-                    unreachable!()
-                }
-            }
-        };
-        self.push(Move::new(from_sq, to_sq, flag));
+        self.push(m);
         Ok(())
     }
 
@@ -923,22 +874,20 @@ impl Board {
         let pieces_placement = parts.next().ok_or("Invalid piece placement.")?;
         let ctm = parts
             .next()
-            .ok_or("Invalid color.")?
-            .chars()
-            .next()
+            .and_then(|s| s.chars().next())
             .ok_or("Invalid color.")?;
         let castling_ability = parts.next().ok_or("Invalid castling.")?;
         let en_passant_square = parts.next().unwrap_or("-");
         let halfmove_clock = parts
             .next()
             .unwrap_or("0")
-            .parse()
-            .or(Err("Unable to parse half move clock"))?;
+            .parse::<u16>()
+            .map_err(|_| "Unable to parse half move clock")?;
         let fullmove_counter = parts
             .next()
             .unwrap_or("1")
             .parse::<usize>()
-            .or(Err("Unable to parse full move counter."))?
+            .map_err(|_| "Unable to parse full move counter.")?
             .max(1);
 
         if pieces_placement.split('/').count() != Rank::N_RANKS {
@@ -983,7 +932,7 @@ impl Board {
 
         if en_passant_square != "-" {
             let sq = SQ::try_from(en_passant_square)?;
-            self.history[self.ply] = self.history[self.ply].with_epsq(sq);
+            self.history[self.ply] = self.history[self.ply].with_epsq(Some(sq));
             self.hasher.update_ep(sq.file());
         }
         self.history[self.ply] = self.history[self.ply].with_half_move_counter(halfmove_clock);
@@ -1034,7 +983,7 @@ impl Default for Board {
         Self {
             piece_type_bb: [Bitboard::ZERO; PieceType::N_PIECE_TYPES],
             color_bb: [Bitboard::ZERO; Color::N_COLORS],
-            board: [Piece::None; SQ::N_SQUARES],
+            board: [None; SQ::N_SQUARES],
             ctm: Color::White,
             ply: 0,
             hasher: Hasher::new(),
@@ -1063,19 +1012,21 @@ impl fmt::Display for Board {
             for file_idx in 0..=7 {
                 let file = File::from(file_idx);
                 let sq = SQ::encode(rank, file);
-                let pc = self.board[sq.index()];
-                if pc != Piece::None {
-                    if empty_squares != 0 {
-                        board_str.push_str(empty_squares.to_string().as_ref());
-                        empty_squares = 0;
+                match self.board[sq.index()] {
+                    Some(pc) => {
+                        if empty_squares != 0 {
+                            board_str.push_str(empty_squares.to_string().as_str());
+                            empty_squares = 0;
+                        }
+                        board_str.push_str(pc.to_string().as_str());
                     }
-                    board_str.push_str(pc.to_string().as_ref());
-                } else {
-                    empty_squares += 1;
+                    None => {
+                        empty_squares += 1;
+                    }
                 }
             }
             if empty_squares != 0 {
-                board_str.push_str(empty_squares.to_string().as_ref());
+                board_str.push_str(empty_squares.to_string().as_str());
             }
             if rank != Rank::One {
                 board_str.push('/');
@@ -1097,10 +1048,9 @@ impl fmt::Display for Board {
             castling_rights_str = "-".to_string();
         }
 
-        let epsq_str = if self.history[self.ply].epsq() != SQ::None {
-            self.history[self.ply].epsq().to_string()
-        } else {
-            "-".to_string()
+        let epsq_str = match self.history[self.ply].epsq() {
+            Some(epsq) => epsq.to_string(),
+            None => "-".to_string(),
         };
 
         write!(
@@ -1124,12 +1074,9 @@ impl fmt::Debug for Board {
             for file_idx in 0..=7 {
                 let file = File::from(file_idx);
                 let sq = SQ::encode(rank, file);
-                let pc = self.piece_at(sq);
-                let pc_str = if pc != Piece::None {
-                    pc.to_string()
-                } else {
-                    "-".to_string()
-                };
+                let pc_str = self
+                    .piece_at(sq)
+                    .map_or("-".to_string(), |pc| pc.to_string());
                 s.push_str(&pc_str);
                 s.push(' ');
                 if sq.file() == File::H {
@@ -1149,9 +1096,9 @@ impl Board {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HistoryEntry {
     entry: Bitboard,
-    captured: Piece,
-    epsq: SQ,
-    moov: Move,
+    captured: Option<Piece>,
+    epsq: Option<SQ>,
+    moov: Option<Move>,
     material_hash: Hash,
     half_move_counter: u16,
     plies_from_null: u16,
@@ -1162,15 +1109,15 @@ impl HistoryEntry {
         self.entry
     }
 
-    pub fn moov(&self) -> Move {
+    pub fn moov(&self) -> Option<Move> {
         self.moov
     }
 
-    pub fn captured(&self) -> Piece {
+    pub fn captured(&self) -> Option<Piece> {
         self.captured
     }
 
-    pub fn epsq(&self) -> SQ {
+    pub fn epsq(&self) -> Option<SQ> {
         self.epsq
     }
 
@@ -1191,17 +1138,17 @@ impl HistoryEntry {
         *self
     }
 
-    pub fn with_moov(&mut self, moov: Move) -> Self {
+    pub fn with_moov(&mut self, moov: Option<Move>) -> Self {
         self.moov = moov;
         *self
     }
 
-    pub fn with_captured(&mut self, pc: Piece) -> Self {
+    pub fn with_captured(&mut self, pc: Option<Piece>) -> Self {
         self.captured = pc;
         *self
     }
 
-    pub fn with_epsq(&mut self, sq: SQ) -> Self {
+    pub fn with_epsq(&mut self, sq: Option<SQ>) -> Self {
         self.epsq = sq;
         *self
     }
