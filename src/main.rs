@@ -1,4 +1,4 @@
-#![expect(static_mut_refs)]
+#![allow(static_mut_refs)]
 #![allow(dead_code)]
 #![allow(non_snake_case)] // Allow so we don't get a warning about the uppercase name.
 
