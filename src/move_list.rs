@@ -16,7 +16,7 @@ use arrayvec::ArrayVec;
 pub const MAX_MOVES: usize = 252;
 #[cfg(target_pointer_width = "32")]
 const MAX_MOVES: usize = 254;
-#[cfg(any(target_pointer_width = "16"))]
+#[cfg(target_pointer_width = "16")]
 const MAX_MOVES: usize = 255;
 
 pub struct MoveListEntry {
@@ -109,7 +109,7 @@ impl MoveList {
         self.0.iter_mut()
     }
 
-    pub fn iter_moves<'a>(&'a self) -> impl Iterator<Item = Move> + 'a {
+    pub fn iter_moves(&self) -> impl Iterator<Item = Move> + '_ {
         self.0.iter().map(|entry| entry.m)
     }
 

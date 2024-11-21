@@ -48,8 +48,11 @@ impl SearchMaster {
                     println!("option name Overhead type spin default 0 min 0 max 5000");
                     println!("uciok");
                 }
-                UCICommand::Position(fen, move_strs) => {
-                    self.set_board(fen, move_strs);
+                UCICommand::Position { fen, moves } => {
+                    match self.set_board(fen, moves) {
+                        Ok(_) => (),
+                        Err(err) => eprintln!("{}", err),
+                    };
                 }
                 UCICommand::Go(time_control) => {
                     self.go(time_control);
@@ -57,9 +60,10 @@ impl SearchMaster {
                 UCICommand::Perft(depth) => {
                     print_perft(&mut self.board, depth);
                 }
-                UCICommand::Option(name, value) => {
-                    self.set_option(name, value);
-                }
+                UCICommand::Option { name, value } => match self.set_option(name, value) {
+                    Ok(result) => println!("info string set {}", result),
+                    Err(_) => eprintln!("Option not recognized or parsing error."),
+                },
                 UCICommand::Eval => {
                     println!("{}", self.board.eval());
                 }
@@ -108,28 +112,21 @@ impl SearchMaster {
         }
     }
 
-    fn set_board(&mut self, fen: Option<String>, move_strs: Vec<String>) {
-        let original_board = self.board.clone();
+    fn set_board(&mut self, fen: Option<String>, moves: Vec<String>) -> Result<(), &str> {
+        let mut board = Board::new();
         if let Some(fen) = fen {
-            if let Err(e) = self.board.set_fen(&fen) {
-                eprintln!("{}", e);
-                self.board = original_board;
-                return;
-            }
-        } else {
-            self.board.reset();
+            board.set_fen(&fen)?;
         }
 
-        for move_str in move_strs {
-            if let Err(e) = self.board.push_str(&move_str) {
-                eprintln!("{}", e);
-                self.board = original_board;
-                return;
-            }
+        for m in moves {
+            board.push_str(&m)?;
         }
+
+        self.board = board;
+        Ok(())
     }
 
-    fn set_option(&mut self, name: String, value: String) {
+    fn set_option(&mut self, name: String, value: String) -> Result<String, ()> {
         let result = match (name.as_str(), value.parse::<u128>()) {
             ("Hash", Ok(parsed_value)) => {
                 self.tt = TT::new(parsed_value as usize);
@@ -144,11 +141,10 @@ impl SearchMaster {
                 format!("Overhead to {}ms", self.overhead.as_millis())
             }
             _ => {
-                eprintln!("info string ERROR: Option not recognized or parsing error.");
-                return;
+                return Err(());
             }
         };
 
-        println!("info string set {}", result);
+        Ok(result)
     }
 }

@@ -1,10 +1,10 @@
-use std::io::BufRead;
-use std::{io, sync, thread};
-
 use super::search_master::*;
 use super::timer::*;
 use super::types::*;
-
+use regex::Regex;
+use std::io::BufRead;
+use std::sync::LazyLock;
+use std::{io, sync, thread};
 // A lot of this nice uci implementation was inspired by Asymptote.
 
 pub struct UCI {
@@ -56,12 +56,18 @@ pub enum UCICommand {
     UCINewGame,
     UCI,
     IsReady,
-    Position(Option<String>, Vec<String>),
+    Position {
+        fen: Option<String>,
+        moves: Vec<String>,
+    },
     Go(TimeControl),
     Quit,
     Stop,
     Perft(Depth),
-    Option(String, String),
+    Option {
+        name: String,
+        value: String,
+    },
     Eval,
     Fen,
 }
@@ -81,66 +87,138 @@ impl TryFrom<&str> for UCICommand {
             "quit" => Self::Quit,
             "isready" => Self::IsReady,
             _ => {
-                if let Some(tc_info) = line.strip_prefix("go") {
-                    let time_control = TimeControl::try_from(tc_info)?;
-                    Self::Go(time_control)
-                } else if let Some(position_str) = line.strip_prefix("position ") {
-                    Self::parse_position(position_str)?
-                } else if let Some(perft_depth) = line.strip_prefix("perft ") {
-                    let depth = perft_depth.parse().or(Err("Unable to parse depth."))?;
-                    Self::Perft(depth)
-                } else if let Some(option_str) = line.strip_prefix("setoption ") {
-                    Self::parse_option(option_str)?
+                if line.starts_with("go") {
+                    Self::parse_go(line)?
+                } else if line.starts_with("position") {
+                    Self::parse_position(line)?
+                } else if line.starts_with("perft") {
+                    Self::parse_perft(line)?
+                } else if line.starts_with("setoption") {
+                    Self::parse_option(line)?
                 } else {
                     return Err("Unknown command.");
                 }
             }
         };
-
         Ok(command)
     }
 }
 
 impl UCICommand {
-    fn parse_position(position_str: &str) -> Result<Self, &'static str> {
-        let position_str = position_str.trim();
-        let fen = if position_str.starts_with("startpos") {
-            None
-        } else if let Some(fen_str) = position_str.strip_prefix("fen") {
-            let fen_parts: Vec<&str> = fen_str
-                .split_whitespace()
-                .take_while(|p| *p != "moves")
-                .collect();
-
-            if !fen_parts.is_empty() {
-                Some(fen_parts.join(" "))
-            } else {
-                None
-            }
-        } else {
-            return Err("Unable to parse position.");
-        };
-
-        let move_strs = position_str
-            .split_whitespace()
-            .skip_while(|p| *p != "moves")
-            .skip(1)
-            .map(String::from)
-            .collect();
-
-        Ok(Self::Position(fen, move_strs))
+    fn parse_go(line: &str) -> Result<Self, &'static str> {
+        let time_control = TimeControl::try_from(line)?;
+        Ok(Self::Go(time_control))
     }
 
-    fn parse_option(option_str: &str) -> Result<Self, &'static str> {
-        let mut option_iter = option_str.split_whitespace();
-        if option_iter.next() != Some("name") {
-            return Err("Option must include a 'name' part.");
-        }
-        let name = option_iter
-            .by_ref()
-            .take_while(|word| *word != "value")
-            .collect();
-        let value = option_iter.collect();
-        Ok(Self::Option(name, value))
+    fn parse_position(line: &str) -> Result<Self, &'static str> {
+        let re_captures = POSITION_RE
+            .captures(line)
+            .ok_or("Invalid position format.")?;
+
+        let fen = re_captures
+            .name("startpos")
+            .is_none()
+            .then(|| {
+                re_captures
+                    .name("fen")
+                    .map(|m| m.as_str().to_string())
+                    .ok_or("Missing starting position.")
+            })
+            .transpose()?;
+
+        let moves = re_captures
+            .name("moves")
+            .map(|m| {
+                m.as_str()
+                    .split_whitespace()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>()
+            })
+            .unwrap_or_default();
+
+        Ok(Self::Position { fen, moves })
+    }
+
+    fn parse_option(line: &str) -> Result<Self, &'static str> {
+        let caps = OPTION_RE
+            .captures(line)
+            .ok_or("Option must include a 'name' and 'value' part.")?;
+
+        let name = caps
+            .name("name")
+            .map(|m| m.as_str().to_string())
+            .ok_or("Invalid name in option.")?;
+
+        let value = caps
+            .name("value")
+            .map(|m| m.as_str().to_string())
+            .ok_or("Invalid value in option.")?;
+
+        Ok(Self::Option { name, value })
+    }
+
+    fn parse_perft(line: &str) -> Result<Self, &'static str> {
+        let re_captures = PERFT_RE.captures(line).ok_or("Invalid perft format.")?;
+
+        re_captures
+            .name("depth")
+            .ok_or("Invalid perft format.")?
+            .as_str()
+            .parse::<Depth>()
+            .map_err(|_| "Invalid depth.")
+            .map(Self::Perft)
     }
 }
+
+static GO_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?x)^
+                go
+                (?:
+                    \s+depth\s+(?P<depth>\d+) |
+                    \s+nodes\s+(?P<nodes>\d+) |
+                    \s+movetime\s+(?P<movetime>\d+) |
+                    \s+wtime\s+(?P<wtime>\d+) |
+                    \s+btime\s+(?P<btime>\d+) |
+                    \s+winc\s+(?P<winc>\d+) |
+                    \s+binc\s+(?P<binc>\d+) |
+                    \s+mate\s+(?P<mate>\d+) |
+                    \s+movestogo\s+(?P<movestogo>\d+)
+                )*
+                $",
+    )
+    .expect("Failed to compile go regex.")
+});
+
+static POSITION_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?x)^
+                position\s+
+                (?:(?P<startpos>startpos)|fen\s+(?P<fen>.+?))
+                (\s+moves\s+(?P<moves>(?:.+?)+))?
+            $",
+    )
+    .expect("Failed to compile position regex.")
+});
+
+static OPTION_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?x)^
+                setoption\s+
+                name\s+(?P<name>.*?)\s+
+                value\s+(?P<value>.+)
+            $",
+    )
+    .expect("Failed to compile option regex.")
+});
+
+static PERFT_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?x)^
+                setoption\s+
+                name\s+(?P<name>.*?)\s+
+                value\s+(?P<value>.+)
+            $",
+    )
+    .expect("Failed to compile perft regex.")
+});

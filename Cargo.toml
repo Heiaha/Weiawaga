@@ -5,10 +5,11 @@ repository = "https://github.com/Heiaha/Weiawaga"
 version = "5.0.0"
 edition = "2021"
 readme = "README.md"
-rust-version = "1.63"
+rust-version = "1.80.0"
 
 [dependencies]
 arrayvec = "0.7.6"
+regex = "1.11.1"
 
 [profile.release]
 opt-level = 3

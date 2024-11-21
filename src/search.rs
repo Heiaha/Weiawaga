@@ -555,7 +555,7 @@ impl<'a> Search<'a> {
     }
 }
 
-impl<'a> Search<'a> {
+impl Search<'_> {
     const PRINT_CURRMOVENUMBER_TIME: Duration = Duration::from_millis(3000);
     const SEARCHES_WO_TIMER_UPDATE: Depth = 8;
     const RFP_MAX_DEPTH: Depth = 9;

@@ -1,13 +1,12 @@
-use std::str::{FromStr, SplitWhitespace};
-use std::sync;
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
-
 use super::board::*;
 use super::color::*;
 use super::moov::*;
 use super::types::*;
+use regex::{Match, Regex};
+use std::sync;
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, LazyLock};
+use std::time::{Duration, Instant};
 
 // Some ideas taken from asymptote, which has a very elegant timer implementation.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -26,55 +25,86 @@ pub enum TimeControl {
 }
 
 impl TimeControl {
-    pub fn parse_next<T: FromStr>(split: &mut SplitWhitespace) -> Result<T, &'static str> {
-        split
-            .next()
-            .ok_or("Must provide a value")?
-            .parse()
-            .or(Err("Unable to parse value."))
+    fn parse_duration(m: Option<Match>) -> Result<Option<Duration>, &'static str> {
+        m.map(|m| {
+            m.as_str()
+                .parse::<u64>()
+                .map_err(|_| "Unable to parse wtime.")
+                .map(Duration::from_millis)
+        })
+        .transpose()
     }
 }
 
 impl TryFrom<&str> for TimeControl {
     type Error = &'static str;
 
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        if s.is_empty() {
-            return Ok(Self::Infinite);
+    fn try_from(line: &str) -> Result<Self, Self::Error> {
+        if line == "go" {
+            return Ok(TimeControl::Infinite);
         }
 
-        let mut wtime = None;
-        let mut btime = None;
-        let mut winc = None;
-        let mut binc = None;
-        let mut moves_to_go = None;
+        let re_captures = GO_RE.captures(line).ok_or("Invalid go format.")?;
 
-        let mut split = s.split_whitespace();
-        while let Some(key) = split.next() {
-            match key {
-                "infinite" => return Ok(Self::Infinite),
-                "movetime" => {
-                    return Ok(Self::FixedDuration(Duration::from_millis(
-                        Self::parse_next(&mut split)?,
-                    )))
-                }
-                "nodes" => return Ok(Self::FixedNodes(Self::parse_next(&mut split)?)),
-                "depth" => return Ok(Self::FixedDepth(Self::parse_next(&mut split)?)),
-                "wtime" => wtime = Some(Duration::from_millis(Self::parse_next(&mut split)?)),
-                "btime" => btime = Some(Duration::from_millis(Self::parse_next(&mut split)?)),
-                "winc" => winc = Some(Duration::from_millis(Self::parse_next(&mut split)?)),
-                "binc" => binc = Some(Duration::from_millis(Self::parse_next(&mut split)?)),
-                "movestogo" => moves_to_go = Some(Self::parse_next(&mut split)?),
-                _ => continue,
-            }
+        if re_captures.name("ponder").is_some() {
+            return Err("Ponder is not implemented.");
         }
 
-        if (wtime.is_none() && btime.is_some()) || (wtime.is_some() && btime.is_none()) {
+        if re_captures.name("searchmoves").is_some() {
+            return Err("Searchmoves is not implemented.");
+        }
+
+        if re_captures.name("mate").is_some() {
+            return Err("Mate is not implemented.");
+        }
+
+        let mut count = 0;
+        let mut result = Err("Unable to parse go parameters.");
+
+        if let Some(m) = re_captures.name("nodes") {
+            count += 1;
+            result = m
+                .as_str()
+                .parse::<u64>()
+                .map_err(|_| "Unable to parse nodes.")
+                .map(Self::FixedNodes);
+        }
+
+        if let Some(m) = re_captures.name("depth") {
+            count += 1;
+            result = m
+                .as_str()
+                .parse::<Depth>()
+                .map_err(|_| "Unable to parse depth.")
+                .map(Self::FixedDepth);
+        }
+
+        if let Some(movetime) = Self::parse_duration(re_captures.name("movetime"))? {
+            count += 1;
+            result = Ok(Self::FixedDuration(movetime));
+        }
+
+        let wtime = Self::parse_duration(re_captures.name("wtime"))?;
+        let btime = Self::parse_duration(re_captures.name("btime"))?;
+        let winc = Self::parse_duration(re_captures.name("winc"))?;
+        let binc = Self::parse_duration(re_captures.name("binc"))?;
+
+        if wtime.is_some() ^ btime.is_some() {
             return Err("Must provide both wtime and btime.");
         }
 
+        let moves_to_go = re_captures
+            .name("moves_to_go")
+            .map(|m| {
+                m.as_str()
+                    .parse::<u32>()
+                    .map_err(|_| "Unable to parse moves_to_go.")
+            })
+            .transpose()?;
+
         if let (Some(wtime), Some(btime)) = (wtime, btime) {
-            return Ok(Self::Variable {
+            count += 1;
+            result = Ok(Self::Variable {
                 wtime,
                 btime,
                 winc,
@@ -82,9 +112,36 @@ impl TryFrom<&str> for TimeControl {
                 moves_to_go,
             });
         }
-        Err("Unable to parse go parameters.")
+
+        if count > 1 {
+            return Err(
+                "Only one of depth, nodes, movetime, or time control parameters is allowed.",
+            );
+        }
+
+        result
     }
 }
+
+static GO_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?x)
+                ^go
+                (?:
+                    \s+depth\s+(?P<depth>\d+) |
+                    \s+nodes\s+(?P<nodes>\d+) |
+                    \s+movetime\s+(?P<movetime>\d+) |
+                    \s+wtime\s+(?P<wtime>\d+) |
+                    \s+btime\s+(?P<btime>\d+) |
+                    \s+winc\s+(?P<winc>\d+) |
+                    \s+binc\s+(?P<binc>\d+) |
+                    \s+mate\s+(?P<mate>\d+) |
+                    \s+movestogo\s+(?P<movestogo>\d+)
+                )*
+                $",
+    )
+    .expect("Go regex should be valid.")
+});
 
 #[derive(Clone)]
 pub struct Timer {

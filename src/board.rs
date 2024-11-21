@@ -1,6 +1,3 @@
-use std::convert::TryFrom;
-use std::fmt;
-
 use super::attacks;
 use super::bitboard::*;
 use super::color::*;
@@ -13,6 +10,10 @@ use super::rank::*;
 use super::square::*;
 use super::types::*;
 use super::zobrist::*;
+use regex::Regex;
+use std::convert::TryFrom;
+use std::fmt;
+use std::sync::LazyLock;
 
 #[derive(Clone)]
 pub struct Board {
@@ -272,7 +273,9 @@ impl Board {
             MoveFlags::DoublePush => {
                 self.move_piece_quiet(m.from_sq(), m.to_sq());
                 epsq = Some(m.from_sq() + Direction::North.relative(self.ctm));
-                epsq.map(|sq| self.hasher.update_ep(sq.file()));
+                if let Some(sq) = epsq {
+                    self.hasher.update_ep(sq.file());
+                }
             }
             MoveFlags::OO => {
                 self.move_piece_quiet(SQ::E1.relative(self.ctm), SQ::G1.relative(self.ctm));
@@ -331,9 +334,9 @@ impl Board {
             }
             MoveFlags::DoublePush => {
                 self.move_piece_quiet(m.to_sq(), m.from_sq());
-                self.history[self.ply]
-                    .epsq()
-                    .map(|sq| self.hasher.update_ep(sq.file()));
+                if let Some(sq) = self.history[self.ply].epsq() {
+                    self.hasher.update_ep(sq.file());
+                }
             }
             MoveFlags::OO => {
                 self.move_piece_quiet(SQ::G1.relative(self.ctm), SQ::E1.relative(self.ctm));
@@ -413,13 +416,11 @@ impl Board {
             .unwrap_or(Bitboard::ZERO);
 
         danger |= their_diag_sliders
-            .clone()
             .map(|sq| attacks::bishop_attacks(sq, all ^ our_king.bb()))
             .reduce(|a, b| a | b)
             .unwrap_or(Bitboard::ZERO);
 
         danger |= their_orth_sliders
-            .clone()
             .map(|sq| attacks::rook_attacks(sq, all ^ our_king.bb()))
             .reduce(|a, b| a | b)
             .unwrap_or(Bitboard::ZERO);
@@ -607,22 +608,20 @@ impl Board {
                         | ((all | danger) & Bitboard::oo_blockers_mask(us)))
                         == Bitboard::ZERO
                     {
-                        moves.push(if us == Color::White {
-                            Move::new(SQ::E1, SQ::G1, MoveFlags::OO)
-                        } else {
-                            Move::new(SQ::E8, SQ::G8, MoveFlags::OO)
-                        })
+                        moves.push(match us {
+                            Color::White => Move::new(SQ::E1, SQ::G1, MoveFlags::OO),
+                            Color::Black => Move::new(SQ::E8, SQ::G8, MoveFlags::OO),
+                        });
                     }
                     if ((self.history[self.ply].entry() & Bitboard::ooo_mask(us))
                         | ((all | (danger & !Bitboard::ignore_ooo_danger(us)))
                             & Bitboard::ooo_blockers_mask(us)))
                         == Bitboard::ZERO
                     {
-                        moves.push(if us == Color::White {
-                            Move::new(SQ::E1, SQ::C1, MoveFlags::OOO)
-                        } else {
-                            Move::new(SQ::E8, SQ::C8, MoveFlags::OOO)
-                        })
+                        moves.push(match us {
+                            Color::White => Move::new(SQ::E1, SQ::C1, MoveFlags::OOO),
+                            Color::Black => Move::new(SQ::E8, SQ::C8, MoveFlags::OOO),
+                        });
                     }
                 }
                 ///////////////////////////////////////////////////////////////////
@@ -848,7 +847,7 @@ impl Board {
     }
 
     pub fn push_str(&mut self, move_str: &str) -> Result<(), &'static str> {
-        let m = MoveList::from(&self)
+        let m = MoveList::from(self)
             .iter_moves()
             .find(|m| m.to_string() == move_str)
             .ok_or("Invalid move.")?;
@@ -863,79 +862,90 @@ impl Board {
         if !fen.is_ascii() || fen.lines().count() != 1 {
             return Err("FEN should be a single ASCII line.");
         }
-        let mut parts = fen.split_ascii_whitespace();
 
-        if parts.clone().count() < 3 {
-            return Err(
-                "Fen must at include at least piece placement, color, and castling string.",
-            );
-        }
+        let re_captures = FEN_RE.captures(fen).ok_or("Invalid fen format.")?;
 
-        let pieces_placement = parts.next().ok_or("Invalid piece placement.")?;
-        let ctm = parts
-            .next()
-            .and_then(|s| s.chars().next())
-            .ok_or("Invalid color.")?;
-        let castling_ability = parts.next().ok_or("Invalid castling.")?;
-        let en_passant_square = parts.next().unwrap_or("-");
-        let halfmove_clock = parts
-            .next()
-            .unwrap_or("0")
-            .parse::<u16>()
-            .map_err(|_| "Unable to parse half move clock")?;
-        let fullmove_counter = parts
-            .next()
-            .unwrap_or("1")
-            .parse::<usize>()
-            .map_err(|_| "Unable to parse full move counter.")?
-            .max(1);
+        let piece_placement = re_captures
+            .name("piece_placement")
+            .ok_or("Invalid piece placement.")?
+            .as_str();
+        let ctm = re_captures
+            .name("active_color")
+            .ok_or("Invalid color.")?
+            .as_str();
+        let castling = re_captures
+            .name("castling")
+            .ok_or("Invalid castling rights.")?
+            .as_str();
+        let en_passant_sq = re_captures.name("en_passant").map_or("-", |m| m.as_str());
+        let halfmove_clock = re_captures.name("halfmove").map_or("0", |m| m.as_str());
+        let fullmove_counter = re_captures.name("fullmove").map_or("1", |m| m.as_str());
 
-        if pieces_placement.split('/').count() != Rank::N_RANKS {
+        if piece_placement.split('/').count() != Rank::N_RANKS {
             return Err("Pieces Placement FEN should have 8 ranks.");
         }
 
-        self.ctm = Color::try_from(ctm)?;
+        self.ctm = Color::try_from(ctm.parse::<char>().map_err(|_| "Invalid color.")?)?;
 
-        self.ply = 2 * (fullmove_counter - 1);
+        self.ply = 2
+            * (fullmove_counter
+                .parse::<usize>()
+                .map_err(|_| "Invalid full move counter.")?
+                - 1);
         if self.ctm == Color::Black {
             self.ply += 1;
             self.hasher.update_color();
         }
 
-        let ranks = pieces_placement.split('/');
+        let ranks = piece_placement.split('/');
         for (rank_idx, rank_fen) in ranks.enumerate() {
             let mut idx = (7 - rank_idx) * 8;
 
             for ch in rank_fen.chars() {
                 if let Some(digit) = ch.to_digit(10) {
+                    if digit > 8 {
+                        return Err("Invalid digit in position.");
+                    }
                     idx += digit as usize;
                 } else {
+                    if idx > 63 {
+                        return Err("Invalid square index in FEN.");
+                    }
                     let sq = SQ::from(idx as u8);
-                    self.set_piece_at(Piece::try_from(ch)?, sq);
+                    let pc = Piece::try_from(ch)?;
+                    self.set_piece_at(pc, sq);
                     idx += 1;
                 }
+            }
+
+            if idx != 64 - 8 * rank_idx {
+                return Err("FEN rank does not fill expected number of squares.");
             }
         }
 
         self.history[self.ply] = self.history[self.ply].with_entry(Bitboard::ALL_CASTLING_MASK);
-        for (symbol, mask) in "KQkq".chars().zip([
-            Bitboard::WHITE_OO_MASK,
-            Bitboard::WHITE_OOO_MASK,
-            Bitboard::BLACK_OO_MASK,
-            Bitboard::BLACK_OOO_MASK,
-        ]) {
-            if castling_ability.contains(symbol) {
+        for (symbol, mask) in [
+            ('K', Bitboard::WHITE_OO_MASK),
+            ('Q', Bitboard::WHITE_OOO_MASK),
+            ('k', Bitboard::BLACK_OO_MASK),
+            ('q', Bitboard::BLACK_OOO_MASK),
+        ] {
+            if castling.contains(symbol) {
                 self.history[self.ply] =
                     self.history[self.ply].with_entry(self.history[self.ply].entry() & !mask);
             }
         }
 
-        if en_passant_square != "-" {
-            let sq = SQ::try_from(en_passant_square)?;
-            self.history[self.ply] = self.history[self.ply].with_epsq(Some(sq));
-            self.hasher.update_ep(sq.file());
+        if en_passant_sq != "-" {
+            let epsq = SQ::try_from(en_passant_sq)?;
+            self.history[self.ply] = self.history[self.ply].with_epsq(Some(epsq));
+            self.hasher.update_ep(epsq.file());
         }
-        self.history[self.ply] = self.history[self.ply].with_half_move_counter(halfmove_clock);
+        self.history[self.ply] = self.history[self.ply].with_half_move_counter(
+            halfmove_clock
+                .parse::<u16>()
+                .map_err(|_| "Invalid half move counter.")?,
+        );
         self.history[self.ply] =
             self.history[self.ply].with_material_hash(self.hasher.material_hash());
         Ok(())
@@ -1093,6 +1103,20 @@ impl Board {
     const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 }
 
+static FEN_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?x)^
+                (?P<piece_placement>[KQRBNPkqrbnp1-8/]+)\s+
+                (?P<active_color>[wb])\s+
+                (?P<castling>[KQkq\-]+)\s+
+                (?P<en_passant>[a-h1-8\-]+)
+                (?:\s+(?P<halfmove>\d+))?
+                (?:\s+(?P<fullmove>\d+))?
+            $",
+    )
+    .expect("Failed to compile fen regex.")
+});
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HistoryEntry {
     entry: Bitboard,
@@ -1172,9 +1196,11 @@ impl HistoryEntry {
 #[cfg(test)]
 mod tests {
     use crate::board::Board;
+    use crate::magics::*;
 
     #[test]
     fn threefold_repetition() {
+        init_magics();
         let mut board = Board::new();
         assert_eq!(board.is_repetition(), false);
         board.push_str("e2e4").unwrap();

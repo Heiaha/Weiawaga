@@ -99,12 +99,13 @@ impl TryFrom<&str> for SQ {
     type Error = &'static str;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Ok(Self::from(
+        let sq = Self::from(
             Self::SQ_DISPLAY
                 .iter()
                 .position(|potential_sq_str| *potential_sq_str == value)
                 .ok_or("Invalid square.")? as u8,
-        ))
+        );
+        Ok(sq)
     }
 }
 
