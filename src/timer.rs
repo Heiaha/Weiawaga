@@ -125,8 +125,8 @@ impl TryFrom<&str> for TimeControl {
 
 static GO_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
-        r"(?x)
-                ^go
+        r"(?x)^
+                go
                 (?:
                     \s+depth\s+(?P<depth>\d+) |
                     \s+nodes\s+(?P<nodes>\d+) |
@@ -138,7 +138,7 @@ static GO_RE: LazyLock<Regex> = LazyLock::new(|| {
                     \s+mate\s+(?P<mate>\d+) |
                     \s+movestogo\s+(?P<movestogo>\d+)
                 )*
-                $",
+            $",
     )
     .expect("Go regex should be valid.")
 });

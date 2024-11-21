@@ -170,26 +170,6 @@ impl UCICommand {
     }
 }
 
-static GO_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"(?x)^
-                go
-                (?:
-                    \s+depth\s+(?P<depth>\d+) |
-                    \s+nodes\s+(?P<nodes>\d+) |
-                    \s+movetime\s+(?P<movetime>\d+) |
-                    \s+wtime\s+(?P<wtime>\d+) |
-                    \s+btime\s+(?P<btime>\d+) |
-                    \s+winc\s+(?P<winc>\d+) |
-                    \s+binc\s+(?P<binc>\d+) |
-                    \s+mate\s+(?P<mate>\d+) |
-                    \s+movestogo\s+(?P<movestogo>\d+)
-                )*
-                $",
-    )
-    .expect("Failed to compile go regex.")
-});
-
 static POSITION_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r"(?x)^
