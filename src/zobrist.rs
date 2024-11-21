@@ -3,16 +3,8 @@ use super::piece::*;
 use super::square::*;
 use super::types::*;
 
-struct Rng(Hash);
-
-impl Rng {
-    fn gen(&mut self) -> Hash {
-        self.0 ^= self.0 >> 12;
-        self.0 ^= self.0 << 25;
-        self.0 ^= self.0 >> 27;
-        self.0.wrapping_mul(2685821657736338717)
-    }
-}
+use rand::rngs::StdRng;
+use rand::{RngCore, SeedableRng};
 
 #[derive(Clone)]
 pub struct Hasher {
@@ -25,15 +17,20 @@ pub struct Hasher {
 
 impl Hasher {
     pub fn new() -> Self {
-        let mut rng = Rng(1070372);
+        let mut rng = StdRng::seed_from_u64(1070372);
 
         let mut zobrist_table = [0; SQ::N_SQUARES * Piece::N_PIECES];
         let mut zobrist_ep = [0; File::N_FILES];
-        let zobrist_color = rng.gen();
 
-        zobrist_table.iter_mut().for_each(|hash| *hash = rng.gen());
+        let zobrist_color = rng.next_u64();
 
-        zobrist_ep.iter_mut().for_each(|hash| *hash = rng.gen());
+        zobrist_table
+            .iter_mut()
+            .for_each(|hash| *hash = rng.next_u64());
+
+        zobrist_ep
+            .iter_mut()
+            .for_each(|hash| *hash = rng.next_u64());
 
         Self {
             hash: 0,

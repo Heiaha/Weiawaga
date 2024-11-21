@@ -29,7 +29,7 @@ impl TimeControl {
         m.map(|m| {
             m.as_str()
                 .parse::<u64>()
-                .map_err(|_| "Unable to parse wtime.")
+                .map_err(|_| "Unable to parse time.")
                 .map(Duration::from_millis)
         })
         .transpose()
@@ -46,16 +46,11 @@ impl TryFrom<&str> for TimeControl {
 
         let re_captures = GO_RE.captures(line).ok_or("Invalid go format.")?;
 
-        if re_captures.name("ponder").is_some() {
-            return Err("Ponder is not implemented.");
-        }
-
-        if re_captures.name("searchmoves").is_some() {
-            return Err("Searchmoves is not implemented.");
-        }
-
-        if re_captures.name("mate").is_some() {
-            return Err("Mate is not implemented.");
+        if re_captures.name("ponder").is_some()
+            || re_captures.name("searchmoves").is_some()
+            || re_captures.name("mate").is_some()
+        {
+            return Err("Feature is not implemented.");
         }
 
         let mut count = 0;
@@ -162,33 +157,11 @@ impl Timer {
         stop: Arc<AtomicBool>,
         overhead: Duration,
     ) -> Self {
-        let mut time_target = Duration::ZERO;
-        let mut time_maximum = Duration::ZERO;
-
-        if let TimeControl::Variable {
-            wtime,
-            btime,
-            winc,
-            binc,
-            moves_to_go,
-        } = control
-        {
-            let (time, inc) = match board.ctm() {
-                Color::White => (wtime, winc),
-                Color::Black => (btime, binc),
-            };
-
-            let mtg = moves_to_go.unwrap_or_else(|| {
-                (Self::MTG_INTERCEPT
-                    + Self::MTG_EVAL_WEIGHT * (board.simple_eval().abs() as f32)
-                    + Self::MTG_MOVE_WEIGHT * (board.fullmove_number() as f32))
-                    .ceil()
-                    .max(1.0) as u32
-            });
-
-            time_target = time.min(time / mtg + inc.unwrap_or(Duration::ZERO));
-            time_maximum = time_target + (time - time_target) / 4;
-        }
+        let (time_target, time_maximum) = if let TimeControl::Variable { .. } = control {
+            Self::calculate_time(board, control)
+        } else {
+            (Duration::ZERO, Duration::ZERO)
+        };
 
         Self {
             start_time: Instant::now(),
@@ -200,6 +173,37 @@ impl Timer {
             last_best_move: None,
             times_checked: 0,
         }
+    }
+
+    fn calculate_time(board: &Board, control: TimeControl) -> (Duration, Duration) {
+        let TimeControl::Variable {
+            wtime,
+            btime,
+            winc,
+            binc,
+            moves_to_go,
+        } = control
+        else {
+            unreachable!()
+        };
+
+        let (time, inc) = match board.ctm() {
+            Color::White => (wtime, winc),
+            Color::Black => (btime, binc),
+        };
+
+        let mtg = moves_to_go.unwrap_or_else(|| {
+            (Self::MTG_INTERCEPT
+                + Self::MTG_EVAL_WEIGHT * (board.simple_eval().abs() as f32)
+                + Self::MTG_MOVE_WEIGHT * (board.fullmove_number() as f32))
+                .ceil()
+                .max(1.0) as u32
+        });
+
+        let time_target = time.min(time / mtg + inc.unwrap_or(Duration::ZERO));
+        let time_maximum = time_target + (time - time_target) / 4;
+
+        (time_target, time_maximum)
     }
 
     pub fn start_check(&self, depth: Depth) -> bool {

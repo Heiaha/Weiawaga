@@ -6,18 +6,7 @@ use super::types::*;
 
 use arrayvec::ArrayVec;
 
-// Cache size consideration idea originally found in Pleco
-
-// Make sure the move lists are aligned into lengths such that the memory is
-// in an integer number of cache chunks. The is for a 32 bit Move.
-// https://www.youtube.com/watch?v=WDIkqP4JbkE
-
-#[cfg(target_pointer_width = "64")]
 pub const MAX_MOVES: usize = 252;
-#[cfg(target_pointer_width = "32")]
-const MAX_MOVES: usize = 254;
-#[cfg(target_pointer_width = "16")]
-const MAX_MOVES: usize = 255;
 
 pub struct MoveListEntry {
     pub m: Move,
