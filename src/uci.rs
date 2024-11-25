@@ -195,10 +195,9 @@ static OPTION_RE: LazyLock<Regex> = LazyLock::new(|| {
 static PERFT_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r"(?x)^
-                setoption\s+
-                name\s+(?P<name>.*?)\s+
-                value\s+(?P<value>.+)
+                perft\s+
+                (?P<depth>.*?)
             $",
     )
-    .expect("Failed to compile perft regex.")
+        .expect("Failed to compile perft regex.")
 });
