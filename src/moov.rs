@@ -62,7 +62,7 @@ impl Move {
 
 impl From<MoveInt> for Move {
     fn from(m: MoveInt) -> Self {
-        Self(NonZero::new(m).expect("MoveInt is zero."))
+        Self(NonZeroU16::new(m).expect("MoveInt is zero."))
     }
 }
 
