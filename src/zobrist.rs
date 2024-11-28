@@ -1,4 +1,3 @@
-use super::file::*;
 use super::piece::*;
 use super::square::*;
 use super::types::*;

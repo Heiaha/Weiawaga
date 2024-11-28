@@ -1,12 +1,9 @@
 use super::attacks;
 use super::bitboard::*;
-use super::color::*;
-use super::file::*;
 use super::moov::*;
 use super::move_list::*;
 use super::nnue::*;
 use super::piece::*;
-use super::rank::*;
 use super::square::*;
 use super::types::*;
 use super::zobrist::*;

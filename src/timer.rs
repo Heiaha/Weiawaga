@@ -1,7 +1,7 @@
 use super::board::*;
-use super::color::*;
 use super::moov::*;
 use super::types::*;
+use crate::piece::*;
 use regex::{Match, Regex};
 use std::sync;
 use std::sync::atomic::AtomicBool;

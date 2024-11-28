@@ -1,7 +1,6 @@
 use super::attacks;
 use super::bitboard::*;
 use super::board::*;
-use super::color::*;
 use super::moov::*;
 use super::move_list::*;
 use super::piece::*;

@@ -1,5 +1,4 @@
 use super::bitboard::*;
-use super::color::*;
 use super::magics::*;
 use super::piece::*;
 use super::square::*;

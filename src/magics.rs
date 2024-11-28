@@ -1,7 +1,5 @@
 use super::attacks::*;
 use super::bitboard::*;
-use super::file::*;
-use super::rank::*;
 use super::square::*;
 
 // Fancy magic bitboard implementation inspired by Rustfish's port of Stockfish

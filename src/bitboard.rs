@@ -1,11 +1,9 @@
-use std::fmt;
-use std::ops::*;
-
 use super::attacks;
-use super::color::*;
-use super::file::*;
+use super::piece::*;
 use super::square::*;
 use super::types::*;
+use std::fmt;
+use std::ops::*;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct Bitboard(pub Hash);
