@@ -26,7 +26,7 @@ impl SQ {
     }
 
     pub fn bb(self) -> Bitboard {
-        Self::SQUARES_BB[self as usize]
+        B!(1 << self as usize)
     }
 
     pub fn index(self) -> usize {

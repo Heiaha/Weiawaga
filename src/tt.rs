@@ -14,7 +14,7 @@ use super::types::*;
 #[derive(Eq, PartialEq, Copy, Clone)]
 pub struct TTEntry {
     value: Value,
-    best_move: MoveInt,
+    best_move: Option<Move>,
     depth: Depth,
     flag: Bound,
 }
@@ -22,7 +22,7 @@ pub struct TTEntry {
 impl TTEntry {
     pub fn new(value: Value, best_move: Option<Move>, depth: Depth, flag: Bound) -> Self {
         TTEntry {
-            best_move: best_move.map_or(0, |m| m.move_int()),
+            best_move,
             depth,
             value,
             flag,
@@ -30,10 +30,7 @@ impl TTEntry {
     }
 
     pub fn best_move(&self) -> Option<Move> {
-        match self.best_move {
-            0 => None,
-            1.. => Some(Move::from(self.best_move)),
-        }
+        self.best_move
     }
 
     pub fn depth(&self) -> Depth {
@@ -52,7 +49,7 @@ impl TTEntry {
 impl Default for TTEntry {
     fn default() -> Self {
         Self {
-            best_move: 0,
+            best_move: None,
             depth: 0,
             value: 0,
             flag: Bound::Exact,

@@ -199,5 +199,5 @@ static PERFT_RE: LazyLock<Regex> = LazyLock::new(|| {
                 (?P<depth>.*?)
             $",
     )
-        .expect("Failed to compile perft regex.")
+    .expect("Failed to compile perft regex.")
 });

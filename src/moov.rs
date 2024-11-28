@@ -1,39 +1,44 @@
-use std::fmt;
-
 use super::piece::*;
 use super::square::*;
 use super::types::*;
+use std::fmt;
+use std::num::NonZeroU16;
 
-#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
-pub struct Move(MoveInt);
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Move(NonZeroU16);
 
 impl Move {
     pub fn new(from_sq: SQ, to_sq: SQ, flags: MoveFlags) -> Self {
-        Self(((flags as MoveInt) << 12) | ((from_sq as MoveInt) << 6) | (to_sq as MoveInt))
+        Self(
+            NonZeroU16::new(
+                (flags as MoveInt) << 12 | (from_sq as MoveInt) << 6 | (to_sq as MoveInt),
+            )
+            .expect("MoveInt is zero."),
+        )
     }
 
     pub fn to_sq(&self) -> SQ {
-        SQ::from((self.0 & 0x3f) as u8)
+        SQ::from((self.0.get() & 0x3f) as u8)
     }
 
     pub fn from_sq(&self) -> SQ {
-        SQ::from(((self.0 >> 6) & 0x3f) as u8)
+        SQ::from(((self.0.get() >> 6) & 0x3f) as u8)
     }
 
     pub fn flags(&self) -> MoveFlags {
-        MoveFlags::from(((self.0 >> 12) & 0xf) as u8)
+        MoveFlags::from(((self.0.get() >> 12) & 0xf) as u8)
     }
 
     pub fn move_int(&self) -> MoveInt {
-        self.0
+        self.0.get()
     }
 
     pub fn is_quiet(&self) -> bool {
-        (self.0 >> 12) & 0b1100 == 0
+        (self.0.get() >> 12) & 0b1100 == 0
     }
 
     pub fn is_capture(&self) -> bool {
-        (self.0 >> 12) & 0b0100 != 0
+        (self.0.get() >> 12) & 0b0100 != 0
     }
 
     pub fn is_ep(&self) -> bool {
@@ -57,7 +62,7 @@ impl Move {
 
 impl From<MoveInt> for Move {
     fn from(m: MoveInt) -> Self {
-        Self(m)
+        Self(NonZero::new(m).expect("MoveInt is zero."))
     }
 }
 
