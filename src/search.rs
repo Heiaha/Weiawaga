@@ -10,11 +10,9 @@ use super::types::*;
 
 pub struct Search<'a> {
     id: u16,
-    stop: bool,
     sel_depth: Ply,
     timer: Timer,
     tt: &'a TT,
-    nodes: u64,
     move_sorter: MoveSorter,
 }
 
@@ -24,9 +22,7 @@ impl<'a> Search<'a> {
             id,
             timer,
             tt,
-            stop: false,
             sel_depth: 0,
-            nodes: 0,
             move_sorter: MoveSorter::new(),
         }
     }
@@ -55,11 +51,7 @@ impl<'a> Search<'a> {
             return Some(moves[0].m);
         }
 
-        while !self.stop
-            && self.timer.start_check(depth)
-            && !Self::is_checkmate(value)
-            && depth < Depth::MAX
-        {
+        while self.timer.start_check(depth) && !Self::is_checkmate(value) && depth < Depth::MAX {
             (best_move, value) = self.search_root(&mut board, depth, alpha, beta);
 
             ///////////////////////////////////////////////////////////////////
@@ -79,7 +71,7 @@ impl<'a> Search<'a> {
                 beta = Self::MATE;
             } else {
                 // Only print info if we're in the main thread
-                if self.id == 0 && !self.stop {
+                if self.id == 0 && !self.timer.local_stop() {
                     best_move.inspect(|&m| self.print_info(&mut board, depth, m, value));
                 }
                 alpha = value - Self::ASPIRATION_WINDOW;
@@ -139,7 +131,7 @@ impl<'a> Search<'a> {
             }
             board.pop();
 
-            if self.stop {
+            if self.timer.local_stop() {
                 break;
             }
 
@@ -163,7 +155,7 @@ impl<'a> Search<'a> {
             }
         });
 
-        if !self.stop {
+        if !self.timer.local_stop() {
             self.tt.insert(board, depth, alpha, best_move, Bound::Exact);
         }
         (best_move, alpha)
@@ -177,11 +169,6 @@ impl<'a> Search<'a> {
         mut beta: Value,
         ply: Ply,
     ) -> Value {
-        if self.stop || self.timer.stop_check() {
-            self.stop = true;
-            return 0;
-        }
-
         ///////////////////////////////////////////////////////////////////
         // Mate distance pruning - will help reduce
         // some nodes when checkmate is near.
@@ -190,7 +177,6 @@ impl<'a> Search<'a> {
         alpha = alpha.max(-mate_value);
         beta = beta.min(mate_value - 1);
         if alpha >= beta {
-            self.nodes += 1;
             return alpha;
         }
 
@@ -211,7 +197,9 @@ impl<'a> Search<'a> {
             return self.q_search(board, alpha, beta, ply);
         }
 
-        self.nodes += 1;
+        if self.timer.stop_check() {
+            return 0;
+        }
 
         if board.is_draw() {
             return 0;
@@ -261,7 +249,7 @@ impl<'a> Search<'a> {
             board.push_null();
             let value = -self.search(board, depth - r - 1, -beta, -beta + 1, ply);
             board.pop_null();
-            if self.stop {
+            if self.timer.local_stop() {
                 return 0;
             }
             if value >= beta {
@@ -328,7 +316,7 @@ impl<'a> Search<'a> {
 
             board.pop();
 
-            if self.stop {
+            if self.timer.local_stop() {
                 return 0;
             }
 
@@ -363,7 +351,7 @@ impl<'a> Search<'a> {
             }
         }
 
-        if !self.stop {
+        if !self.timer.local_stop() {
             best_move = best_move.or_else(|| {
                 if moves.len() > 0 {
                     Some(moves[0].m)
@@ -384,12 +372,9 @@ impl<'a> Search<'a> {
         mut beta: Value,
         ply: Ply,
     ) -> Value {
-        if self.stop || self.timer.stop_check() {
-            self.stop = true;
+        if self.timer.stop_check() {
             return 0;
         }
-
-        self.nodes += 1;
 
         if board.is_draw() {
             return 0;
@@ -439,7 +424,7 @@ impl<'a> Search<'a> {
             let value = -self.q_search(board, -beta, -alpha, ply + 1);
             board.pop();
 
-            if self.stop {
+            if self.timer.local_stop() {
                 return 0;
             }
 
@@ -533,6 +518,7 @@ impl<'a> Search<'a> {
         };
 
         let elapsed = self.timer.elapsed();
+        let nodes = self.timer.nodes();
 
         println!("info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} pv {pv}",
                  m = m,
@@ -540,8 +526,8 @@ impl<'a> Search<'a> {
                  sel_depth = self.sel_depth,
                  time = elapsed.as_millis(),
                  score_str = score_str,
-                 nodes = self.nodes,
-                 nps = (self.nodes as f64 / elapsed.as_secs_f64()) as u64,
+                 nodes = nodes,
+                 nps = (nodes as f64 / elapsed.as_secs_f64()) as u64,
                  pv = self.get_pv(board, depth));
     }
 

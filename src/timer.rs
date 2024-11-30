@@ -3,8 +3,7 @@ use super::moov::*;
 use super::types::*;
 use crate::piece::*;
 use regex::{Match, Regex};
-use std::sync;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock};
 use std::time::{Duration, Instant};
 
@@ -142,7 +141,9 @@ static GO_RE: LazyLock<Regex> = LazyLock::new(|| {
 pub struct Timer {
     control: TimeControl,
     start_time: Instant,
-    stop: Arc<AtomicBool>,
+    global_stop: Arc<AtomicBool>,
+    local_stop: bool,
+    nodes: Arc<AtomicU64>,
     times_checked: u64,
     time_target: Duration,
     time_maximum: Duration,
@@ -155,6 +156,7 @@ impl Timer {
         board: &Board,
         control: TimeControl,
         stop: Arc<AtomicBool>,
+        nodes: Arc<AtomicU64>,
         overhead: Duration,
     ) -> Self {
         let (time_target, time_maximum) = if let TimeControl::Variable { .. } = control {
@@ -165,7 +167,9 @@ impl Timer {
 
         Self {
             start_time: Instant::now(),
-            stop,
+            global_stop: stop,
+            local_stop: false,
+            nodes,
             control,
             overhead,
             time_target,
@@ -192,13 +196,7 @@ impl Timer {
             Color::Black => (btime, binc),
         };
 
-        let mtg = moves_to_go.unwrap_or_else(|| {
-            (Self::MTG_INTERCEPT
-                + Self::MTG_EVAL_WEIGHT * (board.simple_eval().abs() as f32)
-                + Self::MTG_MOVE_WEIGHT * (board.fullmove_number() as f32))
-                .ceil()
-                .max(1.0) as u32
-        });
+        let mtg = moves_to_go.unwrap_or(40);
 
         let time_target = time.min(time / mtg + inc.unwrap_or(Duration::ZERO));
         let time_maximum = time_target + (time - time_target) / 4;
@@ -206,8 +204,13 @@ impl Timer {
         (time_target, time_maximum)
     }
 
-    pub fn start_check(&self, depth: Depth) -> bool {
-        if self.stop.load(sync::atomic::Ordering::Relaxed) {
+    pub fn start_check(&mut self, depth: Depth) -> bool {
+        if self.local_stop {
+            return false;
+        }
+
+        if self.global_stop.load(Ordering::Relaxed) {
+            self.nodes.fetch_add(self.times_checked, Ordering::Relaxed);
             return false;
         }
 
@@ -225,52 +228,63 @@ impl Timer {
         };
 
         if !start {
-            self.stop.store(true, sync::atomic::Ordering::Relaxed);
+            self.local_stop = true;
+            self.global_stop.store(true, Ordering::Relaxed);
         }
         start
     }
 
     pub fn stop_check(&mut self) -> bool {
+        if self.local_stop {
+            return true;
+        }
+
         self.times_checked += 1;
 
-        let should_check = self.times_checked & Self::CHECK_FLAG == 0;
+        if self.times_checked < Self::CHECK_FREQ {
+            return false;
+        }
 
-        if should_check && self.stop.load(sync::atomic::Ordering::Relaxed) {
+        let nodes = self.nodes.fetch_add(self.times_checked, Ordering::Relaxed);
+        self.times_checked = 0;
+
+        if self.global_stop.load(Ordering::Relaxed) {
+            self.local_stop = true;
             return true;
         }
 
         let stop = match self.control {
             TimeControl::Infinite => false,
-            TimeControl::FixedDuration(duration) => {
-                if should_check {
-                    self.elapsed() + self.overhead >= duration
-                } else {
-                    false
-                }
-            }
-            TimeControl::Variable { .. } => {
-                if should_check {
-                    self.elapsed() + self.overhead >= self.time_maximum
-                } else {
-                    false
-                }
-            }
+            TimeControl::FixedDuration(duration) => self.elapsed() + self.overhead >= duration,
+            TimeControl::Variable { .. } => self.elapsed() + self.overhead >= self.time_maximum,
             TimeControl::FixedDepth(_) => false,
-            TimeControl::FixedNodes(nodes) => self.times_checked >= nodes,
+            TimeControl::FixedNodes(stop_nodes) => nodes >= stop_nodes,
         };
 
         if stop {
-            self.stop.store(true, sync::atomic::Ordering::Relaxed);
+            self.nodes.fetch_add(self.times_checked, Ordering::Relaxed);
+            self.local_stop = true;
+            self.global_stop.store(true, Ordering::Relaxed);
         }
+
         stop
     }
 
     pub fn stop(&mut self) {
-        self.stop.store(true, sync::atomic::Ordering::SeqCst);
+        self.local_stop = true;
+        self.global_stop.store(true, Ordering::SeqCst);
     }
 
     pub fn elapsed(&self) -> Duration {
         self.start_time.elapsed()
+    }
+
+    pub fn nodes(&self) -> u64 {
+        self.nodes.load(Ordering::Relaxed) + self.times_checked
+    }
+
+    pub fn local_stop(&self) -> bool {
+        self.local_stop
     }
 
     pub fn update(&mut self, best_move: Option<Move>) {
@@ -286,8 +300,5 @@ impl Timer {
 }
 
 impl Timer {
-    const CHECK_FLAG: u64 = 0x1000 - 1;
-    const MTG_INTERCEPT: f32 = 52.52;
-    const MTG_EVAL_WEIGHT: f32 = -0.01833;
-    const MTG_MOVE_WEIGHT: f32 = -0.4657;
+    const CHECK_FREQ: u64 = 4096;
 }

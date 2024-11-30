@@ -1,6 +1,7 @@
 use std::sync;
 use std::sync::atomic::*;
 use std::sync::mpsc::Receiver;
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
@@ -79,11 +80,18 @@ impl SearchMaster {
 
     fn go(&mut self, time_control: TimeControl) {
         self.stop.store(false, Ordering::SeqCst);
+        let nodes = Arc::new(AtomicU64::new(0));
 
         let best_move = thread::scope(|s| {
             // Create main search thread with the actual time control. This thread controls self.stop.
             let mut main_search_thread = Search::new(
-                Timer::new(&self.board, time_control, self.stop.clone(), self.overhead),
+                Timer::new(
+                    &self.board,
+                    time_control,
+                    self.stop.clone(),
+                    nodes.clone(),
+                    self.overhead,
+                ),
                 &self.tt,
                 0,
             );
@@ -96,6 +104,7 @@ impl SearchMaster {
                         &thread_board,
                         TimeControl::Infinite,
                         self.stop.clone(),
+                        nodes.clone(),
                         self.overhead,
                     ),
                     &self.tt,
