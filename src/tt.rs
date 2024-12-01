@@ -157,25 +157,31 @@ impl TT {
 ///////////////////////////////////////////////////////////////////
 
 #[derive(Default)]
-struct AtomicEntry(AtomicU64, AtomicU64);
+struct AtomicEntry {
+    checksum: AtomicU64,
+    data: AtomicU64,
+}
 
 impl AtomicEntry {
-    fn read(&self, lookup_hash: Hash) -> Option<TTEntry> {
-        let entry_hash = self.0.load(Ordering::Relaxed);
-        let data = self.1.load(Ordering::Relaxed);
-        if entry_hash ^ data == lookup_hash {
-            return Some(TTEntry::from(data));
+    fn read(&self, hash: Hash) -> Option<TTEntry> {
+        let (checksum, data) = (
+            self.checksum.load(Ordering::Relaxed),
+            self.data.load(Ordering::Relaxed),
+        );
+        if checksum ^ data == hash {
+            Some(TTEntry::from(data))
+        } else {
+            None
         }
-        None
     }
 
     fn write(&self, hash: Hash, entry: TTEntry) {
         let data = Hash::from(entry);
-        self.0.store(hash ^ data, Ordering::Relaxed);
-        self.1.store(data, Ordering::Relaxed);
+        self.checksum.store(hash ^ data, Ordering::Relaxed);
+        self.data.store(data, Ordering::Relaxed);
     }
 
     fn is_used(&self) -> bool {
-        self.0.load(Ordering::Relaxed) != Hash::default()
+        self.checksum.load(Ordering::Relaxed) != Hash::default()
     }
 }

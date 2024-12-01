@@ -14,6 +14,7 @@ pub struct Search<'a> {
     timer: Timer,
     tt: &'a TT,
     move_sorter: MoveSorter,
+    excluded_moves: [Option<Move>; 256],
 }
 
 impl<'a> Search<'a> {
@@ -24,6 +25,7 @@ impl<'a> Search<'a> {
             tt,
             sel_depth: 0,
             move_sorter: MoveSorter::new(),
+            excluded_moves: [None; 256],
         }
     }
 
@@ -209,6 +211,7 @@ impl<'a> Search<'a> {
         // Check if we're in a pv node
         ///////////////////////////////////////////////////////////////////
         let is_pv = alpha != beta - 1;
+        let excluded_move = self.excluded_moves[ply];
 
         ///////////////////////////////////////////////////////////////////
         // Probe the hash table and adjust the value.
@@ -216,7 +219,7 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         let tt_entry = self.tt.probe(board);
         if let Some(tt_entry) = tt_entry {
-            if tt_entry.depth() >= depth && !is_pv {
+            if tt_entry.depth() >= depth && !is_pv && excluded_move.is_none() {
                 match tt_entry.flag() {
                     Bound::Exact => return tt_entry.value(),
                     Bound::Lower => alpha = alpha.max(tt_entry.value()),
@@ -226,14 +229,14 @@ impl<'a> Search<'a> {
                     return tt_entry.value();
                 }
             }
-        } else if Self::can_apply_iid(depth, in_check, is_pv) {
+        } else if Self::can_apply_iid(depth, in_check, is_pv, excluded_move) {
             depth -= Self::IID_DEPTH_REDUCTION;
         }
 
         ///////////////////////////////////////////////////////////////////
         // Reverse Futility Pruning
         ///////////////////////////////////////////////////////////////////
-        if Self::can_apply_rfp(depth, in_check, is_pv, beta) {
+        if Self::can_apply_rfp(depth, in_check, is_pv, beta, excluded_move) {
             let eval = tt_entry.map_or_else(|| board.eval(), |entry| entry.value());
 
             if eval - Self::rfp_margin(depth) >= beta {
@@ -244,7 +247,7 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         // Null move pruning.
         ///////////////////////////////////////////////////////////////////
-        if Self::can_apply_null(board, depth, beta, in_check, is_pv) {
+        if Self::can_apply_null(board, depth, beta, in_check, is_pv, excluded_move) {
             let r = Self::null_reduction(depth);
             board.push_null();
             let value = -self.search(board, depth - r - 1, -beta, -beta + 1, ply);
@@ -274,6 +277,27 @@ impl<'a> Search<'a> {
         );
 
         while let Some(m) = moves.next_best(idx) {
+            if Some(m) == excluded_move {
+                idx += 1;
+                continue;
+            }
+
+            let extension = tt_entry
+                .filter(|&entry| Self::can_singular_extend(entry, m, depth, excluded_move))
+                .map(|entry| {
+                    let target = entry.value() - (2 * depth as Value);
+                    self.excluded_moves[ply] = Some(m);
+                    let extension =
+                        if self.search(board, (depth - 1) / 2, target - 1, target, ply) < target {
+                            1
+                        } else {
+                            0
+                        };
+                    self.excluded_moves[ply] = None;
+                    extension
+                })
+                .unwrap_or(0);
+
             ///////////////////////////////////////////////////////////////////
             // Make move and deepen search via principal variation search.
             ///////////////////////////////////////////////////////////////////
@@ -285,7 +309,7 @@ impl<'a> Search<'a> {
 
             let mut value;
             if idx == 0 {
-                value = -self.search(board, depth - 1, -beta, -alpha, ply + 1);
+                value = -self.search(board, depth + extension - 1, -beta, -alpha, ply + 1);
             } else {
                 ///////////////////////////////////////////////////////////////////
                 // Late move reductions.
@@ -297,9 +321,21 @@ impl<'a> Search<'a> {
                 };
 
                 loop {
-                    value = -self.search(board, depth - reduction - 1, -alpha - 1, -alpha, ply + 1);
+                    value = -self.search(
+                        board,
+                        depth + extension - reduction - 1,
+                        -alpha - 1,
+                        -alpha,
+                        ply + 1,
+                    );
                     if value > alpha {
-                        value = -self.search(board, depth - reduction - 1, -beta, -alpha, ply + 1);
+                        value = -self.search(
+                            board,
+                            depth + extension - reduction - 1,
+                            -beta,
+                            -alpha,
+                            ply + 1,
+                        );
                     }
 
                     ///////////////////////////////////////////////////////////////////
@@ -343,7 +379,7 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         // Checkmate and stalemate check.
         ///////////////////////////////////////////////////////////////////
-        if moves.len() == 0 {
+        if moves.len() == 0 && excluded_move.is_none() {
             if in_check {
                 alpha = -mate_value;
             } else {
@@ -445,6 +481,7 @@ impl<'a> Search<'a> {
         beta: Value,
         in_check: bool,
         is_pv: bool,
+        excluded_move: Option<Move>,
     ) -> bool {
         !is_pv
             && !in_check
@@ -453,18 +490,48 @@ impl<'a> Search<'a> {
             && board.has_non_pawn_material()
             && board.eval() >= beta
             && !Self::is_checkmate(beta)
+            && excluded_move.is_none()
     }
 
-    fn can_apply_iid(depth: Depth, in_check: bool, is_pv: bool) -> bool {
-        depth >= Self::IID_MIN_DEPTH && !in_check && !is_pv
+    fn can_apply_iid(
+        depth: Depth,
+        in_check: bool,
+        is_pv: bool,
+        excluded_move: Option<Move>,
+    ) -> bool {
+        depth >= Self::IID_MIN_DEPTH && !in_check && !is_pv && excluded_move.is_none()
     }
 
-    fn can_apply_rfp(depth: Depth, in_check: bool, is_pv: bool, beta: Value) -> bool {
-        depth <= Self::RFP_MAX_DEPTH && !in_check && !is_pv && !Self::is_checkmate(beta)
+    fn can_apply_rfp(
+        depth: Depth,
+        in_check: bool,
+        is_pv: bool,
+        beta: Value,
+        excluded_move: Option<Move>,
+    ) -> bool {
+        depth <= Self::RFP_MAX_DEPTH
+            && !in_check
+            && !is_pv
+            && !Self::is_checkmate(beta)
+            && excluded_move.is_none()
     }
 
     fn can_apply_lmr(m: Move, depth: Depth, move_index: usize) -> bool {
         depth >= Self::LMR_MIN_DEPTH && move_index >= Self::LMR_MOVE_WO_REDUCTION && m.is_quiet()
+    }
+
+    fn can_singular_extend(
+        entry: TTEntry,
+        m: Move,
+        depth: Depth,
+        excluded_move: Option<Move>,
+    ) -> bool {
+        entry.best_move() == Some(m)
+            && depth >= 4
+            && !Self::is_checkmate(entry.value())
+            && excluded_move.is_none()
+            && entry.depth() + 2 >= depth
+            && matches!(entry.flag(), Bound::Lower | Bound::Exact)
     }
 
     fn null_reduction(depth: Depth) -> Depth {
