@@ -65,7 +65,7 @@ impl Network {
         sq: SQ,
         mut update_fn: impl FnMut(&mut i16, &i16),
     ) {
-        let feature_idx = piece.index() * SQ::N_SQUARES + sq.index();
+        let feature_idx: usize = piece.index() * SQ::N_SQUARES + sq.index();
         let accumulator_idx = feature_idx * self.input_layer.biases.len();
         let weights = self.input_layer.weights
             [accumulator_idx..accumulator_idx + self.input_layer.biases.len()]

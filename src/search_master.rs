@@ -1,5 +1,4 @@
-use std::sync;
-use std::sync::atomic::*;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::thread;
@@ -13,7 +12,7 @@ use super::tt::*;
 use super::uci::*;
 
 pub struct SearchMaster {
-    stop: sync::Arc<AtomicBool>,
+    stop: Arc<AtomicBool>,
     board: Board,
     num_threads: u16,
     tt: TT,
@@ -21,7 +20,7 @@ pub struct SearchMaster {
 }
 
 impl SearchMaster {
-    pub fn new(stop: sync::Arc<AtomicBool>) -> Self {
+    pub fn new(stop: Arc<AtomicBool>) -> Self {
         Self {
             stop,
             board: Board::new(),

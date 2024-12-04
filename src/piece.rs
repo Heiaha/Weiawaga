@@ -1,5 +1,4 @@
 use super::types::*;
-use std::convert::TryFrom;
 use std::fmt;
 use std::ops::Not;
 
@@ -70,6 +69,12 @@ impl TryFrom<char> for Piece {
     }
 }
 
+impl Into<usize> for Piece {
+    fn into(self) -> usize {
+        self.index()
+    }
+}
+
 impl fmt::Display for Piece {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -114,6 +119,12 @@ impl From<u8> for PieceType {
     }
 }
 
+impl Into<usize> for PieceType {
+    fn into(self) -> usize {
+        self.index()
+    }
+}
+
 impl fmt::Display for PieceType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -155,6 +166,12 @@ impl Color {
 impl From<u8> for Color {
     fn from(n: u8) -> Self {
         unsafe { std::mem::transmute::<u8, Self>(n) }
+    }
+}
+
+impl Into<usize> for Color {
+    fn into(self) -> usize {
+        self.index()
     }
 }
 

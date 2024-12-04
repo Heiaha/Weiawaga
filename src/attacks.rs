@@ -2,9 +2,10 @@ use super::bitboard::*;
 use super::magics::*;
 use super::piece::*;
 use super::square::*;
+use crate::types::*;
 
 #[rustfmt::skip]
-const KNIGHT_ATTACKS: [Bitboard; SQ::N_SQUARES] = [
+const KNIGHT_ATTACKS: SQMap<Bitboard> = SQMap::new([
     B!(0x0000000000020400), B!(0x0000000000050800), B!(0x00000000000a1100), B!(0x0000000000142200),
     B!(0x0000000000284400), B!(0x0000000000508800), B!(0x0000000000a01000), B!(0x0000000000402000),
     B!(0x0000000002040004), B!(0x0000000005080008), B!(0x000000000a110011), B!(0x0000000014220022),
@@ -21,10 +22,10 @@ const KNIGHT_ATTACKS: [Bitboard; SQ::N_SQUARES] = [
     B!(0x4400442800000000), B!(0x8800885000000000), B!(0x100010a000000000), B!(0x2000204000000000),
     B!(0x0004020000000000), B!(0x0008050000000000), B!(0x00110a0000000000), B!(0x0022140000000000),
     B!(0x0044280000000000), B!(0x0088500000000000), B!(0x0010a00000000000), B!(0x0020400000000000)
-];
+]);
 
 #[rustfmt::skip]
-const ADJACENT_ATTACKS: [Bitboard; SQ::N_SQUARES] = [
+const ADJACENT_ATTACKS: SQMap<Bitboard> = SQMap::new([
     B!(0x0000000000000302), B!(0x0000000000000705), B!(0x0000000000000e0a), B!(0x0000000000001c14),
     B!(0x0000000000003828), B!(0x0000000000007050), B!(0x000000000000e0a0), B!(0x000000000000c040),
     B!(0x0000000000030203), B!(0x0000000000070507), B!(0x00000000000e0a0e), B!(0x00000000001c141c),
@@ -41,11 +42,11 @@ const ADJACENT_ATTACKS: [Bitboard; SQ::N_SQUARES] = [
     B!(0x3828380000000000), B!(0x7050700000000000), B!(0xe0a0e00000000000), B!(0xc040c00000000000),
     B!(0x0203000000000000), B!(0x0507000000000000), B!(0x0a0e000000000000), B!(0x141c000000000000),
     B!(0x2838000000000000), B!(0x5070000000000000), B!(0xa0e0000000000000), B!(0x40c0000000000000)
-];
+]);
 
 #[rustfmt::skip]
-const PAWN_ATTACKS: [[Bitboard; SQ::N_SQUARES]; Color::N_COLORS] = [
-    [
+const PAWN_ATTACKS: ColorMap<SQMap<Bitboard>>= ColorMap::new([
+    SQMap::new([
         B!(0x0000000000000200), B!(0x0000000000000500), B!(0x0000000000000a00), B!(0x0000000000001400),
         B!(0x0000000000002800), B!(0x0000000000005000), B!(0x000000000000a000), B!(0x0000000000004000),
         B!(0x0000000000020000), B!(0x0000000000050000), B!(0x00000000000a0000), B!(0x0000000000140000),
@@ -62,8 +63,8 @@ const PAWN_ATTACKS: [[Bitboard; SQ::N_SQUARES]; Color::N_COLORS] = [
         B!(0x2800000000000000), B!(0x5000000000000000), B!(0xa000000000000000), B!(0x4000000000000000),
         B!(0x0000000000000000), B!(0x0000000000000000), B!(0x0000000000000000), B!(0x0000000000000000),
         B!(0x0000000000000000), B!(0x0000000000000000), B!(0x0000000000000000), B!(0x0000000000000000),
-    ],
-    [
+    ]),
+    SQMap::new([
         B!(0x00000000000000), B!(0x00000000000000), B!(0x00000000000000), B!(0x00000000000000),
         B!(0x00000000000000), B!(0x00000000000000), B!(0x00000000000000), B!(0x00000000000000),
         B!(0x00000000000002), B!(0x00000000000005), B!(0x0000000000000a), B!(0x00000000000014),
@@ -79,24 +80,24 @@ const PAWN_ATTACKS: [[Bitboard; SQ::N_SQUARES]; Color::N_COLORS] = [
         B!(0x00020000000000), B!(0x00050000000000), B!(0x000a0000000000), B!(0x00140000000000),
         B!(0x00280000000000), B!(0x00500000000000), B!(0x00a00000000000), B!(0x00400000000000),
         B!(0x02000000000000), B!(0x05000000000000), B!(0x0a000000000000), B!(0x14000000000000),
-        B!(0x28000000000000), B!(0x50000000000000), B!(0xa0000000000000), B!(0x40000000000000)]
+        B!(0x28000000000000), B!(0x50000000000000), B!(0xa0000000000000), B!(0x40000000000000)])
 
-];
+]);
 
 pub fn rook_attacks(sq: SQ, occ: Bitboard) -> Bitboard {
-    unsafe { ROOK_MAGICS.attacks[sq.index()][ROOK_MAGICS.index(sq, occ)] }
+    unsafe { ROOK_MAGICS.attacks[sq][ROOK_MAGICS.index(sq, occ)] }
 }
 
 pub fn bishop_attacks(sq: SQ, occ: Bitboard) -> Bitboard {
-    unsafe { BISHOP_MAGICS.attacks[sq.index()][BISHOP_MAGICS.index(sq, occ)] }
+    unsafe { BISHOP_MAGICS.attacks[sq][BISHOP_MAGICS.index(sq, occ)] }
 }
 
 pub fn knight_attacks(sq: SQ) -> Bitboard {
-    KNIGHT_ATTACKS[sq.index()]
+    KNIGHT_ATTACKS[sq]
 }
 
 pub fn king_attacks(sq: SQ) -> Bitboard {
-    ADJACENT_ATTACKS[sq.index()]
+    ADJACENT_ATTACKS[sq]
 }
 
 pub fn pawn_attacks_bb(bb: Bitboard, color: Color) -> Bitboard {
@@ -104,7 +105,7 @@ pub fn pawn_attacks_bb(bb: Bitboard, color: Color) -> Bitboard {
 }
 
 pub fn pawn_attacks_sq(sq: SQ, color: Color) -> Bitboard {
-    PAWN_ATTACKS[color.index()][sq.index()]
+    PAWN_ATTACKS[color][sq]
 }
 
 pub fn sliding_attacks(sq: SQ, occ: Bitboard, mask: Bitboard) -> Bitboard {

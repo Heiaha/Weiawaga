@@ -8,15 +8,14 @@ use super::square::*;
 use super::types::*;
 use super::zobrist::*;
 use regex::Regex;
-use std::convert::TryFrom;
 use std::fmt;
 use std::sync::LazyLock;
 
 #[derive(Clone)]
 pub struct Board {
-    board: [Option<Piece>; SQ::N_SQUARES],
-    piece_type_bb: [Bitboard; PieceType::N_PIECE_TYPES],
-    color_bb: [Bitboard; Color::N_COLORS],
+    board: SQMap<Option<Piece>>,
+    piece_type_bb: PieceTypeMap<Bitboard>,
+    color_bb: ColorMap<Bitboard>,
     history: [HistoryEntry; Self::N_HISTORIES],
     ctm: Color,
     ply: usize,
@@ -38,29 +37,29 @@ impl Board {
         self.ctm = Color::White;
         self.history = [HistoryEntry::default(); Self::N_HISTORIES];
 
-        self.color_bb = [Bitboard::ZERO; Color::N_COLORS];
-        self.piece_type_bb = [Bitboard::ZERO; PieceType::N_PIECE_TYPES];
-        self.board = [None; SQ::N_SQUARES];
+        self.color_bb = ColorMap::new([Bitboard::ZERO; Color::N_COLORS]);
+        self.piece_type_bb = PieceTypeMap::new([Bitboard::ZERO; PieceType::N_PIECE_TYPES]);
+        self.board = SQMap::new([None; SQ::N_SQUARES]);
 
         self.hasher.clear();
         self.network = Network::new();
     }
 
     pub fn piece_at(&self, sq: SQ) -> Option<Piece> {
-        self.board[sq.index()]
+        self.board[sq]
     }
 
     pub fn piece_type_at(&self, sq: SQ) -> Option<PieceType> {
-        self.board[sq.index()].map(|pc| pc.type_of())
+        self.board[sq].map(|pc| pc.type_of())
     }
 
     pub fn set_piece_at(&mut self, pc: Piece, sq: SQ) {
         self.network.activate(pc, sq);
         self.hasher.update_piece(pc, sq);
 
-        self.board[sq.index()] = Some(pc);
-        self.color_bb[pc.color_of().index()] |= sq.bb();
-        self.piece_type_bb[pc.type_of().index()] |= sq.bb();
+        self.board[sq] = Some(pc);
+        self.color_bb[pc.color_of()] |= sq.bb();
+        self.piece_type_bb[pc.type_of()] |= sq.bb();
     }
 
     pub fn remove_piece(&mut self, sq: SQ) {
@@ -71,9 +70,9 @@ impl Board {
         self.network.deactivate(pc, sq);
         self.hasher.update_piece(pc, sq);
 
-        self.piece_type_bb[pc.type_of().index()] &= !sq.bb();
-        self.color_bb[pc.color_of().index()] &= !sq.bb();
-        self.board[sq.index()] = None;
+        self.piece_type_bb[pc.type_of()] &= !sq.bb();
+        self.color_bb[pc.color_of()] &= !sq.bb();
+        self.board[sq] = None;
     }
 
     pub fn move_piece_quiet(&mut self, from_sq: SQ, to_sq: SQ) {
@@ -85,10 +84,10 @@ impl Board {
         self.hasher.move_piece(pc, from_sq, to_sq);
 
         let mask = from_sq.bb() | to_sq.bb();
-        self.piece_type_bb[pc.type_of().index()] ^= mask;
-        self.color_bb[pc.color_of().index()] ^= mask;
-        self.board[to_sq.index()] = self.board[from_sq.index()];
-        self.board[from_sq.index()] = None;
+        self.piece_type_bb[pc.type_of()] ^= mask;
+        self.color_bb[pc.color_of()] ^= mask;
+        self.board[to_sq] = self.board[from_sq];
+        self.board[from_sq] = None;
     }
 
     pub fn move_piece(&mut self, from_sq: SQ, to_sq: SQ) {
@@ -101,15 +100,15 @@ impl Board {
     }
 
     pub fn bitboard_of(&self, c: Color, pt: PieceType) -> Bitboard {
-        self.piece_type_bb[pt.index()] & self.color_bb[c.index()]
+        self.piece_type_bb[pt] & self.color_bb[c]
     }
 
     pub fn bitboard_of_pc(&self, pc: Piece) -> Bitboard {
-        self.piece_type_bb[pc.type_of().index()] & self.color_bb[pc.color_of().index()]
+        self.piece_type_bb[pc.type_of().index()] & self.color_bb[pc.color_of()]
     }
 
     pub fn bitboard_of_pt(&self, pt: PieceType) -> Bitboard {
-        self.piece_type_bb[pt.index()]
+        self.piece_type_bb[pt]
     }
 
     pub fn diagonal_sliders(&self) -> Bitboard {
@@ -129,11 +128,11 @@ impl Board {
     }
 
     pub fn all_pieces(&self) -> Bitboard {
-        self.color_bb[Color::White.index()] | self.color_bb[Color::Black.index()]
+        self.color_bb[Color::White] | self.color_bb[Color::Black]
     }
 
     pub fn all_pieces_c(&self, color: Color) -> Bitboard {
-        self.color_bb[color.index()]
+        self.color_bb[color]
     }
 
     pub fn attackers(&self, sq: SQ, occ: Bitboard) -> Bitboard {
@@ -949,12 +948,13 @@ impl Board {
     }
 
     pub fn simple_eval_c(&self, color: Color) -> Value {
-        const PIECE_VALUES: [Value; PieceType::N_PIECE_TYPES] = [100, 305, 333, 563, 950, 0];
+        const PIECE_TYPE_VALUES: PieceTypeMap<Value> =
+            PieceTypeMap::new([100, 305, 333, 563, 950, 0]);
 
         let mut eval = 0;
         for piece_type in PieceType::iter(PieceType::Pawn, PieceType::Queen) {
             eval += self.bitboard_of(color, piece_type).pop_count()
-                * PIECE_VALUES[piece_type.index()] as Value;
+                * PIECE_TYPE_VALUES[piece_type] as Value;
         }
 
         eval
@@ -988,9 +988,9 @@ impl Board {
 impl Default for Board {
     fn default() -> Self {
         Self {
-            piece_type_bb: [Bitboard::ZERO; PieceType::N_PIECE_TYPES],
-            color_bb: [Bitboard::ZERO; Color::N_COLORS],
-            board: [None; SQ::N_SQUARES],
+            piece_type_bb: PieceTypeMap::new([Bitboard::ZERO; PieceType::N_PIECE_TYPES]),
+            color_bb: ColorMap::new([Bitboard::ZERO; Color::N_COLORS]),
+            board: SQMap::new([None; SQ::N_SQUARES]),
             ctm: Color::White,
             ply: 0,
             hasher: Hasher::new(),
@@ -1019,7 +1019,7 @@ impl fmt::Display for Board {
             for file_idx in 0..=7 {
                 let file = File::from(file_idx);
                 let sq = SQ::encode(rank, file);
-                match self.board[sq.index()] {
+                match self.board[sq] {
                     Some(pc) => {
                         if empty_squares != 0 {
                             board_str.push_str(empty_squares.to_string().as_str());

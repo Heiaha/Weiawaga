@@ -94,12 +94,12 @@ impl MoveList {
         }
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut MoveListEntry> {
-        self.0.iter_mut()
-    }
-
     pub fn iter_moves(&self) -> impl Iterator<Item = Move> + '_ {
         self.0.iter().map(|entry| entry.m)
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut MoveListEntry> {
+        self.0.iter_mut()
     }
 
     pub fn next_best(&mut self, idx: usize) -> Option<Move> {
@@ -120,6 +120,24 @@ impl MoveList {
         self.0.swap(idx, max_idx);
 
         Some(self.0[idx].m)
+    }
+}
+
+impl<'a> IntoIterator for &'a mut MoveList {
+    type Item = &'a mut MoveListEntry;
+    type IntoIter = std::slice::IterMut<'a, MoveListEntry>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter_mut()
+    }
+}
+
+impl<'a> IntoIterator for &'a MoveList {
+    type Item = &'a MoveListEntry;
+    type IntoIter = std::slice::Iter<'a, MoveListEntry>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
     }
 }
 

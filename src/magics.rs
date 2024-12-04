@@ -1,6 +1,7 @@
 use super::attacks::*;
 use super::bitboard::*;
 use super::square::*;
+use crate::types::*;
 
 // Fancy magic bitboard implementation inspired by Rustfish's port of Stockfish
 
@@ -19,7 +20,7 @@ macro_rules! M {
 }
 
 #[rustfmt::skip]
-const BISHOP_MAGICS_INIT: [MagicInit; SQ::N_SQUARES] = [
+const BISHOP_MAGICS_INIT: SQMap<MagicInit> = SQMap::new([
     M!(0x007fbfbfbfbfbfff,  5378), M!(0x0000a060401007fc,  4093), M!(0x0001004008020000,  4314), M!(0x0000806004000000,  6587),
     M!(0x0000100400000000,  6491), M!(0x000021c100b20000,  6330), M!(0x0000040041008000,  5609), M!(0x00000fb0203fff80, 22236),
     M!(0x0000040100401004,  6106), M!(0x0000020080200802,  5625), M!(0x0000004010202000, 16785), M!(0x0000008060040000, 16817),
@@ -36,10 +37,10 @@ const BISHOP_MAGICS_INIT: [MagicInit; SQ::N_SQUARES] = [
     M!(0x0000000100202000,  4570), M!(0x0000004040802000,  4282), M!(0x0004010040100400, 14964), M!(0x00006020601803f4,  4026),
     M!(0x0003ffdfdfc28048,  4826), M!(0x0000000820820020,  7354), M!(0x0000000008208060,  4848), M!(0x0000000000808020, 15946),
     M!(0x0000000001002020, 14932), M!(0x0000000401002008, 16588), M!(0x0000004040404040,  6905), M!(0x007fff9fdf7ff813, 16076),
-];
+]);
 
 #[rustfmt::skip]
-const ROOK_MAGICS_INIT: [MagicInit; SQ::N_SQUARES] = [
+const ROOK_MAGICS_INIT: SQMap<MagicInit> = SQMap::new([
     M!(0x00280077ffebfffe, 26304), M!(0x2004010201097fff, 35520), M!(0x0010020010053fff, 38592), M!(0x0040040008004002,  8026),
     M!(0x7fd00441ffffd003, 22196), M!(0x4020008887dffffe, 80870), M!(0x004000888847ffff, 76747), M!(0x006800fbff75fffd, 30400),
     M!(0x000028010113ffff, 11115), M!(0x0020040201fcffff, 18205), M!(0x007fe80042ffffe8, 53577), M!(0x00001800217fffe8, 62724),
@@ -56,34 +57,34 @@ const ROOK_MAGICS_INIT: [MagicInit; SQ::N_SQUARES] = [
     M!(0x000ffff810280028, 64134), M!(0x0007ffd7f7feffd8, 41759), M!(0x0003fffc0c480048,  1394), M!(0x0001ffffafd7ffd8, 40910),
     M!(0x00ffffe4ffdfa3ba, 66516), M!(0x007fffef7ff3d3da,  3897), M!(0x003fffbfdfeff7fa,  3930), M!(0x001fffeff7fbfc22, 72934),
     M!(0x0000020408001001, 72662), M!(0x0007fffeffff77fd, 56325), M!(0x0003ffffbf7dfeec, 66501), M!(0x0001ffff9dffa333, 14826),
-];
+]);
 
 pub static mut ATTACKS_TABLE: [Bitboard; 88772] = [Bitboard::ZERO; 88772];
 
 pub struct Magics {
-    masks: [Bitboard; SQ::N_SQUARES],
-    magics: [Bitboard; SQ::N_SQUARES],
-    pub attacks: [&'static [Bitboard]; SQ::N_SQUARES],
+    masks: SQMap<Bitboard>,
+    magics: SQMap<Bitboard>,
+    pub attacks: SQMap<&'static [Bitboard]>,
     shift: u8,
 }
 
 impl Magics {
     pub fn index(&self, sq: SQ, occ: Bitboard) -> usize {
-        (((occ & self.masks[sq.index()]) * self.magics[sq.index()]) >> self.shift).0 as usize
+        (((occ & self.masks[sq]) * self.magics[sq]) >> self.shift).0 as usize
     }
 }
 
 pub static mut ROOK_MAGICS: Magics = Magics {
-    masks: [Bitboard::ZERO; SQ::N_SQUARES],
-    magics: [Bitboard::ZERO; SQ::N_SQUARES],
-    attacks: [&[]; SQ::N_SQUARES],
+    masks: SQMap::new([Bitboard::ZERO; SQ::N_SQUARES]),
+    magics: SQMap::new([Bitboard::ZERO; SQ::N_SQUARES]),
+    attacks: SQMap::new([&[]; SQ::N_SQUARES]),
     shift: 64 - 12,
 };
 
 pub static mut BISHOP_MAGICS: Magics = Magics {
-    masks: [Bitboard::ZERO; SQ::N_SQUARES],
-    magics: [Bitboard::ZERO; SQ::N_SQUARES],
-    attacks: [&[]; SQ::N_SQUARES],
+    masks: SQMap::new([Bitboard::ZERO; SQ::N_SQUARES]),
+    magics: SQMap::new([Bitboard::ZERO; SQ::N_SQUARES]),
+    attacks: SQMap::new([&[]; SQ::N_SQUARES]),
     shift: 64 - 9,
 };
 
@@ -92,24 +93,24 @@ pub static mut BISHOP_MAGICS: Magics = Magics {
 //////////////////////////////////////////////
 
 fn init_magics_type(
-    magic_init: &[MagicInit; 64],
+    magic_init: &SQMap<MagicInit>,
     slow_attacks_gen: fn(SQ, Bitboard) -> Bitboard,
     shift: u8,
 ) -> Magics {
     let mut magics = Magics {
-        masks: [Bitboard::ZERO; SQ::N_SQUARES],
-        magics: [Bitboard::ZERO; SQ::N_SQUARES],
-        attacks: [&[]; SQ::N_SQUARES],
+        masks: SQMap::new([Bitboard::ZERO; SQ::N_SQUARES]),
+        magics: SQMap::new([Bitboard::ZERO; SQ::N_SQUARES]),
+        attacks: SQMap::new([&[]; SQ::N_SQUARES]),
         shift,
     };
     for sq in Bitboard::ALL {
         let edges = ((Rank::One.bb() | Rank::Eight.bb()) & !sq.rank().bb())
             | ((File::A.bb() | File::H.bb()) & !sq.file().bb());
 
-        magics.masks[sq.index()] = slow_attacks_gen(sq, Bitboard::ZERO) & !edges;
-        magics.magics[sq.index()] = magic_init[sq.index()].magic;
+        magics.masks[sq] = slow_attacks_gen(sq, Bitboard::ZERO) & !edges;
+        magics.magics[sq] = magic_init[sq].magic;
 
-        let base = magic_init[sq.index()].index;
+        let base = magic_init[sq].index;
         let mut subset = Bitboard::ZERO;
         let mut size = 0;
         loop {
@@ -119,12 +120,12 @@ fn init_magics_type(
             unsafe { ATTACKS_TABLE[base + index] = slow_attacks_gen(sq, subset) }
 
             // Carry-Rippler for iterating through the subset
-            subset = (subset - magics.masks[sq.index()]) & magics.masks[sq.index()];
+            subset = (subset - magics.masks[sq]) & magics.masks[sq];
             if subset == Bitboard::ZERO {
                 break;
             }
         }
-        magics.attacks[sq.index()] = unsafe { &ATTACKS_TABLE[base..base + size] };
+        magics.attacks[sq] = unsafe { &ATTACKS_TABLE[base..base + size] };
     }
     magics
 }

@@ -9,8 +9,8 @@ use rand::{RngCore, SeedableRng};
 pub struct Hasher {
     hash: Hash,
     material_hash: Hash,
-    zobrist_table: [Hash; SQ::N_SQUARES * Piece::N_PIECES],
-    zobrist_ep: [Hash; File::N_FILES],
+    zobrist_table: PieceMap<SQMap<Hash>>,
+    zobrist_ep: FileMap<Hash>,
     zobrist_color: Hash,
 }
 
@@ -18,13 +18,14 @@ impl Hasher {
     pub fn new() -> Self {
         let mut rng = StdRng::seed_from_u64(1070372);
 
-        let mut zobrist_table = [0; SQ::N_SQUARES * Piece::N_PIECES];
-        let mut zobrist_ep = [0; File::N_FILES];
+        let mut zobrist_table = PieceMap::new([SQMap::new([0; SQ::N_SQUARES]); Piece::N_PIECES]);
+        let mut zobrist_ep = FileMap::new([0; File::N_FILES]);
 
         let zobrist_color = rng.next_u64();
 
         zobrist_table
             .iter_mut()
+            .flatten()
             .for_each(|hash| *hash = rng.next_u64());
 
         zobrist_ep
@@ -41,21 +42,19 @@ impl Hasher {
     }
 
     pub fn move_piece(&mut self, pc: Piece, from_sq: SQ, to_sq: SQ) {
-        let pc_index = pc.index() * SQ::N_SQUARES;
-        let update = self.zobrist_table[pc_index + from_sq.index()]
-            ^ self.zobrist_table[pc_index + to_sq.index()];
+        let update = self.zobrist_table[pc][from_sq] ^ self.zobrist_table[pc][to_sq];
         self.hash ^= update;
         self.material_hash ^= update;
     }
 
     pub fn update_piece(&mut self, pc: Piece, sq: SQ) {
-        let update = self.zobrist_table[pc.index() * SQ::N_SQUARES + sq.index()];
+        let update = self.zobrist_table[pc][sq];
         self.hash ^= update;
         self.material_hash ^= update;
     }
 
     pub fn update_ep(&mut self, file: File) {
-        self.hash ^= self.zobrist_ep[file.index()];
+        self.hash ^= self.zobrist_ep[file];
     }
 
     pub fn update_color(&mut self) {

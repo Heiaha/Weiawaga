@@ -8,15 +8,15 @@ use super::square::*;
 use super::types::*;
 
 pub struct MoveSorter {
-    killer_moves: [[[Option<Move>; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],
-    history_scores: [[Value; SQ::N_SQUARES]; SQ::N_SQUARES],
+    killer_moves: ColorMap<[[Option<Move>; Self::N_KILLERS]; MAX_MOVES]>,
+    history_scores: SQMap<SQMap<Value>>,
 }
 
 impl MoveSorter {
     pub fn new() -> Self {
         Self {
-            killer_moves: [[[None; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS],
-            history_scores: [[0; SQ::N_SQUARES]; SQ::N_SQUARES],
+            killer_moves: ColorMap::new([[[None; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS]),
+            history_scores: SQMap::new([SQMap::new([0; SQ::N_SQUARES]); SQ::N_SQUARES]),
         }
     }
 
@@ -86,8 +86,7 @@ impl MoveSorter {
     }
 
     pub fn add_killer(&mut self, board: &Board, m: Move, ply: Ply) {
-        let color = board.ctm().index();
-        let killer_moves = &mut self.killer_moves[color][ply];
+        let killer_moves = &mut self.killer_moves[board.ctm()][ply];
 
         killer_moves.rotate_right(1);
         killer_moves[0] = Some(m);
@@ -95,8 +94,8 @@ impl MoveSorter {
 
     pub fn add_history(&mut self, m: Move, depth: Depth) {
         let depth = depth as Value;
-        let from = m.from_sq().index();
-        let to = m.to_sq().index();
+        let from = m.from_sq();
+        let to = m.to_sq();
         self.history_scores[from][to] += depth * depth;
 
         if self.history_scores[from][to] >= -Self::HISTORY_MOVE_OFFSET {
@@ -108,11 +107,11 @@ impl MoveSorter {
     }
 
     fn is_killer(&self, board: &Board, m: Move, ply: usize) -> bool {
-        self.killer_moves[board.ctm().index()][ply].contains(&Some(m))
+        self.killer_moves[board.ctm()][ply].contains(&Some(m))
     }
 
     fn history_score(&self, m: Move) -> Value {
-        self.history_scores[m.from_sq().index()][m.to_sq().index()]
+        self.history_scores[m.from_sq()][m.to_sq()]
     }
 
     pub fn see(board: &Board, m: Move) -> bool {
@@ -127,7 +126,7 @@ impl MoveSorter {
             return false;
         };
 
-        let mut value = Self::SEE_PIECE_TYPE[captured_pt.index()];
+        let mut value = Self::SEE_PIECE_TYPE[captured_pt];
 
         if value < 0 {
             return false;
@@ -137,7 +136,7 @@ impl MoveSorter {
             return false;
         };
 
-        value -= Self::SEE_PIECE_TYPE[attacking_pt.index()];
+        value -= Self::SEE_PIECE_TYPE[attacking_pt];
 
         if value >= 0 {
             return true;
@@ -165,7 +164,7 @@ impl MoveSorter {
 
             ctm = !ctm;
 
-            value = -value - 1 - Self::SEE_PIECE_TYPE[attacking_pt.index()];
+            value = -value - 1 - Self::SEE_PIECE_TYPE[attacking_pt];
 
             if value >= 0 {
                 if attacking_pt == PieceType::King
@@ -212,7 +211,8 @@ impl MoveSorter {
     const HISTORY_MOVE_OFFSET: Value = -30000;
     const LOSING_CAPTURES_OFFSET: Value = -30001;
 
-    const SEE_PIECE_TYPE: [Value; PieceType::N_PIECE_TYPES] = [100, 375, 375, 500, 1025, 10000];
+    const SEE_PIECE_TYPE: PieceTypeMap<Value> =
+        PieceTypeMap::new([100, 375, 375, 500, 1025, 10000]);
 
     #[rustfmt::skip]
     const MVV_LVA_SCORES: [Value; PieceType::N_PIECE_TYPES * PieceType::N_PIECE_TYPES] = [

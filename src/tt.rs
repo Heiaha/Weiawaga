@@ -129,7 +129,7 @@ impl TT {
     }
 
     pub fn mb_size(&self) -> usize {
-        self.table.len() * std::mem::size_of::<AtomicEntry>() / 1024 / 1024
+        self.table.len() * size_of::<AtomicEntry>() / 1024 / 1024
     }
 
     pub fn hashfull(&self) -> usize {
