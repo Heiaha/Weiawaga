@@ -1,5 +1,5 @@
-use crate::piece::*;
-use crate::square::*;
+use super::piece::*;
+use super::square::*;
 use std::ops::{Index, IndexMut};
 use std::slice::{Iter, IterMut};
 

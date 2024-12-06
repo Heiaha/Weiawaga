@@ -1192,7 +1192,7 @@ impl HistoryEntry {
 
 #[cfg(test)]
 mod tests {
-    use crate::board::Board;
+    use crate::board::*;
     use crate::magics::*;
 
     #[test]
