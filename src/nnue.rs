@@ -88,7 +88,7 @@ impl Network {
             .accumulator
             .iter()
             .zip(hidden_layer.weights)
-            .map(|(activation, weight)| (Self::clipped_relu(*activation)) * (*weight as Value))
+            .map(|(&activation, &weight)| Self::clipped_relu(activation) * Value::from(weight))
             .sum::<Value>();
 
         (Value::from(hidden_layer.biases[0])
