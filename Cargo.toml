@@ -8,10 +8,12 @@ readme = "README.md"
 rust-version = "1.63"
 
 [profile.release]
-opt-level = 3
+opt-level = "z"
+lto = "thin"
+codegen-units = 1
 debug = false
 rpath = false
 debug-assertions = false
-codegen-units = 1
-lto = true
+overflow-checks = false
 panic = "abort"
+strip = "symbols"
