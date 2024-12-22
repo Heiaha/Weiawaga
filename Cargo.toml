@@ -16,4 +16,4 @@ rpath = false
 debug-assertions = false
 overflow-checks = false
 panic = "abort"
-strip = "symbols"
+strip = true
