@@ -1116,31 +1116,6 @@ impl fmt::Display for Board {
     }
 }
 
-impl fmt::Debug for Board {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut s = String::with_capacity(SQ::N_SQUARES * 2 + 8);
-        for rank_idx in (0..=7).rev() {
-            let rank = Rank::from(rank_idx);
-            for file_idx in 0..=7 {
-                let file = File::from(file_idx);
-                let sq = SQ::encode(rank, file);
-                let pc = self.piece_at(sq);
-                let pc_str = if pc != Piece::None {
-                    pc.to_string()
-                } else {
-                    "-".to_string()
-                };
-                s.push_str(&pc_str);
-                s.push(' ');
-                if sq.file() == File::H {
-                    s.push('\n');
-                }
-            }
-        }
-        write!(f, "{}", s)
-    }
-}
-
 impl Board {
     const N_HISTORIES: usize = 1000;
     const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";

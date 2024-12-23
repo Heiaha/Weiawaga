@@ -5,7 +5,6 @@ use std::thread;
 use std::time::Duration;
 
 use super::board::*;
-use super::perft::*;
 use super::search::*;
 use super::timer::*;
 use super::tt::*;
@@ -53,9 +52,6 @@ impl SearchMaster {
                 }
                 UCICommand::Go(time_control) => {
                     self.go(time_control);
-                }
-                UCICommand::Perft(depth) => {
-                    print_perft(&mut self.board, depth);
                 }
                 UCICommand::Option(name, value) => {
                     self.set_option(name, value);

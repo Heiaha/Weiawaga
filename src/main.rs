@@ -19,7 +19,6 @@ mod move_list;
 mod move_sorter;
 mod nnue;
 mod nnue_weights;
-mod perft;
 mod piece;
 mod rank;
 mod search;

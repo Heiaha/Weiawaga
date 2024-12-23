@@ -60,7 +60,6 @@ pub enum UCICommand {
     Go(TimeControl),
     Quit,
     Stop,
-    Perft(Depth),
     Option(String, String),
     Eval,
     Fen,
@@ -86,9 +85,6 @@ impl TryFrom<&str> for UCICommand {
                     Self::Go(time_control)
                 } else if let Some(position_str) = line.strip_prefix("position ") {
                     Self::parse_position(position_str)?
-                } else if let Some(perft_depth) = line.strip_prefix("perft ") {
-                    let depth = perft_depth.parse().or(Err("Unable to parse depth."))?;
-                    Self::Perft(depth)
                 } else if let Some(option_str) = line.strip_prefix("setoption ") {
                     Self::parse_option(option_str)?
                 } else {
