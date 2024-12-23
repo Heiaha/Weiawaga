@@ -25,7 +25,7 @@ impl SearchMaster {
             stop,
             board: Board::new(),
             num_threads: 1,
-            tt: TT::new(2),
+            tt: TT::new(0),
             overhead: Duration::ZERO,
         }
     }
@@ -43,7 +43,7 @@ impl SearchMaster {
                 UCICommand::UCI => {
                     println!("id name Weiawaga v{}", env!("CARGO_PKG_VERSION"));
                     println!("id author {}", env!("CARGO_PKG_AUTHORS"));
-                    println!("option name Hash type spin default 2 min 1 max 65536");
+                    println!("option name Hash type spin default 0 min 1 max 65536");
                     println!("option name Threads type spin default 1 min 1 max 512");
                     println!("option name Overhead type spin default 0 min 0 max 5000");
                     println!("uciok");
