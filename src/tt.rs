@@ -82,7 +82,7 @@ impl TT {
     pub fn new(mb_size: usize) -> Self {
         assert_eq!(std::mem::size_of::<TTEntry>(), 8);
         let upper_limit = mb_size * 1024 * 1024 / std::mem::size_of::<AtomicEntry>() + 1;
-        let count = upper_limit.next_power_of_two() / 2;
+        let count =(upper_limit.next_power_of_two() / 2).max(1);
         let mut table = Vec::with_capacity(count);
 
         for _ in 0..count {
@@ -104,6 +104,9 @@ impl TT {
     }
 
     pub fn probe(&self, board: &Board) -> Option<TTEntry> {
+
+
+
         unsafe {
             self.table
                 .get_unchecked(self.index(board))
