@@ -284,7 +284,7 @@ impl<'a> Search<'a> {
 
             let extension = tt_entry
                 .filter(|&entry| Self::can_singular_extend(entry, m, depth, excluded_move))
-                .map(|entry| {
+                .map_or(0, |entry| {
                     let target = entry.value() - (2 * depth as Value);
                     self.excluded_moves[ply] = Some(m);
                     let extension =
@@ -295,8 +295,7 @@ impl<'a> Search<'a> {
                         };
                     self.excluded_moves[ply] = None;
                     extension
-                })
-                .unwrap_or(0);
+                });
 
             ///////////////////////////////////////////////////////////////////
             // Make move and deepen search via principal variation search.
