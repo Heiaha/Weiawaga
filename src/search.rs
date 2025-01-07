@@ -14,7 +14,7 @@ pub struct Search<'a> {
     timer: Timer,
     tt: &'a TT,
     move_sorter: MoveSorter,
-    excluded_moves: [Option<Move>; 256],
+    excluded_moves: [Option<Move>; MAX_MOVES],
 }
 
 impl<'a> Search<'a> {
@@ -25,7 +25,7 @@ impl<'a> Search<'a> {
             tt,
             sel_depth: 0,
             move_sorter: MoveSorter::new(),
-            excluded_moves: [None; 256],
+            excluded_moves: [None; MAX_MOVES],
         }
     }
 
