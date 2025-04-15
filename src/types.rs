@@ -22,7 +22,7 @@ pub struct EnumMap<T, const N: usize>([T; N]);
 
 impl<T, const N: usize> EnumMap<T, N> {
     pub const fn new(data: [T; N]) -> EnumMap<T, N> {
-        EnumMap(data)
+        Self(data)
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
