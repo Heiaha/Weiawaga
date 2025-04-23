@@ -91,11 +91,9 @@ impl Network {
             .map(|(&activation, &weight)| Self::clipped_relu(activation) * Value::from(weight))
             .sum::<Value>();
 
-        (Value::from(hidden_layer.biases[0])
-            + Value::from(self.psqt_value)
-            + output / Self::INPUT_SCALE)
-            * Self::NNUE2SCORE
+        (Value::from(hidden_layer.biases[0]) + Value::from(self.psqt_value)) * Self::NNUE2SCORE
             / Self::HIDDEN_SCALE
+            + output * Self::NNUE2SCORE / Self::COMB_SCALE
     }
 
     fn clipped_relu(x: i16) -> Value {
@@ -104,7 +102,8 @@ impl Network {
 }
 
 impl Network {
+    const NNUE2SCORE: Value = 400;
     const INPUT_SCALE: Value = 255;
     const HIDDEN_SCALE: Value = 64;
-    const NNUE2SCORE: Value = 400;
+    const COMB_SCALE: Value = Self::HIDDEN_SCALE * Self::INPUT_SCALE;
 }
