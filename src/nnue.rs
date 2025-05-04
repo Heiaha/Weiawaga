@@ -32,8 +32,6 @@ impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
 pub struct Network {
     input_layer: Embedding<{ Self::N_INPUTS }, { Self::L1 }>,
     hidden_layers: [Linear<{ Self::L1 }, 1>; Self::N_BUCKETS],
-    psqt_layer: Linear<{ Self::N_INPUTS }, 1>,
-    psqt_value: i16,
     accumulator: [i16; Self::L1],
     pop_count: i16,
 }
@@ -52,9 +50,7 @@ impl Network {
                 Linear::new(&HIDDEN_LAYER_6_WEIGHT, &HIDDEN_LAYER_6_BIAS),
                 Linear::new(&HIDDEN_LAYER_7_WEIGHT, &HIDDEN_LAYER_7_BIAS),
             ],
-            psqt_layer: Linear::new(&PSQT_LAYER_WEIGHT, &[]),
             accumulator: INPUT_LAYER_BIAS,
-            psqt_value: 0,
             pop_count: 0,
         }
     }
@@ -86,10 +82,6 @@ impl Network {
             .zip(weights)
             .for_each(|(activation, weight)| update_fn(activation, weight));
 
-        update_fn(
-            &mut self.psqt_value,
-            &self.psqt_layer.weights[embedding_idx],
-        );
         update_fn(&mut self.pop_count, &1);
     }
 
@@ -104,8 +96,7 @@ impl Network {
             .map(|(&activation, &weight)| Self::clipped_relu(activation) * Value::from(weight))
             .sum::<Value>();
 
-        (Value::from(hidden_layer.biases[0]) + Value::from(self.psqt_value)) * Self::NNUE2SCORE
-            / Self::HIDDEN_SCALE
+        Value::from(hidden_layer.biases[0]) * Self::NNUE2SCORE / Self::HIDDEN_SCALE
             + output * Self::NNUE2SCORE / Self::COMB_SCALE
     }
 
