@@ -4,42 +4,55 @@ use super::square::*;
 use super::types::*;
 
 #[derive(Clone)]
-struct Layer {
+struct Embedding<const N: usize, const D: usize> {
+    weights: &'static [[i16; D]; N],
+    biases: &'static [i16; D],
+}
+
+impl<const N: usize, const D: usize> Embedding<N, D> {
+    pub fn new(weights: &'static [[i16; D]; N], biases: &'static [i16; D]) -> Self {
+        Self { weights, biases }
+    }
+}
+
+#[derive(Clone)]
+struct Linear<const IN: usize, const OUT: usize> {
     weights: &'static [i16],
     biases: &'static [i16],
 }
 
-impl Layer {
+impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
     pub fn new(weights: &'static [i16], biases: &'static [i16]) -> Self {
+        assert_eq!(weights.len(), IN * OUT);
         Self { weights, biases }
     }
 }
 
 #[derive(Clone)]
 pub struct Network {
-    input_layer: Layer,
-    hidden_layers: [Layer; 8],
-    psqt_layer: Layer,
+    input_layer: Embedding<{ Self::N_INPUTS }, { Self::L1 }>,
+    hidden_layers: [Linear<{ Self::L1 }, 1>; Self::N_BUCKETS],
+    psqt_layer: Linear<{ Self::N_INPUTS }, 1>,
     psqt_value: i16,
-    accumulator: [i16; INPUT_LAYER_BIAS.len()],
+    accumulator: [i16; Self::L1],
     pop_count: i16,
 }
 
 impl Network {
     pub fn new() -> Self {
         Self {
-            input_layer: Layer::new(&INPUT_LAYER_WEIGHT, &INPUT_LAYER_BIAS),
+            input_layer: Embedding::new(&INPUT_LAYER_WEIGHT, &INPUT_LAYER_BIAS),
             hidden_layers: [
-                Layer::new(&HIDDEN_LAYER_0_WEIGHT, &HIDDEN_LAYER_0_BIAS),
-                Layer::new(&HIDDEN_LAYER_1_WEIGHT, &HIDDEN_LAYER_1_BIAS),
-                Layer::new(&HIDDEN_LAYER_2_WEIGHT, &HIDDEN_LAYER_2_BIAS),
-                Layer::new(&HIDDEN_LAYER_3_WEIGHT, &HIDDEN_LAYER_3_BIAS),
-                Layer::new(&HIDDEN_LAYER_4_WEIGHT, &HIDDEN_LAYER_4_BIAS),
-                Layer::new(&HIDDEN_LAYER_5_WEIGHT, &HIDDEN_LAYER_5_BIAS),
-                Layer::new(&HIDDEN_LAYER_6_WEIGHT, &HIDDEN_LAYER_6_BIAS),
-                Layer::new(&HIDDEN_LAYER_7_WEIGHT, &HIDDEN_LAYER_7_BIAS),
+                Linear::new(&HIDDEN_LAYER_0_WEIGHT, &HIDDEN_LAYER_0_BIAS),
+                Linear::new(&HIDDEN_LAYER_1_WEIGHT, &HIDDEN_LAYER_1_BIAS),
+                Linear::new(&HIDDEN_LAYER_2_WEIGHT, &HIDDEN_LAYER_2_BIAS),
+                Linear::new(&HIDDEN_LAYER_3_WEIGHT, &HIDDEN_LAYER_3_BIAS),
+                Linear::new(&HIDDEN_LAYER_4_WEIGHT, &HIDDEN_LAYER_4_BIAS),
+                Linear::new(&HIDDEN_LAYER_5_WEIGHT, &HIDDEN_LAYER_5_BIAS),
+                Linear::new(&HIDDEN_LAYER_6_WEIGHT, &HIDDEN_LAYER_6_BIAS),
+                Linear::new(&HIDDEN_LAYER_7_WEIGHT, &HIDDEN_LAYER_7_BIAS),
             ],
-            psqt_layer: Layer::new(&PSQT_LAYER_WEIGHT, &[]),
+            psqt_layer: Linear::new(&PSQT_LAYER_WEIGHT, &[]),
             accumulator: INPUT_LAYER_BIAS,
             psqt_value: 0,
             pop_count: 0,
@@ -65,23 +78,23 @@ impl Network {
         sq: SQ,
         mut update_fn: impl FnMut(&mut i16, &i16),
     ) {
-        let feature_idx: usize = piece.index() * SQ::N_SQUARES + sq.index();
-        let accumulator_idx = feature_idx * self.input_layer.biases.len();
-        let weights = self.input_layer.weights
-            [accumulator_idx..accumulator_idx + self.input_layer.biases.len()]
-            .iter();
+        let embedding_idx: usize = piece.index() * SQ::N_SQUARES + sq.index();
+        let weights = self.input_layer.weights[embedding_idx].iter();
 
         self.accumulator
             .iter_mut()
             .zip(weights)
             .for_each(|(activation, weight)| update_fn(activation, weight));
 
-        update_fn(&mut self.psqt_value, &self.psqt_layer.weights[feature_idx]);
+        update_fn(
+            &mut self.psqt_value,
+            &self.psqt_layer.weights[embedding_idx],
+        );
         update_fn(&mut self.pop_count, &1);
     }
 
     pub fn eval(&self) -> Value {
-        let bucket = (self.pop_count as usize - 1) / 4;
+        let bucket = (self.pop_count as usize - 1) / Self::BUCKET_DIV;
 
         let hidden_layer = &self.hidden_layers[bucket];
         let output = self
@@ -102,6 +115,10 @@ impl Network {
 }
 
 impl Network {
+    const N_INPUTS: usize = Piece::N_PIECES * SQ::N_SQUARES;
+    const L1: usize = 512;
+    const N_BUCKETS: usize = 8;
+    const BUCKET_DIV: usize = 32 / Self::N_BUCKETS;
     const NNUE2SCORE: Value = 400;
     const INPUT_SCALE: Value = 255;
     const HIDDEN_SCALE: Value = 64;
