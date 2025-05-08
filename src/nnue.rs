@@ -90,22 +90,22 @@ impl Network {
         self.pop_count += SIGN;
     }
 
-    pub fn eval(&self, stm: Color) -> Value {
+    pub fn eval(&self, ctm: Color) -> Value {
         let bucket = (self.pop_count as usize - 1) / Self::BUCKET_DIV;
         let hidden_layer = &self.hidden_layers[bucket];
-        let (stm_accumulator, nstm_accumulator) = match stm {
+        let (ctm_accumulator, nctm_accumulator) = match ctm {
             Color::White => (&self.w_accumulator, &self.b_accumulator),
             Color::Black => (&self.b_accumulator, &self.w_accumulator),
         };
         let mut output = 0;
 
-        output += stm_accumulator
+        output += ctm_accumulator
             .iter()
             .zip(&hidden_layer.weights[..Self::L1])
             .map(|(&activation, &weight)| Self::clipped_relu(activation) * Value::from(weight))
             .sum::<Value>();
 
-        output += nstm_accumulator
+        output += nctm_accumulator
             .iter()
             .zip(&hidden_layer.weights[Self::L1..])
             .map(|(&activation, &weight)| Self::clipped_relu(activation) * Value::from(weight))

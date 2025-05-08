@@ -949,23 +949,6 @@ impl Board {
         Ok(())
     }
 
-    pub fn simple_eval_c(&self, color: Color) -> Value {
-        const PIECE_TYPE_VALUES: PieceTypeMap<Value> =
-            PieceTypeMap::new([100, 305, 333, 563, 950, 0]);
-
-        let mut eval = 0;
-        for piece_type in PieceType::iter(PieceType::Pawn, PieceType::Queen) {
-            eval += self.bitboard_of(color, piece_type).pop_count()
-                * PIECE_TYPE_VALUES[piece_type] as Value;
-        }
-
-        eval
-    }
-
-    pub fn simple_eval(&self) -> Value {
-        self.simple_eval_c(Color::White) - self.simple_eval_c(Color::Black)
-    }
-
     pub fn ctm(&self) -> Color {
         self.ctm
     }
