@@ -31,8 +31,9 @@ impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
 #[derive(Clone)]
 pub struct Network {
     input_layer: Embedding<{ Self::N_INPUTS }, { Self::L1 }>,
-    hidden_layers: [Linear<{ Self::L1 }, 1>; Self::N_BUCKETS],
-    accumulator: [i16; Self::L1],
+    hidden_layers: [Linear<{ 2 * Self::L1 }, 1>; Self::N_BUCKETS],
+    w_accumulator: [i16; Self::L1],
+    b_accumulator: [i16; Self::L1],
     pop_count: i16,
 }
 
@@ -50,49 +51,63 @@ impl Network {
                 Linear::new(&HIDDEN_LAYER_6_WEIGHT, &HIDDEN_LAYER_6_BIAS),
                 Linear::new(&HIDDEN_LAYER_7_WEIGHT, &HIDDEN_LAYER_7_BIAS),
             ],
-            accumulator: INPUT_LAYER_BIAS,
+            w_accumulator: INPUT_LAYER_BIAS,
+            b_accumulator: INPUT_LAYER_BIAS,
             pop_count: 0,
         }
     }
 
-    pub fn move_piece(&mut self, piece: Piece, from_sq: SQ, to_sq: SQ) {
-        self.deactivate(piece, from_sq);
-        self.activate(piece, to_sq);
+    pub fn move_piece(&mut self, pc: Piece, from_sq: SQ, to_sq: SQ) {
+        self.deactivate(pc, from_sq);
+        self.activate(pc, to_sq);
     }
 
-    pub fn activate(&mut self, piece: Piece, sq: SQ) {
-        self.update_activation(piece, sq, |activation, weight| *activation += weight);
+    pub fn activate(&mut self, pc: Piece, sq: SQ) {
+        self.update_activation::<1>(pc, sq);
     }
 
-    pub fn deactivate(&mut self, piece: Piece, sq: SQ) {
-        self.update_activation(piece, sq, |activation, weight| *activation -= weight);
+    pub fn deactivate(&mut self, pc: Piece, sq: SQ) {
+        self.update_activation::<-1>(pc, sq);
     }
 
-    fn update_activation(
-        &mut self,
-        piece: Piece,
-        sq: SQ,
-        mut update_fn: impl FnMut(&mut i16, &i16),
-    ) {
-        let embedding_idx: usize = piece.index() * SQ::N_SQUARES + sq.index();
-        let weights = self.input_layer.weights[embedding_idx].iter();
+    fn update_activation<const SIGN: i16>(&mut self, pc: Piece, sq: SQ) {
+        let w_embedding_idx = pc.index() * SQ::N_SQUARES + sq.index();
+        let b_embedding_idx = pc.flip().index() * SQ::N_SQUARES + sq.square_mirror().index();
 
-        self.accumulator
+        let w_weights = self.input_layer.weights[w_embedding_idx].iter();
+        let b_weights = self.input_layer.weights[b_embedding_idx].iter();
+
+        self.w_accumulator
             .iter_mut()
-            .zip(weights)
-            .for_each(|(activation, weight)| update_fn(activation, weight));
+            .zip(w_weights)
+            .for_each(|(activation, weight)| *activation += SIGN * weight);
 
-        update_fn(&mut self.pop_count, &1);
+        self.b_accumulator
+            .iter_mut()
+            .zip(b_weights)
+            .for_each(|(activation, weight)| *activation += SIGN * weight);
+
+        self.pop_count += SIGN;
     }
 
-    pub fn eval(&self) -> Value {
+    pub fn eval(&self, stm: Color) -> Value {
         let bucket = (self.pop_count as usize - 1) / Self::BUCKET_DIV;
-
         let hidden_layer = &self.hidden_layers[bucket];
-        let output = self
-            .accumulator
+        let (stm_accumulator, nstm_accumulator) = match stm {
+            Color::White => (&self.w_accumulator, &self.b_accumulator),
+            Color::Black => (&self.b_accumulator, &self.w_accumulator),
+        };
+        let mut output = 0;
+
+        output += stm_accumulator
             .iter()
-            .zip(hidden_layer.weights)
+            .zip(&hidden_layer.weights[..Self::L1])
+            .map(|(&activation, &weight)| Self::clipped_relu(activation) * Value::from(weight))
+            .sum::<Value>();
+
+        output += nstm_accumulator
+            .iter()
+            .zip(&hidden_layer.weights[Self::L1..])
             .map(|(&activation, &weight)| Self::clipped_relu(activation) * Value::from(weight))
             .sum::<Value>();
 
@@ -101,13 +116,13 @@ impl Network {
     }
 
     fn clipped_relu(x: i16) -> Value {
-        Value::from(x).clamp(0, Self::INPUT_SCALE)
+        Value::from(x.max(0).min(Self::INPUT_SCALE as i16))
     }
 }
 
 impl Network {
     const N_INPUTS: usize = Piece::N_PIECES * SQ::N_SQUARES;
-    const L1: usize = 512;
+    const L1: usize = 256;
     const N_BUCKETS: usize = 8;
     const BUCKET_DIV: usize = 32 / Self::N_BUCKETS;
     const NNUE2SCORE: Value = 400;

@@ -96,7 +96,7 @@ impl Board {
     }
 
     pub fn eval(&self) -> Value {
-        self.network.eval() * self.ctm.factor()
+        self.network.eval(self.ctm)
     }
 
     pub fn bitboard_of(&self, c: Color, pt: PieceType) -> Bitboard {
