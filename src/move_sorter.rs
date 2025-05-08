@@ -8,14 +8,14 @@ use super::square::*;
 use super::types::*;
 
 pub struct MoveSorter {
-    killer_moves: ColorMap<[[Option<Move>; Self::N_KILLERS]; MAX_MOVES]>,
+    killer_moves: [Option<Move>; MAX_MOVES],
     history_scores: SQMap<SQMap<Value>>,
 }
 
 impl MoveSorter {
     pub fn new() -> Self {
         Self {
-            killer_moves: ColorMap::new([[[None; Self::N_KILLERS]; MAX_MOVES]; Color::N_COLORS]),
+            killer_moves: [None; MAX_MOVES],
             history_scores: SQMap::new([SQMap::new([0; SQ::N_SQUARES]); SQ::N_SQUARES]),
         }
     }
@@ -38,7 +38,7 @@ impl MoveSorter {
         }
 
         if m.is_quiet() {
-            if self.is_killer(board, m, ply) {
+            if self.is_killer(m, ply) {
                 return Self::KILLER_MOVE_SCORE;
             }
 
@@ -46,30 +46,26 @@ impl MoveSorter {
                 return Self::CASTLING_SCORE;
             }
 
-            return Self::HISTORY_MOVE_OFFSET + self.history_score(m);
+            return self.history_score(m);
         }
 
         let mut score = 0;
         if m.is_capture() {
             if m.is_ep() {
-                return Self::WINNING_CAPTURES_OFFSET;
+                return Self::CAPTURE_SCORE;
             }
 
             score += Self::mvv_lva_score(board, m)
                 + if Self::see(board, m) {
-                    Self::WINNING_CAPTURES_OFFSET
+                    Self::CAPTURE_SCORE
                 } else {
-                    Self::LOSING_CAPTURES_OFFSET
+                    -Self::CAPTURE_SCORE
                 };
         }
 
         score += match m.promotion() {
-            Some(PieceType::Knight) => Self::KNIGHT_PROMOTION_SCORE,
-            Some(PieceType::Bishop) => Self::BISHOP_PROMOTION_SCORE,
-            Some(PieceType::Rook) => Self::ROOK_PROMOTION_SCORE,
-            Some(PieceType::Queen) => Self::QUEEN_PROMOTION_SCORE,
+            Some(pt) => Self::PROMOTION_SCORE + Self::SEE_PIECE_TYPE[pt],
             None => 0,
-            _ => unreachable!(),
         };
         score
     }
@@ -85,11 +81,8 @@ impl MoveSorter {
         Self::MVV_LVA_SCORES[captured_pt.index() * PieceType::N_PIECE_TYPES + attacking_pt.index()]
     }
 
-    pub fn add_killer(&mut self, board: &Board, m: Move, ply: Ply) {
-        let killer_moves = &mut self.killer_moves[board.ctm()][ply];
-
-        killer_moves.rotate_right(1);
-        killer_moves[0] = Some(m);
+    pub fn add_killer(&mut self, m: Move, ply: Ply) {
+        self.killer_moves[ply] = Some(m);
     }
 
     pub fn add_history(&mut self, m: Move, depth: Depth) {
@@ -98,7 +91,7 @@ impl MoveSorter {
         let to = m.to_sq();
         self.history_scores[from][to] += depth * depth;
 
-        if self.history_scores[from][to] >= -Self::HISTORY_MOVE_OFFSET {
+        if self.history_scores[from][to] >= Self::HISTORY_MAX {
             self.history_scores
                 .iter_mut()
                 .flatten()
@@ -106,8 +99,8 @@ impl MoveSorter {
         }
     }
 
-    fn is_killer(&self, board: &Board, m: Move, ply: usize) -> bool {
-        self.killer_moves[board.ctm()][ply].contains(&Some(m))
+    fn is_killer(&self, m: Move, ply: Ply) -> bool {
+        self.killer_moves[ply] == Some(m)
     }
 
     fn history_score(&self, m: Move) -> Value {
@@ -199,17 +192,12 @@ impl MoveSorter {
 }
 
 impl MoveSorter {
-    const N_KILLERS: usize = 3;
-    const HASH_MOVE_SCORE: Value = 25000;
-    const QUEEN_PROMOTION_SCORE: Value = 8000;
-    const ROOK_PROMOTION_SCORE: Value = 7000;
-    const BISHOP_PROMOTION_SCORE: Value = 6000;
-    const KNIGHT_PROMOTION_SCORE: Value = 5000;
-    const WINNING_CAPTURES_OFFSET: Value = 10;
-    const KILLER_MOVE_SCORE: Value = 2;
-    const CASTLING_SCORE: Value = 1;
-    const HISTORY_MOVE_OFFSET: Value = -30000;
-    const LOSING_CAPTURES_OFFSET: Value = -30001;
+    const HISTORY_MAX: Value = i16::MAX as Value / 2;
+    const HASH_MOVE_SCORE: Value = 100 * Self::HISTORY_MAX;
+    const PROMOTION_SCORE: Value = 50 * Self::HISTORY_MAX;
+    const CAPTURE_SCORE: Value = 10 * Self::HISTORY_MAX;
+    const KILLER_MOVE_SCORE: Value = 5 * Self::HISTORY_MAX;
+    const CASTLING_SCORE: Value = 2 * Self::HISTORY_MAX;
 
     const SEE_PIECE_TYPE: PieceTypeMap<Value> =
         PieceTypeMap::new([100, 375, 375, 500, 1025, 10000]);

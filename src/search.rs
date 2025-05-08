@@ -362,7 +362,7 @@ impl<'a> Search<'a> {
                 best_move = Some(m);
                 if value >= beta {
                     if m.is_quiet() {
-                        self.move_sorter.add_killer(board, m, ply);
+                        self.move_sorter.add_killer(m, ply);
                         self.move_sorter.add_history(m, depth);
                     }
                     tt_flag = Bound::Lower;

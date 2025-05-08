@@ -428,7 +428,9 @@ impl Board {
 
         let king_attacks = attacks::king_attacks(our_king) & !(us_bb | danger);
 
-        moves.make_q(our_king, king_attacks & !them_bb);
+        if QUIET {
+            moves.make_q(our_king, king_attacks & !them_bb);
+        }
         moves.make_c(our_king, king_attacks & them_bb);
 
         ///////////////////////////////////////////////////////////////////
