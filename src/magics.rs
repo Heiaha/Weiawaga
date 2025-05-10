@@ -2,6 +2,7 @@ use super::attacks::*;
 use super::bitboard::*;
 use super::square::*;
 use crate::types::*;
+use std::sync::LazyLock;
 
 // Fancy magic bitboard implementation inspired by Rustfish's port of Stockfish
 
@@ -64,7 +65,7 @@ pub static mut ATTACKS_TABLE: [Bitboard; 88772] = [Bitboard::ZERO; 88772];
 pub struct Magics {
     masks: SQMap<Bitboard>,
     magics: SQMap<Bitboard>,
-    pub attacks: SQMap<&'static [Bitboard]>,
+    pub attacks: SQMap<Vec<Bitboard>>,
     shift: u8,
 }
 
@@ -74,19 +75,11 @@ impl Magics {
     }
 }
 
-pub static mut ROOK_MAGICS: Magics = Magics {
-    masks: SQMap::new([Bitboard::ZERO; SQ::N_SQUARES]),
-    magics: SQMap::new([Bitboard::ZERO; SQ::N_SQUARES]),
-    attacks: SQMap::new([&[]; SQ::N_SQUARES]),
-    shift: 64 - 12,
-};
+pub static ROOK_MAGICS: LazyLock<Magics> =
+    LazyLock::new(|| init_magics_type(&ROOK_MAGICS_INIT, rook_attacks_for_init, 64 - 12));
 
-pub static mut BISHOP_MAGICS: Magics = Magics {
-    masks: SQMap::new([Bitboard::ZERO; SQ::N_SQUARES]),
-    magics: SQMap::new([Bitboard::ZERO; SQ::N_SQUARES]),
-    attacks: SQMap::new([&[]; SQ::N_SQUARES]),
-    shift: 64 - 9,
-};
+pub static BISHOP_MAGICS: LazyLock<Magics> =
+    LazyLock::new(|| init_magics_type(&BISHOP_MAGICS_INIT, bishop_attacks_for_init, 64 - 9));
 
 //////////////////////////////////////////////
 // Inits
@@ -100,39 +93,37 @@ fn init_magics_type(
     let mut magics = Magics {
         masks: SQMap::new([Bitboard::ZERO; SQ::N_SQUARES]),
         magics: SQMap::new([Bitboard::ZERO; SQ::N_SQUARES]),
-        attacks: SQMap::new([&[]; SQ::N_SQUARES]),
+        attacks: SQMap::new([const { Vec::new() }; SQ::N_SQUARES]),
         shift,
     };
+
     for sq in Bitboard::ALL {
         let edges = ((Rank::One.bb() | Rank::Eight.bb()) & !sq.rank().bb())
             | ((File::A.bb() | File::H.bb()) & !sq.file().bb());
-
         magics.masks[sq] = slow_attacks_gen(sq, Bitboard::ZERO) & !edges;
         magics.magics[sq] = magic_init[sq].magic;
 
-        let base = magic_init[sq].index;
         let mut subset = Bitboard::ZERO;
-        let mut size = 0;
+        let mut entries = Vec::new();
+        let mut max_index = 0;
+
         loop {
-            let index = magics.index(sq, subset);
-            size = size.max(index + 1);
+            let idx = magics.index(sq, subset);
+            let attack = slow_attacks_gen(sq, subset);
+            entries.push((idx, attack));
+            max_index = max_index.max(idx);
 
-            unsafe { ATTACKS_TABLE[base + index] = slow_attacks_gen(sq, subset) }
-
-            // Carry-Rippler for iterating through the subset
             subset = (subset - magics.masks[sq]) & magics.masks[sq];
             if subset == Bitboard::ZERO {
                 break;
             }
         }
-        magics.attacks[sq] = unsafe { &ATTACKS_TABLE[base..base + size] };
+
+        let mut table = vec![Bitboard::ZERO; max_index + 1];
+        for (idx, att) in entries {
+            table[idx] = att;
+        }
+        magics.attacks[sq] = table;
     }
     magics
-}
-
-pub fn init_magics() {
-    unsafe {
-        ROOK_MAGICS = init_magics_type(&ROOK_MAGICS_INIT, rook_attacks_for_init, 64 - 12);
-        BISHOP_MAGICS = init_magics_type(&BISHOP_MAGICS_INIT, bishop_attacks_for_init, 64 - 9);
-    }
 }

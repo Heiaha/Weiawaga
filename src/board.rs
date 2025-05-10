@@ -1178,11 +1178,9 @@ impl HistoryEntry {
 #[cfg(test)]
 mod tests {
     use crate::board::*;
-    use crate::magics::*;
 
     #[test]
     fn threefold_repetition() {
-        init_magics();
         let mut board = Board::new();
         assert_eq!(board.is_repetition(), false);
         board.push_str("e2e4").unwrap();

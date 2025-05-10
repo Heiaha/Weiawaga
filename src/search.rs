@@ -1,3 +1,4 @@
+use std::sync::LazyLock;
 use std::time::Duration;
 
 use super::board::*;
@@ -548,7 +549,7 @@ impl<'a> Search<'a> {
 
     fn late_move_reduction(depth: Depth, move_index: usize) -> Depth {
         // LMR table idea from Ethereal
-        unsafe { LMR_TABLE[depth.min(63) as usize][move_index.min(63)] }
+        LMR_TABLE[depth.min(63) as usize][move_index.min(63)]
     }
 
     fn is_checkmate(value: Value) -> bool {
@@ -636,22 +637,14 @@ pub enum Bound {
     Upper,
 }
 
-pub static mut LMR_TABLE: [[Depth; 64]; 64] = [[0; 64]; 64];
-
-fn init_lmr_table() -> [[Depth; 64]; 64] {
+static LMR_TABLE: LazyLock<[[Depth; 64]; 64]> = LazyLock::new(|| {
     let mut lmr_table = [[0; 64]; 64];
     for depth in 1..64 {
         for move_number in 1..64 {
             lmr_table[depth][move_number] = (Search::LMR_BASE_REDUCTION
-                + f32::ln(depth as f32) * f32::ln(move_number as f32) / Search::LMR_MOVE_DIVIDER)
+                + (depth as f32).ln() * (move_number as f32).ln() / Search::LMR_MOVE_DIVIDER)
                 as Depth;
         }
     }
     lmr_table
-}
-
-pub fn init_search() {
-    unsafe {
-        LMR_TABLE = init_lmr_table();
-    }
-}
+});

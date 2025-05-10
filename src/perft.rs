@@ -60,17 +60,12 @@ pub fn print_perft(board: &mut Board, depth: Depth) -> u128 {
 
 #[cfg(test)]
 mod tests {
-    use crate::bitboard::init_bb;
-    use crate::magics::init_magics;
     use crate::perft::perft;
 
     use super::*;
 
     #[test]
     fn test_perft() {
-        init_magics();
-        init_bb();
-
         assert_eq!(perft(&mut Board::new(), 5), 4865609);
         assert_eq!(
             perft(

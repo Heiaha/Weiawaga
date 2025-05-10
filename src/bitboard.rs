@@ -7,6 +7,7 @@ use std::ops::{
     BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, Not, Shl, ShlAssign, Shr,
     ShrAssign, Sub,
 };
+use std::sync::LazyLock;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct Bitboard(pub Hash);
@@ -81,11 +82,11 @@ impl Bitboard {
 
 impl Bitboard {
     pub fn line(sq1: SQ, sq2: SQ) -> Self {
-        unsafe { LINES_BB[sq1][sq2] }
+        LINES_BB[sq1][sq2]
     }
 
     pub fn between(sq1: SQ, sq2: SQ) -> Self {
-        unsafe { BETWEEN_BB[sq1][sq2] }
+        BETWEEN_BB[sq1][sq2]
     }
 
     pub fn oo_mask(c: Color) -> Self {
@@ -316,12 +317,7 @@ impl Bitboard {
     pub const CENTER: Self = B!(0x1818000000);
 }
 
-static mut BETWEEN_BB: SQMap<SQMap<Bitboard>> =
-    SQMap::new([SQMap::new([B!(0); SQ::N_SQUARES]); SQ::N_SQUARES]);
-static mut LINES_BB: SQMap<SQMap<Bitboard>> =
-    SQMap::new([SQMap::new([B!(0); SQ::N_SQUARES]); SQ::N_SQUARES]);
-
-fn init_between() -> SQMap<SQMap<Bitboard>> {
+static BETWEEN_BB: LazyLock<SQMap<SQMap<Bitboard>>> = LazyLock::new(|| {
     let mut between_bb = SQMap::new([SQMap::new([B!(0); SQ::N_SQUARES]); SQ::N_SQUARES]);
     for sq1 in Bitboard::ALL {
         for sq2 in Bitboard::ALL {
@@ -336,9 +332,8 @@ fn init_between() -> SQMap<SQMap<Bitboard>> {
         }
     }
     between_bb
-}
-
-fn init_lines() -> SQMap<SQMap<Bitboard>> {
+});
+static LINES_BB: LazyLock<SQMap<SQMap<Bitboard>>> = LazyLock::new(|| {
     let mut lines_bb = SQMap::new([SQMap::new([B!(0); SQ::N_SQUARES]); SQ::N_SQUARES]);
     for sq1 in Bitboard::ALL {
         for sq2 in Bitboard::ALL {
@@ -356,11 +351,4 @@ fn init_lines() -> SQMap<SQMap<Bitboard>> {
         }
     }
     lines_bb
-}
-
-pub fn init_bb() {
-    unsafe {
-        BETWEEN_BB = init_between();
-        LINES_BB = init_lines();
-    }
-}
+});

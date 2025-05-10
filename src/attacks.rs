@@ -85,11 +85,11 @@ const PAWN_ATTACKS: ColorMap<SQMap<Bitboard>>= ColorMap::new([
 ]);
 
 pub fn rook_attacks(sq: SQ, occ: Bitboard) -> Bitboard {
-    unsafe { ROOK_MAGICS.attacks[sq][ROOK_MAGICS.index(sq, occ)] }
+    ROOK_MAGICS.attacks[sq][ROOK_MAGICS.index(sq, occ)]
 }
 
 pub fn bishop_attacks(sq: SQ, occ: Bitboard) -> Bitboard {
-    unsafe { BISHOP_MAGICS.attacks[sq][BISHOP_MAGICS.index(sq, occ)] }
+    BISHOP_MAGICS.attacks[sq][BISHOP_MAGICS.index(sq, occ)]
 }
 
 pub fn knight_attacks(sq: SQ) -> Bitboard {
