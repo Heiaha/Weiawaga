@@ -114,7 +114,6 @@ impl<'a> Search<'a> {
         // Score moves and begin searching recursively.
         ///////////////////////////////////////////////////////////////////
         let ply = 0;
-        let mut value = -Self::MATE;
         let mut best_move = None;
         let mut idx = 0;
 
@@ -128,9 +127,14 @@ impl<'a> Search<'a> {
             }
 
             board.push(m);
-            if idx == 0 || -self.search(board, depth - 1, -alpha - 1, -alpha, ply + 1) > alpha {
-                value = -self.search(board, depth - 1, -beta, -alpha, ply + 1);
-            }
+            let value = if idx == 0
+                || -self.search(board, depth - 1, -alpha - 1, -alpha, ply + 1) > alpha
+            {
+                -self.search(board, depth - 1, -beta, -alpha, ply + 1)
+            } else {
+                alpha
+            };
+
             board.pop();
 
             if self.timer.local_stop() {

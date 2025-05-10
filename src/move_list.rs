@@ -51,47 +51,37 @@ impl MoveList {
     }
 
     pub fn make_q(&mut self, from_sq: SQ, to: Bitboard) {
-        for to_sq in to {
-            self.0.push(MoveListEntry::new(Move::new(
-                from_sq,
-                to_sq,
-                MoveFlags::Quiet,
-            )));
-        }
+        self.0.extend(
+            to.into_iter()
+                .map(|to_sq| MoveListEntry::new(Move::new(from_sq, to_sq, MoveFlags::Quiet))),
+        );
     }
 
     pub fn make_c(&mut self, from_sq: SQ, to: Bitboard) {
-        for to_sq in to {
-            self.0.push(MoveListEntry::new(Move::new(
-                from_sq,
-                to_sq,
-                MoveFlags::Capture,
-            )));
-        }
+        self.0.extend(
+            to.into_iter()
+                .map(|to_sq| MoveListEntry::new(Move::new(from_sq, to_sq, MoveFlags::Capture))),
+        );
     }
 
     pub fn make_dp(&mut self, from_sq: SQ, to: Bitboard) {
-        for to_sq in to {
-            self.0.push(MoveListEntry::new(Move::new(
-                from_sq,
-                to_sq,
-                MoveFlags::DoublePush,
-            )));
-        }
+        self.0.extend(
+            to.into_iter()
+                .map(|to_sq| MoveListEntry::new(Move::new(from_sq, to_sq, MoveFlags::DoublePush))),
+        );
     }
 
     pub fn make_pc(&mut self, from_sq: SQ, to: Bitboard) {
-        for to_sq in to {
-            for flag in [
+        self.0.extend(to.into_iter().flat_map(|to_sq| {
+            [
                 MoveFlags::PcQueen,
                 MoveFlags::PcKnight,
                 MoveFlags::PcRook,
                 MoveFlags::PcBishop,
-            ] {
-                self.0
-                    .push(MoveListEntry::new(Move::new(from_sq, to_sq, flag)));
-            }
-        }
+            ]
+            .into_iter()
+            .map(move |flag| MoveListEntry::new(Move::new(from_sq, to_sq, flag)))
+        }));
     }
 
     pub fn iter_moves(&self) -> impl Iterator<Item = Move> + '_ {
@@ -107,18 +97,9 @@ impl MoveList {
             return None;
         }
 
-        let mut max_score = Value::MIN;
-        let mut max_idx = idx;
-
-        for i in idx..self.len() {
-            if self.0[i].score > max_score {
-                max_idx = i;
-                max_score = self.0[i].score;
-            }
-        }
+        let max_idx = (idx..self.len()).max_by_key(|&i| self.0[i].score)?;
 
         self.0.swap(idx, max_idx);
-
         Some(self.0[idx].m)
     }
 }
@@ -151,12 +132,11 @@ impl std::ops::Index<usize> for MoveList {
 
 impl std::fmt::Debug for MoveList {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let mut result = String::from('[');
-        for i in 0..self.len() {
-            let m = self.0[i].m;
-            result.push_str(format!("{}, ", m).as_str());
-        }
-        result.push(']');
-        write!(f, "{}", result)
+        let result: String = self
+            .0
+            .iter()
+            .map(|entry| format!("{}, ", entry.m))
+            .collect();
+        write!(f, "[{}]", result.trim_end_matches(", "))
     }
 }
