@@ -368,7 +368,7 @@ impl<'a> Search<'a> {
                 if value >= beta {
                     if m.is_quiet() {
                         self.move_sorter.add_killer(m, ply);
-                        self.move_sorter.add_history(m, depth);
+                        self.move_sorter.add_history(m, board.ctm(), depth);
                     }
                     tt_flag = Bound::Lower;
                     alpha = beta;
@@ -531,11 +531,11 @@ impl<'a> Search<'a> {
         excluded_move: Option<Move>,
     ) -> bool {
         entry.best_move() == Some(m)
-            && depth >= 4
+            && depth >= Self::SING_EXTEND_MIN_DEPTH
             && !Self::is_checkmate(entry.value())
             && excluded_move.is_none()
-            && entry.depth() + 2 >= depth
-            && matches!(entry.flag(), Bound::Lower | Bound::Exact)
+            && entry.depth() + Self::SING_EXTEND_DEPTH_MARGIN >= depth
+            && entry.flag() != Bound::Upper
     }
 
     fn null_reduction(depth: Depth) -> Depth {
@@ -627,6 +627,8 @@ impl Search<'_> {
     const LMR_MIN_DEPTH: Depth = 2;
     const LMR_BASE_REDUCTION: f32 = 0.11;
     const LMR_MOVE_DIVIDER: f32 = 1.56;
+    const SING_EXTEND_MIN_DEPTH: Depth = 4;
+    const SING_EXTEND_DEPTH_MARGIN: Depth = 2;
     const MATE: Value = 32000;
 }
 

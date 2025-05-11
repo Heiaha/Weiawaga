@@ -9,14 +9,16 @@ use super::types::*;
 
 pub struct MoveSorter {
     killer_moves: [Option<Move>; MAX_MOVES],
-    history_scores: SQMap<SQMap<Value>>,
+    history_scores: ColorMap<SQMap<SQMap<Value>>>,
 }
 
 impl MoveSorter {
     pub fn new() -> Self {
         Self {
             killer_moves: [None; MAX_MOVES],
-            history_scores: SQMap::new([SQMap::new([0; SQ::N_SQUARES]); SQ::N_SQUARES]),
+            history_scores: ColorMap::new(
+                [SQMap::new([SQMap::new([0; SQ::N_SQUARES]); SQ::N_SQUARES]); 2],
+            ),
         }
     }
 
@@ -46,7 +48,7 @@ impl MoveSorter {
                 return Self::CASTLING_SCORE;
             }
 
-            return self.history_score(m);
+            return self.history_score(m, board.ctm());
         }
 
         let mut score = 0;
@@ -85,15 +87,16 @@ impl MoveSorter {
         self.killer_moves[ply] = Some(m);
     }
 
-    pub fn add_history(&mut self, m: Move, depth: Depth) {
+    pub fn add_history(&mut self, m: Move, ctm: Color, depth: Depth) {
         let depth = depth as Value;
         let from = m.from_sq();
         let to = m.to_sq();
-        self.history_scores[from][to] += depth * depth;
+        self.history_scores[ctm][from][to] += depth * depth;
 
-        if self.history_scores[from][to] >= Self::HISTORY_MAX {
+        if self.history_scores[ctm][from][to] >= Self::HISTORY_MAX {
             self.history_scores
                 .iter_mut()
+                .flatten()
                 .flatten()
                 .for_each(|x| *x >>= 1);
         }
@@ -103,8 +106,8 @@ impl MoveSorter {
         self.killer_moves[ply] == Some(m)
     }
 
-    fn history_score(&self, m: Move) -> Value {
-        self.history_scores[m.from_sq()][m.to_sq()]
+    fn history_score(&self, m: Move, ctm: Color) -> Value {
+        self.history_scores[ctm][m.from_sq()][m.to_sq()]
     }
 
     pub fn see(board: &Board, m: Move) -> bool {
