@@ -13,13 +13,14 @@ pub struct MoveListEntry {
     pub score: Value,
 }
 
-pub struct MoveList(ArrayVec<MoveListEntry, MAX_MOVES>);
-
 impl MoveListEntry {
     pub fn new(m: Move) -> Self {
         MoveListEntry { m, score: 0 }
     }
 }
+
+#[derive(Default)]
+pub struct MoveList(ArrayVec<MoveListEntry, MAX_MOVES>);
 
 impl MoveList {
     pub fn new() -> Self {

@@ -97,7 +97,7 @@ impl SearchMaster {
 
             // Create helper search threads which will stop when self.stop resolves to true.
             for id in 1..self.num_threads {
-                let thread_board = self.board.clone();
+                let thread_board = self.board.duplicate();
                 let mut helper_search_thread = Search::new(
                     Timer::new(
                         &thread_board,
@@ -111,7 +111,7 @@ impl SearchMaster {
                 );
                 s.spawn(move || helper_search_thread.go(thread_board));
             }
-            main_search_thread.go(self.board.clone())
+            main_search_thread.go(self.board.duplicate())
         });
 
         match best_move {
