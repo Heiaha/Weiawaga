@@ -16,6 +16,7 @@ pub struct Search<'a> {
     tt: &'a TT,
     move_sorter: MoveSorter,
     excluded_moves: [Option<Move>; MAX_MOVES],
+    pv_table: Vec<Vec<Move>>,
 }
 
 impl<'a> Search<'a> {
@@ -27,6 +28,7 @@ impl<'a> Search<'a> {
             sel_depth: 0,
             move_sorter: MoveSorter::new(),
             excluded_moves: [None; MAX_MOVES],
+            pv_table: vec![Vec::new(); MAX_MOVES],
         }
     }
 
@@ -75,7 +77,7 @@ impl<'a> Search<'a> {
             } else {
                 // Only print info if we're in the main thread
                 if self.id == 0 && !self.timer.local_stop() {
-                    best_move.inspect(|&m| self.print_info(&mut board, depth, m, value));
+                    best_move.inspect(|&m| self.print_info(depth, m, value));
                 }
                 alpha = value - Self::ASPIRATION_WINDOW;
                 beta = value + Self::ASPIRATION_WINDOW;
@@ -144,6 +146,7 @@ impl<'a> Search<'a> {
 
             if value > alpha {
                 best_move = Some(m);
+                self.update_pv(m, 0);
                 if value >= beta {
                     self.tt.insert(board, depth, beta, best_move, Bound::Lower);
                     return (best_move, beta);
@@ -365,6 +368,11 @@ impl<'a> Search<'a> {
             ///////////////////////////////////////////////////////////////////
             if value > alpha {
                 best_move = Some(m);
+
+                if is_pv {
+                    self.update_pv(m, ply);
+                }
+
                 if value >= beta {
                     if m.is_quiet() {
                         self.move_sorter.add_killer(m, ply);
@@ -556,27 +564,28 @@ impl<'a> Search<'a> {
         value.abs() >= Self::MATE >> 1
     }
 
-    fn get_pv(&self, board: &mut Board, depth: Depth) -> String {
-        if depth == 0 {
-            return String::new();
-        }
+    fn update_pv(&mut self, m: Move, ply: usize) {
+        let (before, after) = self.pv_table.split_at_mut(ply + 1);
 
-        if let Some(tt_entry) = self.tt.probe(board) {
-            let mut pv = String::new();
-            if let Some(m) = tt_entry
-                .best_move()
-                .filter(|&m| MoveList::from(board).contains(m))
-            {
-                board.push(m);
-                pv = format!("{} {}", m, self.get_pv(board, depth - 1));
-                board.pop();
-            }
-            return pv;
+        let pv = &mut before[ply];
+        pv.clear();
+        pv.push(m);
+
+        if let Some(next_pv) = after.get(0) {
+            pv.extend_from_slice(next_pv);
         }
-        String::new()
     }
 
-    fn print_info(&self, board: &mut Board, depth: Depth, m: Move, value: Value) {
+    fn get_pv(&self, depth: Depth) -> String {
+        self.pv_table[0]
+            .iter()
+            .take(depth as usize)
+            .map(|m| m.to_string())
+            .collect::<Vec<String>>()
+            .join(" ")
+    }
+
+    fn print_info(&self, depth: Depth, m: Move, value: Value) {
         let score_str = if Self::is_checkmate(value) {
             let mate_value = if value > 0 {
                 (Self::MATE - value + 1) / 2
@@ -599,7 +608,7 @@ impl<'a> Search<'a> {
                  score_str = score_str,
                  nodes = nodes,
                  nps = (nodes as f64 / elapsed.as_secs_f64()) as u64,
-                 pv = self.get_pv(board, depth));
+                 pv = self.get_pv(depth));
     }
 
     fn print_currmovenumber(depth: Depth, m: Move, idx: usize) {
