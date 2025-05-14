@@ -157,13 +157,9 @@ impl<'a> Search<'a> {
             idx += 1;
         }
 
-        best_move = best_move.or_else(|| {
-            if moves.len() > 0 {
-                Some(moves[0].m)
-            } else {
-                None
-            }
-        });
+        best_move = best_move
+            .or_else(|| self.tt.probe(board).and_then(|e| e.best_move()))
+            .or_else(|| moves.into_iter().next().map(|mv| mv.m));
 
         if !self.timer.local_stop() {
             self.tt.insert(board, depth, alpha, best_move, Bound::Exact);

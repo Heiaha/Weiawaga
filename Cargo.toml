@@ -10,7 +10,8 @@ rust-version = "1.80.0"
 [dependencies]
 arrayvec = "0.7.6"
 regex = "1.11.1"
-rand="0.8.5"
+rand = "0.8.5"
+wide = "0.7.32"
 
 [profile.release]
 opt-level = 3

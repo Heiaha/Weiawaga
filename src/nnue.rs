@@ -3,26 +3,28 @@ use super::piece::*;
 use super::square::*;
 use super::types::*;
 
+use wide::*;
+
 #[derive(Clone)]
 struct Embedding<const N: usize, const D: usize> {
-    weights: &'static [[i16; D]; N],
-    biases: &'static [i16; D],
+    weights: &'static [[i16x16; D]; N],
+    biases: &'static [i16x16; D],
 }
 
 impl<const N: usize, const D: usize> Embedding<N, D> {
-    pub fn new(weights: &'static [[i16; D]; N], biases: &'static [i16; D]) -> Self {
+    pub fn new(weights: &'static [[i16x16; D]; N], biases: &'static [i16x16; D]) -> Self {
         Self { weights, biases }
     }
 }
 
 #[derive(Clone)]
 struct Linear<const IN: usize, const OUT: usize> {
-    weights: &'static [i16],
+    weights: &'static [i16x16],
     biases: &'static [i16],
 }
 
 impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
-    pub fn new(weights: &'static [i16], biases: &'static [i16]) -> Self {
+    pub fn new(weights: &'static [i16x16], biases: &'static [i16]) -> Self {
         assert_eq!(weights.len(), IN * OUT);
         Self { weights, biases }
     }
@@ -30,10 +32,10 @@ impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
 
 #[derive(Clone)]
 pub struct Network {
-    input_layer: Embedding<{ Self::N_INPUTS }, { Self::L1 }>,
-    hidden_layers: [Linear<{ 2 * Self::L1 }, 1>; Self::N_BUCKETS],
-    w_accumulator: [i16; Self::L1],
-    b_accumulator: [i16; Self::L1],
+    input_layer: Embedding<{ Self::N_INPUTS }, { Self::L1 / Self::LANES }>,
+    hidden_layers: [Linear<{ 2 * Self::L1 / Self::LANES }, 1>; Self::N_BUCKETS],
+    w_accumulator: [i16x16; Self::L1 / Self::LANES],
+    b_accumulator: [i16x16; Self::L1 / Self::LANES],
     pop_count: i16,
 }
 
@@ -71,6 +73,8 @@ impl Network {
     }
 
     fn update_activation<const SIGN: i16>(&mut self, pc: Piece, sq: SQ) {
+        let simd_sign = i16x16::splat(SIGN);
+
         let w_embedding_idx = pc.index() * SQ::N_SQUARES + sq.index();
         let b_embedding_idx = pc.flip().index() * SQ::N_SQUARES + sq.square_mirror().index();
 
@@ -80,12 +84,12 @@ impl Network {
         self.w_accumulator
             .iter_mut()
             .zip(w_weights)
-            .for_each(|(activation, weight)| *activation += SIGN * weight);
+            .for_each(|(activation, weight)| *activation += simd_sign * weight);
 
         self.b_accumulator
             .iter_mut()
             .zip(b_weights)
-            .for_each(|(activation, weight)| *activation += SIGN * weight);
+            .for_each(|(activation, weight)| *activation += simd_sign * weight);
 
         self.pop_count += SIGN;
     }
@@ -101,22 +105,27 @@ impl Network {
 
         output += ctm_accumulator
             .iter()
-            .zip(&hidden_layer.weights[..Self::L1])
-            .map(|(&activation, &weight)| Self::clipped_relu(activation) * Value::from(weight))
+            .zip(&hidden_layer.weights[..Self::L1 / Self::LANES])
+            .map(|(&activation, &weight)| {
+                (Self::clipped_relu(activation) * weight).reduce_add() as Value
+            })
             .sum::<Value>();
 
         output += nctm_accumulator
             .iter()
-            .zip(&hidden_layer.weights[Self::L1..])
-            .map(|(&activation, &weight)| Self::clipped_relu(activation) * Value::from(weight))
+            .zip(&hidden_layer.weights[Self::L1 / Self::LANES..])
+            .map(|(&activation, &weight)| {
+                (Self::clipped_relu(activation) * weight).reduce_add() as Value
+            })
             .sum::<Value>();
 
         Value::from(hidden_layer.biases[0]) * Self::NNUE2SCORE / Self::HIDDEN_SCALE
             + output * Self::NNUE2SCORE / Self::COMB_SCALE
     }
 
-    fn clipped_relu(x: i16) -> Value {
-        Value::from(x.max(0).min(Self::INPUT_SCALE as i16))
+    fn clipped_relu(x: i16x16) -> i16x16 {
+        x.max(i16x16::ZERO)
+            .min(i16x16::splat(Self::INPUT_SCALE as i16))
     }
 }
 
@@ -125,6 +134,7 @@ impl Network {
     const L1: usize = 256;
     const N_BUCKETS: usize = 8;
     const BUCKET_DIV: usize = 32 / Self::N_BUCKETS;
+    const LANES: usize = i16x16::LANES as usize;
     const NNUE2SCORE: Value = 400;
     const INPUT_SCALE: Value = 255;
     const HIDDEN_SCALE: Value = 64;
