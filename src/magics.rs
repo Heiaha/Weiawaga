@@ -60,8 +60,6 @@ const ROOK_MAGICS_INIT: SQMap<MagicInit> = SQMap::new([
     M!(0x0000020408001001, 72662), M!(0x0007fffeffff77fd, 56325), M!(0x0003ffffbf7dfeec, 66501), M!(0x0001ffff9dffa333, 14826),
 ]);
 
-pub static mut ATTACKS_TABLE: [Bitboard; 88772] = [Bitboard::ZERO; 88772];
-
 pub struct Magics {
     masks: SQMap<Bitboard>,
     magics: SQMap<Bitboard>,
