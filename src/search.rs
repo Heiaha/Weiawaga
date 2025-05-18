@@ -568,14 +568,17 @@ impl<'a> Search<'a> {
         pv.push(m);
 
         if let Some(next_pv) = after.get(0) {
-            pv.extend_from_slice(next_pv);
+            pv.extend(next_pv);
+        }
+
+        for deeper in after.iter_mut() {
+            deeper.clear();
         }
     }
 
-    fn get_pv(&self, depth: Depth) -> String {
+    fn get_pv(&self) -> String {
         self.pv_table[0]
             .iter()
-            .take(depth as usize)
             .map(|m| m.to_string())
             .collect::<Vec<String>>()
             .join(" ")
@@ -604,7 +607,7 @@ impl<'a> Search<'a> {
                  score_str = score_str,
                  nodes = nodes,
                  nps = (nodes as f64 / elapsed.as_secs_f64()) as u64,
-                 pv = self.get_pv(depth));
+                 pv = self.get_pv());
     }
 
     fn print_currmovenumber(depth: Depth, m: Move, idx: usize) {
