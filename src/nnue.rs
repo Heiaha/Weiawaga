@@ -101,26 +101,26 @@ impl Network {
             Color::White => (&self.w_accumulator, &self.b_accumulator),
             Color::Black => (&self.b_accumulator, &self.w_accumulator),
         };
-        let mut output = 0;
+        let mut output = i32x8::ZERO;
 
         output += ctm_accumulator
             .iter()
             .zip(&hidden_layer.weights[..Self::L1 / Self::LANES])
             .map(|(&activation, &weight)| {
-                (Self::clipped_relu(activation) * weight).reduce_add() as Value
+                Self::clipped_relu(activation).dot(weight)
             })
-            .sum::<Value>();
+            .sum::<i32x8>();
 
         output += nctm_accumulator
             .iter()
             .zip(&hidden_layer.weights[Self::L1 / Self::LANES..])
             .map(|(&activation, &weight)| {
-                (Self::clipped_relu(activation) * weight).reduce_add() as Value
+                Self::clipped_relu(activation).dot(weight)
             })
-            .sum::<Value>();
+            .sum::<i32x8>();
 
         Value::from(hidden_layer.biases[0]) * Self::NNUE2SCORE / Self::HIDDEN_SCALE
-            + output * Self::NNUE2SCORE / Self::COMB_SCALE
+            + output.reduce_add() * Self::NNUE2SCORE / Self::COMB_SCALE
     }
 
     fn clipped_relu(x: i16x16) -> i16x16 {
