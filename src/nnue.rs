@@ -73,8 +73,6 @@ impl Network {
     }
 
     fn update_activation<const SIGN: i16>(&mut self, pc: Piece, sq: SQ) {
-        let simd_sign = i16x16::splat(SIGN);
-
         let w_embedding_idx = pc.index() * SQ::N_SQUARES + sq.index();
         let b_embedding_idx = pc.flip().index() * SQ::N_SQUARES + sq.square_mirror().index();
 
@@ -84,12 +82,12 @@ impl Network {
         self.w_accumulator
             .iter_mut()
             .zip(w_weights)
-            .for_each(|(activation, weight)| *activation += simd_sign * weight);
+            .for_each(|(activation, &weight)| *activation += SIGN * weight);
 
         self.b_accumulator
             .iter_mut()
             .zip(b_weights)
-            .for_each(|(activation, weight)| *activation += simd_sign * weight);
+            .for_each(|(activation, &weight)| *activation += SIGN * weight);
 
         self.pop_count += SIGN;
     }
@@ -107,7 +105,8 @@ impl Network {
             .iter()
             .zip(&hidden_layer.weights[..Self::L1 / Self::LANES])
             .map(|(&activation, &weight)| {
-                Self::clipped_relu(activation).dot(weight)
+                let clamped = Self::clipped_relu(activation);
+                (weight * clamped).dot(clamped)
             })
             .sum::<i32x8>();
 
@@ -115,12 +114,13 @@ impl Network {
             .iter()
             .zip(&hidden_layer.weights[Self::L1 / Self::LANES..])
             .map(|(&activation, &weight)| {
-                Self::clipped_relu(activation).dot(weight)
+                let clamped = Self::clipped_relu(activation);
+                (weight * clamped).dot(clamped)
             })
             .sum::<i32x8>();
 
         Value::from(hidden_layer.biases[0]) * Self::NNUE2SCORE / Self::HIDDEN_SCALE
-            + output.reduce_add() * Self::NNUE2SCORE / Self::COMB_SCALE
+            + (output.reduce_add() / Self::INPUT_SCALE) * Self::NNUE2SCORE / Self::COMB_SCALE
     }
 
     fn clipped_relu(x: i16x16) -> i16x16 {
