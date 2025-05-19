@@ -26,6 +26,7 @@ struct Linear<const IN: usize, const OUT: usize> {
 impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
     pub fn new(weights: &'static [i16x16], biases: &'static [i16]) -> Self {
         assert_eq!(weights.len(), IN * OUT);
+        assert_eq!(biases.len(), OUT);
         Self { weights, biases }
     }
 }
@@ -34,8 +35,7 @@ impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
 pub struct Network {
     input_layer: Embedding<{ Self::N_INPUTS }, { Self::L1 / Self::LANES }>,
     hidden_layers: [Linear<{ 2 * Self::L1 / Self::LANES }, 1>; Self::N_BUCKETS],
-    w_accumulator: [i16x16; Self::L1 / Self::LANES],
-    b_accumulator: [i16x16; Self::L1 / Self::LANES],
+    accumulator: ColorMap<[i16x16; Self::L1 / Self::LANES]>,
     pop_count: i16,
 }
 
@@ -53,15 +53,9 @@ impl Network {
                 Linear::new(&HIDDEN_LAYER_6_WEIGHT, &HIDDEN_LAYER_6_BIAS),
                 Linear::new(&HIDDEN_LAYER_7_WEIGHT, &HIDDEN_LAYER_7_BIAS),
             ],
-            w_accumulator: INPUT_LAYER_BIAS,
-            b_accumulator: INPUT_LAYER_BIAS,
+            accumulator: ColorMap::new([INPUT_LAYER_BIAS; Color::N_COLORS]),
             pop_count: 0,
         }
-    }
-
-    pub fn move_piece(&mut self, pc: Piece, from_sq: SQ, to_sq: SQ) {
-        self.deactivate(pc, from_sq);
-        self.activate(pc, to_sq);
     }
 
     pub fn activate(&mut self, pc: Piece, sq: SQ) {
@@ -72,52 +66,56 @@ impl Network {
         self.update_activation::<-1>(pc, sq);
     }
 
+    pub fn move_piece(&mut self, pc: Piece, from_sq: SQ, to_sq: SQ) {
+        for color in [Color::White, Color::Black] {
+            let pc_idx = pc.relative(color).index();
+            let from_sq_idx = from_sq.relative(color).index();
+            let to_sq_idx = to_sq.relative(color).index();
+
+            let from_idx = pc_idx * SQ::N_SQUARES + from_sq_idx;
+            let to_idx = pc_idx * SQ::N_SQUARES + to_sq_idx;
+
+            let from_weights = self.input_layer.weights[from_idx].iter();
+            let to_weights = self.input_layer.weights[to_idx].iter();
+
+            self.accumulator[color]
+                .iter_mut()
+                .zip(from_weights.zip(to_weights))
+                .for_each(|(activation, (&w_from, &w_to))| *activation += w_to - w_from);
+        }
+    }
+
     fn update_activation<const SIGN: i16>(&mut self, pc: Piece, sq: SQ) {
-        let w_embedding_idx = pc.index() * SQ::N_SQUARES + sq.index();
-        let b_embedding_idx = pc.flip().index() * SQ::N_SQUARES + sq.square_mirror().index();
-
-        let w_weights = self.input_layer.weights[w_embedding_idx].iter();
-        let b_weights = self.input_layer.weights[b_embedding_idx].iter();
-
-        self.w_accumulator
-            .iter_mut()
-            .zip(w_weights)
-            .for_each(|(activation, &weight)| *activation += SIGN * weight);
-
-        self.b_accumulator
-            .iter_mut()
-            .zip(b_weights)
-            .for_each(|(activation, &weight)| *activation += SIGN * weight);
-
+        for color in [Color::White, Color::Black] {
+            let pc_idx = pc.relative(color).index();
+            let sq_idx = sq.relative(color).index();
+            let idx = pc_idx * SQ::N_SQUARES + sq_idx;
+            let weights = self.input_layer.weights[idx].iter();
+            self.accumulator[color]
+                .iter_mut()
+                .zip(weights)
+                .for_each(|(activation, &weight)| *activation += SIGN * weight);
+        }
         self.pop_count += SIGN;
+    }
+
+    fn eval_color(&self, color: Color, weights: &[i16x16]) -> i32x8 {
+        self.accumulator[color]
+            .iter()
+            .zip(weights)
+            .map(|(&activation, &weight)| {
+                let clamped = Self::clipped_relu(activation);
+                (weight * clamped).dot(clamped)
+            })
+            .sum()
     }
 
     pub fn eval(&self, ctm: Color) -> Value {
         let bucket = (self.pop_count as usize - 1) / Self::BUCKET_DIV;
         let hidden_layer = &self.hidden_layers[bucket];
-        let (ctm_accumulator, nctm_accumulator) = match ctm {
-            Color::White => (&self.w_accumulator, &self.b_accumulator),
-            Color::Black => (&self.b_accumulator, &self.w_accumulator),
-        };
-        let mut output = i32x8::ZERO;
 
-        output += ctm_accumulator
-            .iter()
-            .zip(&hidden_layer.weights[..Self::L1 / Self::LANES])
-            .map(|(&activation, &weight)| {
-                let clamped = Self::clipped_relu(activation);
-                (weight * clamped).dot(clamped)
-            })
-            .sum::<i32x8>();
-
-        output += nctm_accumulator
-            .iter()
-            .zip(&hidden_layer.weights[Self::L1 / Self::LANES..])
-            .map(|(&activation, &weight)| {
-                let clamped = Self::clipped_relu(activation);
-                (weight * clamped).dot(clamped)
-            })
-            .sum::<i32x8>();
+        let output = self.eval_color(ctm, &hidden_layer.weights[..Self::L1 / Self::LANES])
+            + self.eval_color(!ctm, &hidden_layer.weights[Self::L1 / Self::LANES..]);
 
         Value::from(hidden_layer.biases[0]) * Self::NNUE2SCORE / Self::HIDDEN_SCALE
             + (output.reduce_add() / Self::INPUT_SCALE) * Self::NNUE2SCORE / Self::COMB_SCALE

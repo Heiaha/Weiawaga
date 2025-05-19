@@ -40,6 +40,13 @@ impl Piece {
         Self::from(((color as u8) << 3) + pt as u8)
     }
 
+    pub fn relative(&self, color: Color) -> Piece {
+        match color {
+            Color::White => *self,
+            Color::Black => self.flip(),
+        }
+    }
+
     // Use this iterator pattern for Piece, PieceType, and Bitboard iterator for SQ
     // until we can return to Step implementation once it's stabilized.
     // https://github.com/rust-lang/rust/issues/42168
