@@ -101,16 +101,16 @@ impl<'a> Search<'a> {
         beta: Value,
     ) -> (Option<Move>, Value) {
         ///////////////////////////////////////////////////////////////////
+        // Clear the pv line.
+        ///////////////////////////////////////////////////////////////////
+        self.pv_table.iter_mut().for_each(|line| line.clear());
+
+        ///////////////////////////////////////////////////////////////////
         // Check extension.
         ///////////////////////////////////////////////////////////////////
         if board.in_check() {
             depth += 1;
         }
-
-        ///////////////////////////////////////////////////////////////////
-        // Clear the pv line.
-        ///////////////////////////////////////////////////////////////////
-        self.pv_table.iter_mut().for_each(|line| line.clear());
 
         ///////////////////////////////////////////////////////////////////
         // Check the hash table for the current
@@ -581,9 +581,7 @@ impl<'a> Search<'a> {
             pv.extend(next_pv);
         }
 
-        for deeper in after.iter_mut() {
-            deeper.clear();
-        }
+        after.iter_mut().for_each(|line| line.clear());
     }
 
     fn get_pv(&self) -> String {
