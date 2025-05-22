@@ -76,9 +76,7 @@ impl Board {
     }
 
     pub fn remove_piece(&mut self, sq: SQ) {
-        let pc = self
-            .piece_at(sq)
-            .expect("Tried to remove a piece from an empty square.");
+        let Some(pc) = self.piece_at(sq) else { return };
 
         self.network.deactivate(pc, sq);
         self.hasher.update_piece(pc, sq);
