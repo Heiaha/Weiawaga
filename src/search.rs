@@ -7,11 +7,10 @@ use super::move_list::*;
 use super::move_sorter::*;
 use super::timer::*;
 use super::tt::*;
-use super::types::*;
 
 pub struct Search<'a> {
     id: u16,
-    sel_depth: Ply,
+    sel_depth: usize,
     timer: Timer,
     tt: &'a TT,
     move_sorter: MoveSorter,
@@ -56,7 +55,7 @@ impl<'a> Search<'a> {
             return Some(moves[0].m);
         }
 
-        while self.timer.start_check(depth) && !Self::is_checkmate(value) && depth < Depth::MAX {
+        while self.timer.start_check(depth) && !Self::is_checkmate(value) && depth < i8::MAX {
             (best_move, value) = self.search_root(&mut board, depth, alpha, beta);
 
             ///////////////////////////////////////////////////////////////////
@@ -96,10 +95,10 @@ impl<'a> Search<'a> {
     fn search_root(
         &mut self,
         board: &mut Board,
-        mut depth: Depth,
-        mut alpha: Value,
-        beta: Value,
-    ) -> (Option<Move>, Value) {
+        mut depth: i8,
+        mut alpha: i32,
+        beta: i32,
+    ) -> (Option<Move>, i32) {
         ///////////////////////////////////////////////////////////////////
         // Clear the pv line.
         ///////////////////////////////////////////////////////////////////
@@ -175,11 +174,11 @@ impl<'a> Search<'a> {
     fn search(
         &mut self,
         board: &mut Board,
-        mut depth: Depth,
-        mut alpha: Value,
-        mut beta: Value,
-        ply: Ply,
-    ) -> Value {
+        mut depth: i8,
+        mut alpha: i32,
+        mut beta: i32,
+        ply: usize,
+    ) -> i32 {
         ///////////////////////////////////////////////////////////////////
         // Clear the pv line.
         ///////////////////////////////////////////////////////////////////
@@ -189,7 +188,7 @@ impl<'a> Search<'a> {
         // Mate distance pruning - will help reduce
         // some nodes when checkmate is near.
         ///////////////////////////////////////////////////////////////////
-        let mate_value = Self::MATE - (ply as Value);
+        let mate_value = Self::MATE - (ply as i32);
         alpha = alpha.max(-mate_value);
         beta = beta.min(mate_value - 1);
         if alpha >= beta {
@@ -299,7 +298,7 @@ impl<'a> Search<'a> {
             let extension = tt_entry
                 .filter(|&entry| Self::can_singular_extend(entry, m, depth, excluded_move))
                 .map_or(0, |entry| {
-                    let target = entry.value() - (2 * depth as Value);
+                    let target = entry.value() - (2 * depth as i32);
                     self.excluded_moves[ply] = Some(m);
                     let extension =
                         if self.search(board, (depth - 1) / 2, target - 1, target, ply) < target {
@@ -419,13 +418,7 @@ impl<'a> Search<'a> {
         alpha
     }
 
-    fn q_search(
-        &mut self,
-        board: &mut Board,
-        mut alpha: Value,
-        mut beta: Value,
-        ply: Ply,
-    ) -> Value {
+    fn q_search(&mut self, board: &mut Board, mut alpha: i32, mut beta: i32, ply: usize) -> i32 {
         if self.timer.stop_check() {
             return 0;
         }
@@ -495,8 +488,8 @@ impl<'a> Search<'a> {
 
     fn can_apply_null(
         board: &Board,
-        depth: Depth,
-        beta: Value,
+        depth: i8,
+        beta: i32,
         in_check: bool,
         is_pv: bool,
         excluded_move: Option<Move>,
@@ -511,20 +504,15 @@ impl<'a> Search<'a> {
             && excluded_move.is_none()
     }
 
-    fn can_apply_iid(
-        depth: Depth,
-        in_check: bool,
-        is_pv: bool,
-        excluded_move: Option<Move>,
-    ) -> bool {
+    fn can_apply_iid(depth: i8, in_check: bool, is_pv: bool, excluded_move: Option<Move>) -> bool {
         depth >= Self::IID_MIN_DEPTH && !in_check && !is_pv && excluded_move.is_none()
     }
 
     fn can_apply_rfp(
-        depth: Depth,
+        depth: i8,
         in_check: bool,
         is_pv: bool,
-        beta: Value,
+        beta: i32,
         excluded_move: Option<Move>,
     ) -> bool {
         depth <= Self::RFP_MAX_DEPTH
@@ -534,14 +522,14 @@ impl<'a> Search<'a> {
             && excluded_move.is_none()
     }
 
-    fn can_apply_lmr(m: Move, depth: Depth, move_index: usize) -> bool {
+    fn can_apply_lmr(m: Move, depth: i8, move_index: usize) -> bool {
         depth >= Self::LMR_MIN_DEPTH && move_index >= Self::LMR_MOVE_WO_REDUCTION && m.is_quiet()
     }
 
     fn can_singular_extend(
         entry: TTEntry,
         m: Move,
-        depth: Depth,
+        depth: i8,
         excluded_move: Option<Move>,
     ) -> bool {
         entry.best_move() == Some(m)
@@ -552,21 +540,21 @@ impl<'a> Search<'a> {
             && entry.flag() != Bound::Upper
     }
 
-    fn null_reduction(depth: Depth) -> Depth {
+    fn null_reduction(depth: i8) -> i8 {
         // Idea of dividing in null move depth taken from Cosette
         Self::NULL_MIN_DEPTH_REDUCTION + (depth - Self::NULL_MIN_DEPTH) / Self::NULL_DEPTH_DIVIDER
     }
 
-    fn rfp_margin(depth: Depth) -> Value {
-        Self::RFP_MARGIN_MULTIPLIER * (depth as Value)
+    fn rfp_margin(depth: i8) -> i32 {
+        Self::RFP_MARGIN_MULTIPLIER * (depth as i32)
     }
 
-    fn late_move_reduction(depth: Depth, move_index: usize) -> Depth {
+    fn late_move_reduction(depth: i8, move_index: usize) -> i8 {
         // LMR table idea from Ethereal
         LMR_TABLE[depth.min(63) as usize][move_index.min(63)]
     }
 
-    fn is_checkmate(value: Value) -> bool {
+    fn is_checkmate(value: i32) -> bool {
         value.abs() >= Self::MATE >> 1
     }
 
@@ -592,7 +580,7 @@ impl<'a> Search<'a> {
             .join(" ")
     }
 
-    fn print_info(&self, depth: Depth, m: Move, value: Value) {
+    fn print_info(&self, depth: i8, m: Move, value: i32) {
         let score_str = if Self::is_checkmate(value) {
             let mate_value = if value > 0 {
                 (Self::MATE - value + 1) / 2
@@ -618,7 +606,7 @@ impl<'a> Search<'a> {
                  pv = self.get_pv());
     }
 
-    fn print_currmovenumber(depth: Depth, m: Move, idx: usize) {
+    fn print_currmovenumber(depth: i8, m: Move, idx: usize) {
         println!(
             "info depth {depth} currmove {currmove} currmovenumber {currmovenumber}",
             depth = depth,
@@ -630,22 +618,22 @@ impl<'a> Search<'a> {
 
 impl Search<'_> {
     const PRINT_CURRMOVENUMBER_TIME: Duration = Duration::from_millis(3000);
-    const SEARCHES_WO_TIMER_UPDATE: Depth = 8;
-    const RFP_MAX_DEPTH: Depth = 9;
-    const RFP_MARGIN_MULTIPLIER: Value = 63;
-    const ASPIRATION_WINDOW: Value = 61;
-    const NULL_MIN_DEPTH: Depth = 2;
-    const NULL_MIN_DEPTH_REDUCTION: Depth = 1;
-    const NULL_DEPTH_DIVIDER: Depth = 2;
-    const IID_MIN_DEPTH: Depth = 7;
-    const IID_DEPTH_REDUCTION: Depth = 2;
+    const SEARCHES_WO_TIMER_UPDATE: i8 = 8;
+    const RFP_MAX_DEPTH: i8 = 9;
+    const RFP_MARGIN_MULTIPLIER: i32 = 63;
+    const ASPIRATION_WINDOW: i32 = 61;
+    const NULL_MIN_DEPTH: i8 = 2;
+    const NULL_MIN_DEPTH_REDUCTION: i8 = 1;
+    const NULL_DEPTH_DIVIDER: i8 = 2;
+    const IID_MIN_DEPTH: i8 = 7;
+    const IID_DEPTH_REDUCTION: i8 = 2;
     const LMR_MOVE_WO_REDUCTION: usize = 3;
-    const LMR_MIN_DEPTH: Depth = 2;
+    const LMR_MIN_DEPTH: i8 = 2;
     const LMR_BASE_REDUCTION: f32 = 0.11;
     const LMR_MOVE_DIVIDER: f32 = 1.56;
-    const SING_EXTEND_MIN_DEPTH: Depth = 4;
-    const SING_EXTEND_DEPTH_MARGIN: Depth = 2;
-    const MATE: Value = 32000;
+    const SING_EXTEND_MIN_DEPTH: i8 = 4;
+    const SING_EXTEND_DEPTH_MARGIN: i8 = 2;
+    const MATE: i32 = 32000;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -655,13 +643,13 @@ pub enum Bound {
     Upper,
 }
 
-static LMR_TABLE: LazyLock<[[Depth; 64]; 64]> = LazyLock::new(|| {
+static LMR_TABLE: LazyLock<[[i8; 64]; 64]> = LazyLock::new(|| {
     let mut lmr_table = [[0; 64]; 64];
     for depth in 1..64 {
         for move_number in 1..64 {
             lmr_table[depth][move_number] = (Search::LMR_BASE_REDUCTION
                 + (depth as f32).ln() * (move_number as f32).ln() / Search::LMR_MOVE_DIVIDER)
-                as Depth;
+                as i8;
         }
     }
     lmr_table

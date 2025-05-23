@@ -5,7 +5,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use super::board::*;
 use super::moov::*;
 use super::search::*;
-use super::types::*;
 
 ///////////////////////////////////////////////////////////////////
 // Transposition Table Entry
@@ -13,14 +12,14 @@ use super::types::*;
 
 #[derive(Eq, PartialEq, Copy, Clone)]
 pub struct TTEntry {
-    value: Value,
+    value: i32,
     best_move: Option<Move>,
-    depth: Depth,
+    depth: i8,
     flag: Bound,
 }
 
 impl TTEntry {
-    pub fn new(value: Value, best_move: Option<Move>, depth: Depth, flag: Bound) -> Self {
+    pub fn new(value: i32, best_move: Option<Move>, depth: i8, flag: Bound) -> Self {
         TTEntry {
             best_move,
             depth,
@@ -33,11 +32,11 @@ impl TTEntry {
         self.best_move
     }
 
-    pub fn depth(&self) -> Depth {
+    pub fn depth(&self) -> i8 {
         self.depth
     }
 
-    pub fn value(&self) -> Value {
+    pub fn value(&self) -> i32 {
         self.value
     }
 
@@ -57,13 +56,13 @@ impl Default for TTEntry {
     }
 }
 
-impl From<Hash> for TTEntry {
-    fn from(value: Hash) -> Self {
+impl From<u64> for TTEntry {
+    fn from(value: u64) -> Self {
         unsafe { std::mem::transmute(value) }
     }
 }
 
-impl From<TTEntry> for Hash {
+impl From<TTEntry> for u64 {
     fn from(value: TTEntry) -> Self {
         unsafe { std::mem::transmute(value) }
     }
@@ -75,7 +74,7 @@ impl From<TTEntry> for Hash {
 
 pub struct TT {
     table: Vec<AtomicEntry>,
-    bitmask: Hash,
+    bitmask: u64,
 }
 
 impl TT {
@@ -91,15 +90,15 @@ impl TT {
 
         TT {
             table,
-            bitmask: count as Hash - 1,
+            bitmask: count as u64 - 1,
         }
     }
 
     pub fn insert(
         &self,
         board: &Board,
-        depth: Depth,
-        value: Value,
+        depth: i8,
+        value: i32,
         best_move: Option<Move>,
         flag: Bound,
     ) {
@@ -163,7 +162,7 @@ struct AtomicEntry {
 }
 
 impl AtomicEntry {
-    fn read(&self, hash: Hash) -> Option<TTEntry> {
+    fn read(&self, hash: u64) -> Option<TTEntry> {
         let (checksum, data) = (
             self.checksum.load(Ordering::Relaxed),
             self.data.load(Ordering::Relaxed),
@@ -175,13 +174,13 @@ impl AtomicEntry {
         }
     }
 
-    fn write(&self, hash: Hash, entry: TTEntry) {
-        let data = Hash::from(entry);
+    fn write(&self, hash: u64, entry: TTEntry) {
+        let data = u64::from(entry);
         self.checksum.store(hash ^ data, Ordering::Relaxed);
         self.data.store(data, Ordering::Relaxed);
     }
 
     fn is_used(&self) -> bool {
-        self.checksum.load(Ordering::Relaxed) != Hash::default()
+        self.checksum.load(Ordering::Relaxed) != u64::default()
     }
 }

@@ -10,7 +10,7 @@ use std::ops::{
 use std::sync::LazyLock;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
-pub struct Bitboard(pub Hash);
+pub struct Bitboard(pub u64);
 
 #[macro_export]
 macro_rules! B {
@@ -42,8 +42,8 @@ impl Bitboard {
         self.0 != 0 && !self.is_several()
     }
 
-    pub fn pop_count(&self) -> Value {
-        self.0.count_ones() as Value
+    pub fn pop_count(&self) -> u8 {
+        self.0.count_ones() as u8
     }
 
     pub fn shift(self, dir: Direction) -> Self {
@@ -125,8 +125,8 @@ impl Bitboard {
     }
 }
 
-impl From<Hash> for Bitboard {
-    fn from(value: Hash) -> Self {
+impl From<u64> for Bitboard {
+    fn from(value: u64) -> Self {
         Self(value)
     }
 }
@@ -137,7 +137,7 @@ impl From<Hash> for Bitboard {
 
 impl<T> Shl<T> for Bitboard
 where
-    Hash: Shl<T, Output = Hash>,
+    u64: Shl<T, Output = u64>,
 {
     type Output = Self;
 
@@ -148,7 +148,7 @@ where
 
 impl<T> ShlAssign<T> for Bitboard
 where
-    Hash: ShlAssign<T>,
+    u64: ShlAssign<T>,
 {
     fn shl_assign(&mut self, rhs: T) {
         self.0 <<= rhs;
@@ -157,7 +157,7 @@ where
 
 impl<T> Shr<T> for Bitboard
 where
-    Hash: Shr<T, Output = Hash>,
+    u64: Shr<T, Output = u64>,
 {
     type Output = Self;
 
@@ -168,7 +168,7 @@ where
 
 impl<T> ShrAssign<T> for Bitboard
 where
-    Hash: ShrAssign<T>,
+    u64: ShrAssign<T>,
 {
     fn shr_assign(&mut self, rhs: T) {
         self.0 >>= rhs;

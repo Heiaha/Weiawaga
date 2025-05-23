@@ -7,11 +7,11 @@ use rand::{RngCore, SeedableRng};
 
 #[derive(Clone)]
 pub struct Hasher {
-    hash: Hash,
-    material_hash: Hash,
-    zobrist_table: PieceMap<SQMap<Hash>>,
-    zobrist_ep: FileMap<Hash>,
-    zobrist_color: Hash,
+    hash: u64,
+    material_hash: u64,
+    zobrist_table: PieceMap<SQMap<u64>>,
+    zobrist_ep: FileMap<u64>,
+    zobrist_color: u64,
 }
 
 impl Hasher {
@@ -66,11 +66,11 @@ impl Hasher {
         self.material_hash = 0;
     }
 
-    pub fn hash(&self) -> Hash {
+    pub fn hash(&self) -> u64 {
         self.hash
     }
 
-    pub fn material_hash(&self) -> Hash {
+    pub fn material_hash(&self) -> u64 {
         self.material_hash
     }
 }

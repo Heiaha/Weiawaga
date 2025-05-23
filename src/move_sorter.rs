@@ -9,7 +9,7 @@ use super::types::*;
 
 pub struct MoveSorter {
     killer_moves: [Option<Move>; MAX_MOVES],
-    history_scores: ColorMap<SQMap<SQMap<Value>>>,
+    history_scores: ColorMap<SQMap<SQMap<i32>>>,
 }
 
 impl MoveSorter {
@@ -26,7 +26,7 @@ impl MoveSorter {
         &self,
         moves: &mut MoveList,
         board: &Board,
-        ply: Ply,
+        ply: usize,
         hash_move: Option<Move>,
     ) {
         for entry in moves.iter_mut() {
@@ -34,7 +34,7 @@ impl MoveSorter {
         }
     }
 
-    fn score_move(&self, m: Move, board: &Board, ply: Ply, hash_move: Option<Move>) -> Value {
+    fn score_move(&self, m: Move, board: &Board, ply: usize, hash_move: Option<Move>) -> i32 {
         if Some(m) == hash_move {
             return Self::HASH_MOVE_SCORE;
         }
@@ -72,7 +72,7 @@ impl MoveSorter {
         score
     }
 
-    fn mvv_lva_score(board: &Board, m: Move) -> Value {
+    fn mvv_lva_score(board: &Board, m: Move) -> i32 {
         let captured_pt = board
             .piece_type_at(m.to_sq())
             .expect("No captured in MVVLVA.");
@@ -83,12 +83,12 @@ impl MoveSorter {
         Self::MVV_LVA_SCORES[captured_pt.index() * PieceType::N_PIECE_TYPES + attacking_pt.index()]
     }
 
-    pub fn add_killer(&mut self, m: Move, ply: Ply) {
+    pub fn add_killer(&mut self, m: Move, ply: usize) {
         self.killer_moves[ply] = Some(m);
     }
 
-    pub fn add_history(&mut self, m: Move, ctm: Color, depth: Depth) {
-        let depth = depth as Value;
+    pub fn add_history(&mut self, m: Move, ctm: Color, depth: i8) {
+        let depth = depth as i32;
         let from = m.from_sq();
         let to = m.to_sq();
         self.history_scores[ctm][from][to] += depth * depth;
@@ -102,11 +102,11 @@ impl MoveSorter {
         }
     }
 
-    fn is_killer(&self, m: Move, ply: Ply) -> bool {
+    fn is_killer(&self, m: Move, ply: usize) -> bool {
         self.killer_moves[ply] == Some(m)
     }
 
-    fn history_score(&self, m: Move, ctm: Color) -> Value {
+    fn history_score(&self, m: Move, ctm: Color) -> i32 {
         self.history_scores[ctm][m.from_sq()][m.to_sq()]
     }
 
@@ -195,18 +195,17 @@ impl MoveSorter {
 }
 
 impl MoveSorter {
-    const HISTORY_MAX: Value = i16::MAX as Value / 2;
-    const HASH_MOVE_SCORE: Value = 100 * Self::HISTORY_MAX;
-    const PROMOTION_SCORE: Value = 50 * Self::HISTORY_MAX;
-    const CAPTURE_SCORE: Value = 10 * Self::HISTORY_MAX;
-    const KILLER_MOVE_SCORE: Value = 5 * Self::HISTORY_MAX;
-    const CASTLING_SCORE: Value = 2 * Self::HISTORY_MAX;
+    const HISTORY_MAX: i32 = i16::MAX as i32 / 2;
+    const HASH_MOVE_SCORE: i32 = 100 * Self::HISTORY_MAX;
+    const PROMOTION_SCORE: i32 = 50 * Self::HISTORY_MAX;
+    const CAPTURE_SCORE: i32 = 10 * Self::HISTORY_MAX;
+    const KILLER_MOVE_SCORE: i32 = 5 * Self::HISTORY_MAX;
+    const CASTLING_SCORE: i32 = 2 * Self::HISTORY_MAX;
 
-    const SEE_PIECE_TYPE: PieceTypeMap<Value> =
-        PieceTypeMap::new([100, 375, 375, 500, 1025, 10000]);
+    const SEE_PIECE_TYPE: PieceTypeMap<i32> = PieceTypeMap::new([100, 375, 375, 500, 1025, 10000]);
 
     #[rustfmt::skip]
-    const MVV_LVA_SCORES: [Value; PieceType::N_PIECE_TYPES * PieceType::N_PIECE_TYPES] = [
+    const MVV_LVA_SCORES: [i32; PieceType::N_PIECE_TYPES * PieceType::N_PIECE_TYPES] = [
         105, 104, 103, 102, 101, 100,
         205, 204, 203, 202, 201, 200,
         305, 304, 303, 302, 301, 300,

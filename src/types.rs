@@ -3,12 +3,6 @@ use super::square::*;
 use std::ops::{Index, IndexMut};
 use std::slice::{Iter, IterMut};
 
-pub type Depth = i8;
-pub type Hash = u64;
-pub type MoveInt = u16;
-pub type Ply = usize;
-pub type Value = i32;
-
 pub type ColorMap<T> = EnumMap<T, { Color::N_COLORS }>;
 pub type PieceMap<T> = EnumMap<T, { Piece::N_PIECES }>;
 pub type PieceTypeMap<T> = EnumMap<T, { PieceType::N_PIECE_TYPES }>;

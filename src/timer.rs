@@ -1,7 +1,6 @@
 use super::board::*;
 use super::moov::*;
 use super::piece::*;
-use super::types::*;
 use regex::{Match, Regex};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock};
@@ -12,7 +11,7 @@ use std::time::{Duration, Instant};
 pub enum TimeControl {
     Infinite,
     FixedDuration(Duration),
-    FixedDepth(Depth),
+    FixedDepth(i8),
     FixedNodes(u64),
     Variable {
         wtime: Duration,
@@ -68,7 +67,7 @@ impl TryFrom<&str> for TimeControl {
             count += 1;
             result = m
                 .as_str()
-                .parse::<Depth>()
+                .parse::<i8>()
                 .map_err(|_| "Unable to parse depth.")
                 .map(Self::FixedDepth);
         }
@@ -204,7 +203,7 @@ impl Timer {
         (time_target, time_maximum)
     }
 
-    pub fn start_check(&mut self, depth: Depth) -> bool {
+    pub fn start_check(&mut self, depth: i8) -> bool {
         if self.local_stop {
             return false;
         }

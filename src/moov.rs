@@ -1,6 +1,5 @@
 use super::piece::*;
 use super::square::*;
-use super::types::*;
 use std::fmt;
 use std::num::NonZeroU16;
 
@@ -10,10 +9,8 @@ pub struct Move(NonZeroU16);
 impl Move {
     pub fn new(from_sq: SQ, to_sq: SQ, flags: MoveFlags) -> Self {
         Self(
-            NonZeroU16::new(
-                (flags as MoveInt) << 12 | (from_sq as MoveInt) << 6 | (to_sq as MoveInt),
-            )
-            .expect("MoveInt is zero."),
+            NonZeroU16::new((flags as u16) << 12 | (from_sq as u16) << 6 | (to_sq as u16))
+                .expect("MoveInt is zero."),
         )
     }
 
@@ -29,7 +26,7 @@ impl Move {
         MoveFlags::from(((self.0.get() >> 12) & 0xf) as u8)
     }
 
-    pub fn move_int(&self) -> MoveInt {
+    pub fn move_int(&self) -> u16 {
         self.0.get()
     }
 
@@ -60,8 +57,8 @@ impl Move {
     }
 }
 
-impl From<MoveInt> for Move {
-    fn from(m: MoveInt) -> Self {
+impl From<u16> for Move {
+    fn from(m: u16) -> Self {
         Self(NonZeroU16::new(m).expect("MoveInt is zero."))
     }
 }

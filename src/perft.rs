@@ -2,9 +2,8 @@ use std::time::Instant;
 
 use super::board::*;
 use super::move_list::*;
-use super::types::*;
 
-fn perft(board: &mut Board, depth: Depth) -> u128 {
+fn perft(board: &mut Board, depth: i8) -> u128 {
     let moves: MoveList = MoveList::from(board);
 
     if depth == 1 {
@@ -21,7 +20,7 @@ fn perft(board: &mut Board, depth: Depth) -> u128 {
     nodes
 }
 
-pub fn print_perft(board: &mut Board, depth: Depth) -> u128 {
+pub fn print_perft(board: &mut Board, depth: i8) -> u128 {
     let now = Instant::now();
 
     let moves: MoveList = MoveList::from(board);

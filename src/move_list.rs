@@ -2,7 +2,6 @@ use super::bitboard::*;
 use super::board::*;
 use super::moov::*;
 use super::square::*;
-use super::types::*;
 
 use arrayvec::ArrayVec;
 
@@ -10,7 +9,7 @@ pub const MAX_MOVES: usize = 252;
 
 pub struct MoveListEntry {
     pub m: Move,
-    pub score: Value,
+    pub score: i32,
 }
 
 impl MoveListEntry {

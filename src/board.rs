@@ -106,7 +106,7 @@ impl Board {
         self.move_piece_quiet(from_sq, to_sq);
     }
 
-    pub fn eval(&self) -> Value {
+    pub fn eval(&self) -> i32 {
         self.network.eval(self.ctm)
     }
 
@@ -981,11 +981,11 @@ impl Board {
         self.ply
     }
 
-    pub fn hash(&self) -> Hash {
+    pub fn hash(&self) -> u64 {
         self.hasher.hash()
     }
 
-    pub fn material_hash(&self) -> Hash {
+    pub fn material_hash(&self) -> u64 {
         self.hasher.material_hash()
     }
 
@@ -1129,7 +1129,7 @@ pub struct HistoryEntry {
     captured: Option<Piece>,
     epsq: Option<SQ>,
     moov: Option<Move>,
-    material_hash: Hash,
+    material_hash: u64,
     half_move_counter: u16,
     plies_from_null: u16,
 }

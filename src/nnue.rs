@@ -110,14 +110,14 @@ impl Network {
             .sum()
     }
 
-    pub fn eval(&self, ctm: Color) -> Value {
+    pub fn eval(&self, ctm: Color) -> i32 {
         let bucket = (self.pop_count as usize - 1) / Self::BUCKET_DIV;
         let hidden_layer = &self.hidden_layers[bucket];
 
         let output = self.eval_color(ctm, &hidden_layer.weights[..Self::L1 / Self::LANES])
             + self.eval_color(!ctm, &hidden_layer.weights[Self::L1 / Self::LANES..]);
 
-        Value::from(hidden_layer.biases[0]) * Self::NNUE2SCORE / Self::HIDDEN_SCALE
+        i32::from(hidden_layer.biases[0]) * Self::NNUE2SCORE / Self::HIDDEN_SCALE
             + (output.reduce_add() / Self::INPUT_SCALE) * Self::NNUE2SCORE / Self::COMB_SCALE
     }
 
@@ -133,8 +133,8 @@ impl Network {
     const N_BUCKETS: usize = 8;
     const BUCKET_DIV: usize = 32 / Self::N_BUCKETS;
     const LANES: usize = i16x16::LANES as usize;
-    const NNUE2SCORE: Value = 400;
-    const INPUT_SCALE: Value = 255;
-    const HIDDEN_SCALE: Value = 64;
-    const COMB_SCALE: Value = Self::HIDDEN_SCALE * Self::INPUT_SCALE;
+    const NNUE2SCORE: i32 = 400;
+    const INPUT_SCALE: i32 = 255;
+    const HIDDEN_SCALE: i32 = 64;
+    const COMB_SCALE: i32 = Self::HIDDEN_SCALE * Self::INPUT_SCALE;
 }

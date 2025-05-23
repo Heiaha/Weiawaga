@@ -1,11 +1,10 @@
 use super::search_master::*;
 use super::timer::*;
-use super::types::*;
 use regex::Regex;
 use std::io::BufRead;
 use std::sync::LazyLock;
 use std::{io, sync, thread};
-// A lot of this nice uci implementation was inspired by Asymptote.
+// Asymptote inspired a lot of this nice uci implementation.
 
 pub struct UCI {
     _main_thread: thread::JoinHandle<()>,
@@ -63,7 +62,7 @@ pub enum UCICommand {
     Go(TimeControl),
     Quit,
     Stop,
-    Perft(Depth),
+    Perft(i8),
     Option {
         name: String,
         value: String,
@@ -164,7 +163,7 @@ impl UCICommand {
             .name("depth")
             .ok_or("Invalid perft format.")?
             .as_str()
-            .parse::<Depth>()
+            .parse::<i8>()
             .map_err(|_| "Invalid depth.")
             .map(Self::Perft)
     }

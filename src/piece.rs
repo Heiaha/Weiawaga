@@ -1,4 +1,3 @@
-use super::types::*;
 use std::fmt;
 use std::ops::Not;
 
@@ -162,7 +161,7 @@ impl Color {
         self as usize
     }
 
-    pub fn factor(&self) -> Value {
+    pub fn factor(&self) -> i32 {
         match *self {
             Self::White => 1,
             Self::Black => -1,
