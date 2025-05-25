@@ -3,9 +3,9 @@ name = "Weiawaga"
 authors = ["Heiaha"]
 repository = "https://github.com/Heiaha/Weiawaga"
 version = "5.0.0"
-edition = "2021"
+edition = "2024"
 readme = "README.md"
-rust-version = "1.80.0"
+rust-version = "1.85.0"
 
 [dependencies]
 arrayvec = "0.7.6"

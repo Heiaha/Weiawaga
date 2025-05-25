@@ -10,6 +10,7 @@ use super::types::*;
 pub struct MoveSorter {
     killer_moves: [Option<Move>; MAX_MOVES],
     history_scores: ColorMap<SQMap<SQMap<i32>>>,
+    counter_moves: SQMap<SQMap<Option<Move>>>,
 }
 
 impl MoveSorter {
@@ -19,6 +20,7 @@ impl MoveSorter {
             history_scores: ColorMap::new(
                 [SQMap::new([SQMap::new([0; SQ::N_SQUARES]); SQ::N_SQUARES]); 2],
             ),
+            counter_moves: SQMap::new([SQMap::new([None; SQ::N_SQUARES]); SQ::N_SQUARES]),
         }
     }
 
@@ -42,6 +44,10 @@ impl MoveSorter {
         if m.is_quiet() {
             if self.is_killer(m, ply) {
                 return Self::KILLER_MOVE_SCORE;
+            }
+
+            if self.is_counter(board, m) {
+                return Self::COUNTER_MOVE_SCORE;
             }
 
             if m.is_castling() {
@@ -102,8 +108,18 @@ impl MoveSorter {
         }
     }
 
+    pub fn add_counter(&mut self, p_move: Move, m: Move) {
+        self.counter_moves[p_move.from_sq()][p_move.to_sq()] = Some(m);
+    }
+
     fn is_killer(&self, m: Move, ply: usize) -> bool {
         self.killer_moves[ply] == Some(m)
+    }
+
+    fn is_counter(&self, board: &Board, m: Move) -> bool {
+        board
+            .peek()
+            .is_some_and(|p_move| self.counter_moves[p_move.from_sq()][p_move.to_sq()] == Some(m))
     }
 
     fn history_score(&self, m: Move, ctm: Color) -> i32 {
@@ -200,6 +216,7 @@ impl MoveSorter {
     const PROMOTION_SCORE: i32 = 50 * Self::HISTORY_MAX;
     const CAPTURE_SCORE: i32 = 10 * Self::HISTORY_MAX;
     const KILLER_MOVE_SCORE: i32 = 5 * Self::HISTORY_MAX;
+    const COUNTER_MOVE_SCORE: i32 = 3 * Self::HISTORY_MAX;
     const CASTLING_SCORE: i32 = 2 * Self::HISTORY_MAX;
 
     const SEE_PIECE_TYPE: PieceTypeMap<i32> = PieceTypeMap::new([100, 375, 375, 500, 1025, 10000]);

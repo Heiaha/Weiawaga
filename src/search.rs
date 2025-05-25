@@ -382,6 +382,9 @@ impl<'a> Search<'a> {
                     if m.is_quiet() {
                         self.move_sorter.add_killer(m, ply);
                         self.move_sorter.add_history(m, board.ctm(), depth);
+                        if let Some(p_move) = board.peek() {
+                            self.move_sorter.add_counter(p_move, m);
+                        }
                     }
                     tt_flag = Bound::Lower;
                     alpha = beta;
@@ -595,15 +598,17 @@ impl<'a> Search<'a> {
         let elapsed = self.timer.elapsed();
         let nodes = self.timer.nodes();
 
-        println!("info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} pv {pv}",
-                 m = m,
-                 depth = depth,
-                 sel_depth = self.sel_depth,
-                 time = elapsed.as_millis(),
-                 score_str = score_str,
-                 nodes = nodes,
-                 nps = (nodes as f64 / elapsed.as_secs_f64()) as u64,
-                 pv = self.get_pv());
+        println!(
+            "info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} pv {pv}",
+            m = m,
+            depth = depth,
+            sel_depth = self.sel_depth,
+            time = elapsed.as_millis(),
+            score_str = score_str,
+            nodes = nodes,
+            nps = (nodes as f64 / elapsed.as_secs_f64()) as u64,
+            pv = self.get_pv()
+        );
     }
 
     fn print_currmovenumber(depth: i8, m: Move, idx: usize) {
