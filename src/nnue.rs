@@ -131,7 +131,7 @@ impl Network {
     const N_INPUTS: usize = Piece::N_PIECES * SQ::N_SQUARES;
     const L1: usize = 512;
     const N_BUCKETS: usize = 8;
-    const BUCKET_DIV: usize = 32 / Self::N_BUCKETS;
+    const BUCKET_DIV: usize = (32 + Self::N_BUCKETS - 1) / Self::N_BUCKETS;
     const LANES: usize = i16x16::LANES as usize;
     const NNUE2SCORE: i32 = 400;
     const INPUT_SCALE: i32 = 255;
