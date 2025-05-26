@@ -111,7 +111,7 @@ impl Network {
     }
 
     pub fn eval(&self, ctm: Color) -> i32 {
-        let bucket = (self.pop_count as usize - 1) / Self::BUCKET_DIV;
+        let bucket = (self.pop_count as usize - 2) / Self::BUCKET_DIV;
         let hidden_layer = &self.hidden_layers[bucket];
 
         let output = self.eval_color(ctm, &hidden_layer.weights[..Self::L1 / Self::LANES])
@@ -129,7 +129,7 @@ impl Network {
 
 impl Network {
     const N_INPUTS: usize = Piece::N_PIECES * SQ::N_SQUARES;
-    const L1: usize = 256;
+    const L1: usize = 512;
     const N_BUCKETS: usize = 8;
     const BUCKET_DIV: usize = 32 / Self::N_BUCKETS;
     const LANES: usize = i16x16::LANES as usize;
