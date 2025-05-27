@@ -22,6 +22,10 @@ impl Move {
         SQ::from(((self.0.get() >> 6) & 0x3f) as u8)
     }
 
+    pub fn squares(&self) -> (SQ, SQ) {
+        (self.from_sq(), self.to_sq())
+    }
+
     pub fn flags(&self) -> MoveFlags {
         MoveFlags::from(((self.0.get() >> 12) & 0xf) as u8)
     }

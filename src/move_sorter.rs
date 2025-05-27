@@ -79,11 +79,10 @@ impl MoveSorter {
     }
 
     fn mvv_lva_score(board: &Board, m: Move) -> i32 {
-        let captured_pt = board
-            .piece_type_at(m.to_sq())
-            .expect("No captured in MVVLVA.");
+        let (from_sq, to_sq) = m.squares();
+        let captured_pt = board.piece_type_at(to_sq).expect("No captured in MVVLVA.");
         let attacking_pt = board
-            .piece_type_at(m.from_sq())
+            .piece_type_at(from_sq)
             .expect("No attacker in MVVLVA.");
 
         Self::MVV_LVA_SCORES[captured_pt.index() * PieceType::N_PIECE_TYPES + attacking_pt.index()]
@@ -95,11 +94,11 @@ impl MoveSorter {
 
     pub fn add_history(&mut self, m: Move, ctm: Color, depth: i8) {
         let depth = depth as i32;
-        let from = m.from_sq();
-        let to = m.to_sq();
-        self.history_scores[ctm][from][to] += depth * depth;
+        let (from_sq, to_sq) = m.squares();
+        let score = &mut self.history_scores[ctm][from_sq][to_sq];
+        *score += depth * depth;
 
-        if self.history_scores[ctm][from][to] >= Self::HISTORY_MAX {
+        if *score >= Self::HISTORY_MAX {
             self.history_scores
                 .iter_mut()
                 .flatten()
@@ -131,8 +130,7 @@ impl MoveSorter {
             return true;
         }
 
-        let from_sq = m.from_sq();
-        let to_sq = m.to_sq();
+        let (from_sq, to_sq) = m.squares();
 
         let Some(captured_pt) = board.piece_type_at(to_sq) else {
             return false;

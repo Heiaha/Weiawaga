@@ -271,19 +271,20 @@ impl Board {
         let mut half_move_counter = self.history[self.ply].half_move_counter + 1;
         let mut captured = None;
         let mut epsq = None;
+        let (from_sq, to_sq) = m.squares();
         self.ply += 1;
 
-        if self.piece_type_at(m.from_sq()) == Some(PieceType::Pawn) {
+        if self.piece_type_at(from_sq) == Some(PieceType::Pawn) {
             half_move_counter = 0;
         }
 
         match m.flags() {
             MoveFlags::Quiet => {
-                self.move_piece_quiet(m.from_sq(), m.to_sq());
+                self.move_piece_quiet(from_sq, to_sq);
             }
             MoveFlags::DoublePush => {
-                self.move_piece_quiet(m.from_sq(), m.to_sq());
-                epsq = Some(m.from_sq() + Direction::North.relative(self.ctm));
+                self.move_piece_quiet(from_sq, m.to_sq());
+                epsq = Some(from_sq + Direction::North.relative(self.ctm));
                 if let Some(sq) = epsq {
                     self.hasher.update_ep(sq.file());
                 }
@@ -297,33 +298,33 @@ impl Board {
                 self.move_piece_quiet(SQ::A1.relative(self.ctm), SQ::D1.relative(self.ctm));
             }
             MoveFlags::EnPassant => {
-                self.move_piece_quiet(m.from_sq(), m.to_sq());
-                self.remove_piece(m.to_sq() + Direction::South.relative(self.ctm));
+                self.move_piece_quiet(from_sq, to_sq);
+                self.remove_piece(to_sq + Direction::South.relative(self.ctm));
             }
             MoveFlags::Capture => {
-                captured = self.piece_at(m.to_sq());
+                captured = self.piece_at(to_sq);
                 half_move_counter = 0;
-                self.move_piece(m.from_sq(), m.to_sq());
+                self.move_piece(from_sq, to_sq);
             }
             // Promotions:
             _ => {
                 if m.is_capture() {
-                    captured = self.piece_at(m.to_sq());
-                    self.remove_piece(m.to_sq());
+                    captured = self.piece_at(to_sq);
+                    self.remove_piece(to_sq);
                 }
-                self.remove_piece(m.from_sq());
+                self.remove_piece(from_sq);
                 self.set_piece_at(
                     Piece::make_piece(
                         self.ctm,
                         m.promotion()
                             .expect("Tried to set a promotion piece for a non-promotion move."),
                     ),
-                    m.to_sq(),
+                    to_sq,
                 );
             }
         };
         self.history[self.ply] = HistoryEntry {
-            entry: self.history[self.ply - 1].entry | m.to_sq().bb() | m.from_sq().bb(),
+            entry: self.history[self.ply - 1].entry | to_sq.bb() | from_sq.bb(),
             moov: Some(m),
             plies_from_null: self.history[self.ply - 1].plies_from_null + 1,
             material_hash: self.material_hash(),
@@ -340,12 +341,14 @@ impl Board {
         self.hasher.update_color();
 
         let m = self.history[self.ply].moov?;
+        let (from_sq, to_sq) = m.squares();
+
         match m.flags() {
             MoveFlags::Quiet => {
-                self.move_piece_quiet(m.to_sq(), m.from_sq());
+                self.move_piece_quiet(to_sq, from_sq);
             }
             MoveFlags::DoublePush => {
-                self.move_piece_quiet(m.to_sq(), m.from_sq());
+                self.move_piece_quiet(to_sq, from_sq);
                 if let Some(sq) = self.history[self.ply].epsq {
                     self.hasher.update_ep(sq.file());
                 }
@@ -359,33 +362,33 @@ impl Board {
                 self.move_piece_quiet(SQ::D1.relative(self.ctm), SQ::A1.relative(self.ctm));
             }
             MoveFlags::EnPassant => {
-                self.move_piece_quiet(m.to_sq(), m.from_sq());
+                self.move_piece_quiet(to_sq, from_sq);
                 self.set_piece_at(
                     Piece::make_piece(!self.ctm, PieceType::Pawn),
-                    m.to_sq() + Direction::South.relative(self.ctm),
+                    to_sq + Direction::South.relative(self.ctm),
                 );
             }
             MoveFlags::PrKnight | MoveFlags::PrBishop | MoveFlags::PrRook | MoveFlags::PrQueen => {
-                self.remove_piece(m.to_sq());
-                self.set_piece_at(Piece::make_piece(self.ctm, PieceType::Pawn), m.from_sq());
+                self.remove_piece(to_sq);
+                self.set_piece_at(Piece::make_piece(self.ctm, PieceType::Pawn), from_sq);
             }
             MoveFlags::PcKnight | MoveFlags::PcBishop | MoveFlags::PcRook | MoveFlags::PcQueen => {
-                self.remove_piece(m.to_sq());
-                self.set_piece_at(Piece::make_piece(self.ctm, PieceType::Pawn), m.from_sq());
+                self.remove_piece(to_sq);
+                self.set_piece_at(Piece::make_piece(self.ctm, PieceType::Pawn), from_sq);
                 self.set_piece_at(
                     self.history[self.ply]
                         .captured
                         .expect("Tried to revert a capture move with no capture."),
-                    m.to_sq(),
+                    to_sq,
                 );
             }
             MoveFlags::Capture => {
-                self.move_piece_quiet(m.to_sq(), m.from_sq());
+                self.move_piece_quiet(to_sq, from_sq);
                 self.set_piece_at(
                     self.history[self.ply]
                         .captured
                         .expect("Tried to revert a capture move with no capture."),
-                    m.to_sq(),
+                    to_sq,
                 );
             }
         }
