@@ -11,10 +11,19 @@ use super::search::*;
 ///////////////////////////////////////////////////////////////////
 
 #[derive(Eq, PartialEq, Copy, Clone, Default)]
+#[repr(transparent)]
 pub struct TTEntry(u64);
 
 impl TTEntry {
-    fn new(value: i32, best_move: Option<Move>, depth: i8, bound: Bound, age: u8) -> Self {
+    fn new(
+        hash: u64,
+        value: i32,
+        best_move: Option<Move>,
+        depth: i8,
+        bound: Bound,
+        age: u8,
+    ) -> Self {
+        let key16 = (hash >> 48) as u16 as u64;
         let m16 = best_move.map_or(0, |m| m.move_int()) as u64;
         let value16 = value as i16 as u16 as u64;
         let depth8 = depth as u8 as u64;
@@ -25,8 +34,13 @@ impl TTEntry {
             m16 | (value16 << Self::VALUE_SHIFT)
                 | (depth8 << Self::DEPTH_SHIFT)
                 | (bound2 << Self::BOUND_SHIFT)
-                | (age6 << Self::AGE_SHIFT),
+                | (age6 << Self::AGE_SHIFT)
+                | (key16 << Self::KEY_SHIFT),
         )
+    }
+
+    pub fn key(self) -> u64 {
+        self.0 >> Self::KEY_SHIFT
     }
 
     pub fn age(self) -> u8 {
@@ -47,19 +61,7 @@ impl TTEntry {
 
     pub fn best_move(self) -> Option<Move> {
         let m = (self.0 & Self::MOVE_MASK) as u16;
-        if m == 0 { None } else { Some(Move::from(m)) }
-    }
-}
-
-impl From<u64> for TTEntry {
-    fn from(value: u64) -> Self {
-        unsafe { std::mem::transmute(value) }
-    }
-}
-
-impl From<TTEntry> for u64 {
-    fn from(value: TTEntry) -> Self {
-        unsafe { std::mem::transmute(value) }
+        (m != 0).then(|| Move::from(m))
     }
 }
 
@@ -73,6 +75,7 @@ impl TTEntry {
     const AGE_SHIFT: usize = 42;
     const BOUND_SHIFT: usize = 40;
     const DEPTH_SHIFT: usize = 32;
+    const KEY_SHIFT: usize = 48;
     const VALUE_SHIFT: usize = 16;
 }
 
@@ -81,19 +84,19 @@ impl TTEntry {
 ///////////////////////////////////////////////////////////////////
 
 pub struct TT {
-    table: Vec<AtomicEntry>,
+    table: Vec<AtomicU64>,
     bitmask: u64,
     age: u8,
 }
 
 impl TT {
-    pub fn new(mb_size: usize) -> Self {
-        let upper_limit = mb_size * 1024 * 1024 / size_of::<AtomicEntry>() + 1;
+    pub fn new(megabytes: usize) -> Self {
+        let upper_limit = megabytes * 1024 * 1024 / size_of::<AtomicU64>() + 1;
         let count = upper_limit.next_power_of_two() / 2;
         let mut table = Vec::with_capacity(count);
 
         for _ in 0..count {
-            table.push(AtomicEntry::default());
+            table.push(AtomicU64::new(0));
         }
 
         TT {
@@ -111,35 +114,39 @@ impl TT {
         best_move: Option<Move>,
         bound: Bound,
     ) {
-        unsafe {
-            let idx = self.index(board);
-            let entry = self.table.get_unchecked(idx).read(board.hash());
+        let idx = self.index(board);
+        debug_assert!(idx < self.table.len());
+        let aentry = &self.table[idx];
+        let data = aentry.load(Ordering::Relaxed);
 
-            if entry.is_none_or(|entry| {
-                bound == Bound::Exact
-                    || self.age != entry.age()
-                    || depth >= entry.depth() - Self::DEPTH_MARGIN
-            }) {
-                self.table.get_unchecked(idx).write(
-                    board.hash(),
-                    TTEntry::new(value, best_move, depth, bound, self.age),
-                )
-            }
+        let should_replace = data == 0 || {
+            let entry = TTEntry(data);
+            bound == Bound::Exact
+                || self.age != entry.age()
+                || depth >= entry.depth() - Self::DEPTH_MARGIN
+        };
+
+        if should_replace {
+            aentry.store(
+                TTEntry::new(board.hash(), value, best_move, depth, bound, self.age).0,
+                Ordering::Relaxed,
+            );
         }
     }
 
     pub fn get(&self, board: &Board) -> Option<TTEntry> {
-        unsafe {
-            self.table
-                .get_unchecked(self.index(board))
-                .read(board.hash())
-        }
+        let idx = self.index(board);
+        debug_assert!(idx < self.table.len());
+        let data = self.table[idx].load(Ordering::Relaxed);
+        (data != 0)
+            .then(|| TTEntry(data))
+            .filter(|entry| entry.key() == (board.hash() >> TTEntry::KEY_SHIFT))
     }
 
-    pub fn clear(&mut self) {
+    pub fn clear(&self) {
         self.table
-            .iter_mut()
-            .for_each(|entry| *entry = AtomicEntry::default());
+            .iter()
+            .for_each(|entry| entry.store(0, Ordering::Relaxed));
     }
 
     pub fn age_up(&mut self) {
@@ -151,7 +158,7 @@ impl TT {
     }
 
     pub fn mb_size(&self) -> usize {
-        self.table.len() * size_of::<AtomicEntry>() / 1024 / 1024
+        self.table.len() * size_of::<AtomicU64>() / 1024 / 1024
     }
 
     pub fn hashfull(&self) -> usize {
@@ -159,10 +166,7 @@ impl TT {
         self.table
             .iter()
             .take(1000)
-            .filter(|&atomic_entry| {
-                let entry = atomic_entry.entry();
-                entry.age() == self.age
-            })
+            .filter(|&aentry| TTEntry(aentry.load(Ordering::Relaxed)).age() == self.age)
             .count()
     }
 
@@ -170,8 +174,7 @@ impl TT {
     pub fn prefetch(&self, board: &Board) {
         #[cfg(target_arch = "x86_64")]
         unsafe {
-            let ptr =
-                self.table.get_unchecked(self.index(board)) as *const AtomicEntry as *const i8;
+            let ptr = &self.table[self.index(board)] as *const AtomicU64 as *const i8;
             x86_64::_mm_prefetch(ptr, x86_64::_MM_HINT_T0);
         }
     }
@@ -179,42 +182,4 @@ impl TT {
 
 impl TT {
     const DEPTH_MARGIN: i8 = 2;
-}
-
-///////////////////////////////////////////////////////////////////
-// Atomic value for storage.
-///////////////////////////////////////////////////////////////////
-
-#[derive(Default)]
-struct AtomicEntry {
-    checksum: AtomicU64,
-    data: AtomicU64,
-}
-
-impl AtomicEntry {
-    fn read(&self, hash: u64) -> Option<TTEntry> {
-        let (checksum, data) = (
-            self.checksum.load(Ordering::Relaxed),
-            self.data.load(Ordering::Relaxed),
-        );
-        if checksum ^ data == hash {
-            Some(TTEntry::from(data))
-        } else {
-            None
-        }
-    }
-
-    fn entry(&self) -> TTEntry {
-        TTEntry::from(self.data.load(Ordering::Relaxed))
-    }
-
-    fn write(&self, hash: u64, entry: TTEntry) {
-        let data = u64::from(entry);
-        self.checksum.store(hash ^ data, Ordering::Relaxed);
-        self.data.store(data, Ordering::Relaxed);
-    }
-
-    fn is_used(&self) -> bool {
-        self.checksum.load(Ordering::Relaxed) != u64::default()
-    }
 }
