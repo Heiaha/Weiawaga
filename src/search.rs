@@ -115,7 +115,7 @@ impl<'a> Search<'a> {
         // Check the hash table for the current
         // position, primarily for move ordering.
         ///////////////////////////////////////////////////////////////////
-        let hash_move = self.tt.probe(board).and_then(|entry| entry.best_move());
+        let hash_move = self.tt.get(board).and_then(|entry| entry.best_move());
 
         ///////////////////////////////////////////////////////////////////
         // Score moves and begin searching recursively.
@@ -162,7 +162,7 @@ impl<'a> Search<'a> {
         }
 
         best_move = best_move
-            .or_else(|| self.tt.probe(board).and_then(|e| e.best_move()))
+            .or_else(|| self.tt.get(board).and_then(|e| e.best_move()))
             .or_else(|| moves.into_iter().next().map(|mv| mv.m));
 
         if !self.timer.local_stop() {
@@ -230,10 +230,10 @@ impl<'a> Search<'a> {
         // Probe the hash table and adjust the value.
         // If appropriate, produce a cutoff.
         ///////////////////////////////////////////////////////////////////
-        let tt_entry = self.tt.probe(board);
+        let tt_entry = self.tt.get(board);
         if let Some(tt_entry) = tt_entry {
             if tt_entry.depth() >= depth && !is_pv && excluded_move.is_none() {
-                match tt_entry.flag() {
+                match tt_entry.bound() {
                     Bound::Exact => return tt_entry.value(),
                     Bound::Lower => alpha = alpha.max(tt_entry.value()),
                     Bound::Upper => beta = beta.min(tt_entry.value()),
@@ -439,9 +439,9 @@ impl<'a> Search<'a> {
         }
         alpha = alpha.max(eval);
 
-        let tt_entry = self.tt.probe(board);
+        let tt_entry = self.tt.get(board);
         if let Some(tt_entry) = tt_entry {
-            match tt_entry.flag() {
+            match tt_entry.bound() {
                 Bound::Exact => return tt_entry.value(),
                 Bound::Lower => alpha = alpha.max(tt_entry.value()),
                 Bound::Upper => beta = beta.min(tt_entry.value()),
@@ -540,7 +540,7 @@ impl<'a> Search<'a> {
             && !Self::is_checkmate(entry.value())
             && excluded_move.is_none()
             && entry.depth() + Self::SING_EXTEND_DEPTH_MARGIN >= depth
-            && entry.flag() != Bound::Upper
+            && entry.bound() != Bound::Upper
     }
 
     fn null_reduction(depth: i8) -> i8 {
@@ -597,9 +597,10 @@ impl<'a> Search<'a> {
 
         let elapsed = self.timer.elapsed();
         let nodes = self.timer.nodes();
+        let hashfull = self.tt.hashfull();
 
         println!(
-            "info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} pv {pv}",
+            "info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv}",
             m = m,
             depth = depth,
             sel_depth = self.sel_depth,

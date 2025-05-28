@@ -79,6 +79,7 @@ impl SearchMaster {
 
     fn go(&mut self, time_control: TimeControl) {
         self.stop.store(false, Ordering::SeqCst);
+        self.tt.age_up();
         let nodes = Arc::new(AtomicU64::new(0));
 
         let best_move = thread::scope(|s| {
