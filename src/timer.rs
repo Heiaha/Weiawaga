@@ -38,16 +38,13 @@ impl TryFrom<&str> for TimeControl {
     type Error = &'static str;
 
     fn try_from(line: &str) -> Result<Self, Self::Error> {
-        if line == "go" {
+        if line == "go" || line == "go ponder" {
             return Ok(TimeControl::Infinite);
         }
 
         let re_captures = GO_RE.captures(line).ok_or("Invalid go format.")?;
 
-        if re_captures.name("ponder").is_some()
-            || re_captures.name("searchmoves").is_some()
-            || re_captures.name("mate").is_some()
-        {
+        if re_captures.name("searchmoves").is_some() || re_captures.name("mate").is_some() {
             return Err("Feature is not implemented.");
         }
 
@@ -129,7 +126,8 @@ static GO_RE: LazyLock<Regex> = LazyLock::new(|| {
                     \s+winc\s+(?P<winc>\d+) |
                     \s+binc\s+(?P<binc>\d+) |
                     \s+mate\s+(?P<mate>\d+) |
-                    \s+movestogo\s+(?P<movestogo>\d+)
+                    \s+movestogo\s+(?P<movestogo>\d+) |
+                    \s+ponder
                 )*
             $",
     )
@@ -140,6 +138,7 @@ static GO_RE: LazyLock<Regex> = LazyLock::new(|| {
 pub struct Timer {
     control: TimeControl,
     start_time: Instant,
+    pondering: Arc<AtomicBool>,
     global_stop: Arc<AtomicBool>,
     local_stop: bool,
     nodes: Arc<AtomicU64>,
@@ -154,6 +153,7 @@ impl Timer {
     pub fn new(
         board: &Board,
         control: TimeControl,
+        pondering: Arc<AtomicBool>,
         stop: Arc<AtomicBool>,
         nodes: Arc<AtomicU64>,
         overhead: Duration,
@@ -166,8 +166,9 @@ impl Timer {
 
         Self {
             start_time: Instant::now(),
-            global_stop: stop,
+            pondering,
             local_stop: false,
+            global_stop: stop,
             nodes,
             control,
             overhead,
@@ -218,6 +219,10 @@ impl Timer {
             return true;
         }
 
+        if self.pondering.load(Ordering::Relaxed) {
+            return true;
+        }
+
         let start = match self.control {
             TimeControl::Infinite => true,
             TimeControl::FixedDuration(duration) => self.elapsed() + self.overhead <= duration,
@@ -227,8 +232,7 @@ impl Timer {
         };
 
         if !start {
-            self.local_stop = true;
-            self.global_stop.store(true, Ordering::Relaxed);
+            self.stop();
         }
         start
     }
@@ -247,9 +251,13 @@ impl Timer {
         let nodes = self.nodes.fetch_add(self.times_checked, Ordering::Relaxed);
         self.times_checked = 0;
 
-        if self.global_stop.load(Ordering::Relaxed) {
-            self.local_stop = true;
+        self.local_stop = self.global_stop.load(Ordering::Relaxed);
+        if self.local_stop {
             return true;
+        }
+
+        if self.pondering.load(Ordering::Relaxed) {
+            return false;
         }
 
         let stop = match self.control {
@@ -262,8 +270,7 @@ impl Timer {
 
         if stop {
             self.nodes.fetch_add(self.times_checked, Ordering::Relaxed);
-            self.local_stop = true;
-            self.global_stop.store(true, Ordering::Relaxed);
+            self.stop();
         }
 
         stop
@@ -284,6 +291,10 @@ impl Timer {
 
     pub fn local_stop(&self) -> bool {
         self.local_stop
+    }
+
+    pub fn pondering(&self) -> bool {
+        self.pondering.load(Ordering::Relaxed)
     }
 
     pub fn update(&mut self, best_move: Option<Move>) {

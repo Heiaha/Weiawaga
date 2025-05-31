@@ -1,18 +1,19 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::mpsc::Receiver;
-use std::thread;
-use std::time::Duration;
-
 use super::board::*;
 use super::perft::*;
 use super::search::*;
 use super::timer::*;
 use super::tt::*;
 use super::uci::*;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::mpsc::Receiver;
+use std::thread;
+use std::time::Duration;
 
 pub struct SearchMaster {
     stop: Arc<AtomicBool>,
+    pondering: Arc<AtomicBool>,
+    ponder_enabled: bool,
     board: Board,
     num_threads: u16,
     tt: TT,
@@ -20,9 +21,11 @@ pub struct SearchMaster {
 }
 
 impl SearchMaster {
-    pub fn new(stop: Arc<AtomicBool>) -> Self {
+    pub fn new(stop: Arc<AtomicBool>, pondering: Arc<AtomicBool>) -> Self {
         Self {
             stop,
+            pondering,
+            ponder_enabled: false,
             board: Board::new(),
             num_threads: 1,
             tt: TT::new(16),
@@ -46,6 +49,7 @@ impl SearchMaster {
                     println!("option name Hash type spin default 16 min 1 max 65536");
                     println!("option name Threads type spin default 1 min 1 max 512");
                     println!("option name Overhead type spin default 0 min 0 max 5000");
+                    println!("option name Ponder type check default false");
                     println!("uciok");
                 }
                 UCICommand::Position { fen, moves } => {
@@ -54,11 +58,15 @@ impl SearchMaster {
                         Err(err) => eprintln!("{}", err),
                     };
                 }
-                UCICommand::Go(time_control) => {
-                    self.go(time_control);
+                UCICommand::Go {
+                    time_control,
+                    ponder,
+                } => {
+                    self.go(time_control, ponder);
                 }
                 UCICommand::Perft(depth) => {
-                    print_perft(&mut self.board, depth);
+                    let mut board = self.board.duplicate();
+                    print_perft(&mut board, depth);
                 }
                 UCICommand::Option { name, value } => match self.set_option(name, value) {
                     Ok(result) => println!("info string set {}", result),
@@ -77,17 +85,26 @@ impl SearchMaster {
         }
     }
 
-    fn go(&mut self, time_control: TimeControl) {
+    fn go(&mut self, time_control: TimeControl, ponder: bool) {
+        if ponder && !self.ponder_enabled {
+            eprintln!("Pondering is not enabled.");
+            return;
+        }
+
+        let board = self.board.duplicate();
+
+        self.pondering.store(ponder, Ordering::SeqCst);
         self.stop.store(false, Ordering::SeqCst);
         self.tt.age_up();
         let nodes = Arc::new(AtomicU64::new(0));
 
-        let best_move = thread::scope(|s| {
+        let (best_move, ponder_move) = thread::scope(|s| {
             // Create main search thread with the actual time control. This thread controls self.stop.
             let mut main_search_thread = Search::new(
                 Timer::new(
-                    &self.board,
+                    &board,
                     time_control,
+                    self.pondering.clone(),
                     self.stop.clone(),
                     nodes.clone(),
                     self.overhead,
@@ -98,11 +115,12 @@ impl SearchMaster {
 
             // Create helper search threads which will stop when self.stop resolves to true.
             for id in 1..self.num_threads {
-                let thread_board = self.board.duplicate();
+                let thread_board = board.duplicate();
                 let mut helper_search_thread = Search::new(
                     Timer::new(
                         &thread_board,
                         TimeControl::Infinite,
+                        self.pondering.clone(),
                         self.stop.clone(),
                         nodes.clone(),
                         self.overhead,
@@ -112,12 +130,15 @@ impl SearchMaster {
                 );
                 s.spawn(move || helper_search_thread.go(thread_board));
             }
-            main_search_thread.go(self.board.duplicate())
+            main_search_thread.go(board.duplicate())
         });
 
-        match best_move {
-            Some(m) => println!("bestmove {}", m),
-            None => println!("bestmove (none)"),
+        match (best_move, ponder_move) {
+            (Some(best), Some(ponder)) if self.ponder_enabled => {
+                println!("bestmove {} ponder {}", best, ponder)
+            }
+            (Some(best), _) => println!("bestmove {}", best),
+            (None, _) => println!("bestmove (none)"),
         }
     }
 
@@ -136,18 +157,29 @@ impl SearchMaster {
     }
 
     fn set_option(&mut self, name: String, value: String) -> Result<String, ()> {
-        let result = match (name.as_str(), value.parse::<u128>()) {
-            ("Hash", Ok(parsed_value)) => {
-                self.tt = TT::new(parsed_value as usize);
+        let result = match name.as_str() {
+            "Hash" => {
+                let mb = value.parse::<usize>().map_err(|_| ())?;
+                self.tt = TT::new(mb);
                 format!("Hash to {}MB", self.tt.mb_size())
             }
-            ("Threads", Ok(parsed_value)) => {
-                self.num_threads = parsed_value as u16;
+            "Threads" => {
+                self.num_threads = value.parse::<u16>().map_err(|_| ())?;
                 format!("Threads to {}", self.num_threads)
             }
-            ("Overhead", Ok(parsed_value)) => {
-                self.overhead = Duration::from_millis(parsed_value as u64);
+            "Overhead" => {
+                let ms = value.parse::<u64>().map_err(|_| ())?;
+                self.overhead = Duration::from_millis(ms);
                 format!("Overhead to {}ms", self.overhead.as_millis())
+            }
+            "Ponder" => {
+                let enabled = match value.trim().to_ascii_lowercase().as_str() {
+                    "true" | "on" | "1" => Ok(true),
+                    "false" | "off" | "0" => Ok(false),
+                    _ => Err(()),
+                }?;
+                self.ponder_enabled = enabled;
+                format!("Ponder {}", if enabled { "on" } else { "off" })
             }
             _ => {
                 return Err(());

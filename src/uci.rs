@@ -3,23 +3,31 @@ use super::timer::*;
 use regex::Regex;
 use std::io::BufRead;
 use std::sync::LazyLock;
-use std::{io, sync, thread};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+    mpsc,
+};
+use std::{io, thread};
 // Asymptote inspired a lot of this nice uci implementation.
 
 pub struct UCI {
     _main_thread: thread::JoinHandle<()>,
-    main_tx: sync::mpsc::Sender<UCICommand>,
-    stop: sync::Arc<sync::atomic::AtomicBool>,
+    main_tx: mpsc::Sender<UCICommand>,
+    stop: Arc<AtomicBool>,
+    pondering: Arc<AtomicBool>,
 }
 
 impl UCI {
     pub fn new() -> Self {
-        let (main_tx, main_rx) = sync::mpsc::channel();
-        let stop = sync::Arc::new(sync::atomic::AtomicBool::new(false));
+        let (main_tx, main_rx) = mpsc::channel();
+        let stop = Arc::new(AtomicBool::new(false));
+        let pondering = Arc::new(AtomicBool::new(false));
         Self {
             main_tx,
             stop: stop.clone(),
-            _main_thread: thread::spawn(move || SearchMaster::new(stop).run(main_rx)),
+            pondering: pondering.clone(),
+            _main_thread: thread::spawn(move || SearchMaster::new(stop, pondering).run(main_rx)),
         }
     }
 
@@ -37,7 +45,11 @@ impl UCI {
             match UCICommand::try_from(line.as_str()) {
                 Ok(cmd) => match cmd {
                     UCICommand::Quit => return,
-                    UCICommand::Stop => self.stop.store(true, sync::atomic::Ordering::SeqCst),
+                    UCICommand::Stop => {
+                        self.stop.store(true, Ordering::SeqCst);
+                        self.pondering.store(false, Ordering::SeqCst);
+                    }
+                    UCICommand::PonderHit => self.pondering.store(false, Ordering::SeqCst),
                     _ => self
                         .main_tx
                         .send(cmd)
@@ -59,7 +71,11 @@ pub enum UCICommand {
         fen: Option<String>,
         moves: Vec<String>,
     },
-    Go(TimeControl),
+    Go {
+        time_control: TimeControl,
+        ponder: bool,
+    },
+    PonderHit,
     Quit,
     Stop,
     Perft(i8),
@@ -83,6 +99,7 @@ impl TryFrom<&str> for UCICommand {
             "uci" => Self::UCI,
             "eval" => Self::Eval,
             "fen" => Self::Fen,
+            "ponderhit" => Self::PonderHit,
             "quit" => Self::Quit,
             "isready" => Self::IsReady,
             _ => {
@@ -105,8 +122,12 @@ impl TryFrom<&str> for UCICommand {
 
 impl UCICommand {
     fn parse_go(line: &str) -> Result<Self, &'static str> {
+        let ponder = line.contains("ponder");
         let time_control = TimeControl::try_from(line)?;
-        Ok(Self::Go(time_control))
+        Ok(Self::Go {
+            time_control,
+            ponder,
+        })
     }
 
     fn parse_position(line: &str) -> Result<Self, &'static str> {

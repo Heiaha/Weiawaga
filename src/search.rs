@@ -31,13 +31,14 @@ impl<'a> Search<'a> {
         }
     }
 
-    pub fn go(&mut self, mut board: Board) -> Option<Move> {
+    pub fn go(&mut self, mut board: Board) -> (Option<Move>, Option<Move>) {
         ///////////////////////////////////////////////////////////////////
         // Start iterative deepening.
         ///////////////////////////////////////////////////////////////////
         let mut alpha = -Self::MATE;
         let mut beta = Self::MATE;
         let mut best_move = None;
+        let mut ponder_move = None;
         let mut value = 0;
         let mut depth = 1;
 
@@ -48,15 +49,17 @@ impl<'a> Search<'a> {
         let moves = MoveList::from(&board);
 
         if moves.len() == 0 {
-            return None;
+            return (None, None);
         }
 
         if moves.len() == 1 {
-            return Some(moves[0].m);
+            return (Some(moves[0].m), None);
         }
 
         while self.timer.start_check(depth) && !Self::is_checkmate(value) && depth < i8::MAX {
             (best_move, value) = self.search_root(&mut board, depth, alpha, beta);
+
+            ponder_move = self.pv_table[0].get(1).cloned();
 
             ///////////////////////////////////////////////////////////////////
             // Update the clock if the score is changing
@@ -75,21 +78,33 @@ impl<'a> Search<'a> {
                 beta = Self::MATE;
             } else {
                 // Only print info if we're in the main thread
-                if self.id == 0 && !self.timer.local_stop() {
-                    best_move.inspect(|&m| self.print_info(depth, m, value));
-                }
                 alpha = value - Self::ASPIRATION_WINDOW;
                 beta = value + Self::ASPIRATION_WINDOW;
                 depth += 1;
-                self.sel_depth = 0;
             }
+
+            if self.id == 0 {
+                best_move.inspect(|&m| self.print_info(depth, m, value));
+            }
+            self.sel_depth = 0;
         }
 
         if self.id == 0 {
             self.timer.stop();
         }
 
-        best_move
+        // Ensure the ponder move from the last pv is still legal.
+        // It could be illegal if the last search was only partially completed and the best_move had changed.
+        ponder_move = best_move
+            .zip(ponder_move)
+            .and_then(|(best_move, ponder_move)| {
+                board.push(best_move);
+                MoveList::from(&board)
+                    .contains(ponder_move)
+                    .then_some(ponder_move)
+            });
+
+        (best_move, ponder_move)
     }
 
     fn search_root(
