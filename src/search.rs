@@ -99,9 +99,11 @@ impl<'a> Search<'a> {
             .zip(ponder_move)
             .and_then(|(best_move, ponder_move)| {
                 board.push(best_move);
-                MoveList::from(&board)
+                let ponder_move = MoveList::from(&board)
                     .contains(ponder_move)
-                    .then_some(ponder_move)
+                    .then_some(ponder_move);
+                board.pop();
+                ponder_move
             });
 
         (best_move, ponder_move)
