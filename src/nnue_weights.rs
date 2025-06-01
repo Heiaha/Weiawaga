@@ -1,5 +1,5 @@
 use wide::i16x16;
-pub const INPUT_LAYER_BIAS: [i16x16; 32] = [
+pub static INPUT_LAYER_BIAS: [i16x16; 32] = [
     i16x16::new([
         -357, 15, -234, -173, -130, -412, -322, -355, -449, -467, -415, -505, -235, -392, -357,
         -289,
@@ -104,7 +104,7 @@ pub const INPUT_LAYER_BIAS: [i16x16; 32] = [
     ]),
 ];
 
-pub const INPUT_LAYER_WEIGHT: [[i16x16; 32]; 768] = [
+pub static INPUT_LAYER_WEIGHT: [[i16x16; 32]; 768] = [
     [
         i16x16::new([-2, 6, -7, -6, 4, 0, 3, 1, 5, -4, -4, -4, -4, -1, -9, 3]),
         i16x16::new([-4, -6, 2, -3, 2, 9, 3, 8, 5, -9, 7, -7, 0, 0, 8, 4]),
@@ -72664,7 +72664,7 @@ pub const INPUT_LAYER_WEIGHT: [[i16x16; 32]; 768] = [
     ],
 ];
 
-pub const HIDDEN_LAYER_0_WEIGHT: [i16x16; 64] = [
+pub static HIDDEN_LAYER_0_WEIGHT: [i16x16; 64] = [
     i16x16::new([-2, 0, -4, 12, 13, 4, 82, 7, -6, 20, 10, 0, -1, 48, -3, -3]),
     i16x16::new([
         -14, -49, 4, 28, -24, -4, 12, 22, -10, -15, -4, 100, 3, 2, -11, -5,
@@ -72783,9 +72783,9 @@ pub const HIDDEN_LAYER_0_WEIGHT: [i16x16; 64] = [
     i16x16::new([29, 5, 12, 33, -4, -17, 5, 17, -10, 8, 6, 5, -7, 4, 8, 2]),
 ];
 
-pub const HIDDEN_LAYER_0_BIAS: [i16; 1] = [3];
+pub static HIDDEN_LAYER_0_BIAS: [i16; 1] = [3];
 
-pub const HIDDEN_LAYER_1_WEIGHT: [i16x16; 64] = [
+pub static HIDDEN_LAYER_1_WEIGHT: [i16x16; 64] = [
     i16x16::new([-3, 5, -6, 6, 14, -10, 73, -1, -2, 12, 18, 6, -2, 50, -3, -6]),
     i16x16::new([
         -5, 5, 5, 10, -41, -6, 13, 15, -10, -14, -2, 127, 9, 9, -8, -5,
@@ -72908,9 +72908,9 @@ pub const HIDDEN_LAYER_1_WEIGHT: [i16x16; 64] = [
     i16x16::new([31, -4, 17, 30, -12, -7, 9, -29, -7, 5, 15, 5, -7, 7, 7, -6]),
 ];
 
-pub const HIDDEN_LAYER_1_BIAS: [i16; 1] = [2];
+pub static HIDDEN_LAYER_1_BIAS: [i16; 1] = [2];
 
-pub const HIDDEN_LAYER_2_WEIGHT: [i16x16; 64] = [
+pub static HIDDEN_LAYER_2_WEIGHT: [i16x16; 64] = [
     i16x16::new([
         -5, 10, -11, 6, 13, -17, 58, -2, -3, 47, 20, 13, -4, 52, -2, -5,
     ]),
@@ -73059,9 +73059,9 @@ pub const HIDDEN_LAYER_2_WEIGHT: [i16x16; 64] = [
     i16x16::new([30, -4, 13, 21, -14, -7, 13, -9, -7, 7, 14, 6, -12, 8, 5, -8]),
 ];
 
-pub const HIDDEN_LAYER_2_BIAS: [i16; 1] = [3];
+pub static HIDDEN_LAYER_2_BIAS: [i16; 1] = [3];
 
-pub const HIDDEN_LAYER_3_WEIGHT: [i16x16; 64] = [
+pub static HIDDEN_LAYER_3_WEIGHT: [i16x16; 64] = [
     i16x16::new([
         -7, 11, -14, 7, 11, -23, 52, -5, -5, 57, 21, 24, -5, 47, -3, -3,
     ]),
@@ -73220,9 +73220,9 @@ pub const HIDDEN_LAYER_3_WEIGHT: [i16x16; 64] = [
     ]),
 ];
 
-pub const HIDDEN_LAYER_3_BIAS: [i16; 1] = [3];
+pub static HIDDEN_LAYER_3_BIAS: [i16; 1] = [3];
 
-pub const HIDDEN_LAYER_4_WEIGHT: [i16x16; 64] = [
+pub static HIDDEN_LAYER_4_WEIGHT: [i16x16; 64] = [
     i16x16::new([
         -8, 10, -16, 10, 6, -28, 40, -6, -7, 60, 22, 26, -4, 44, -7, -3,
     ]),
@@ -73385,9 +73385,9 @@ pub const HIDDEN_LAYER_4_WEIGHT: [i16x16; 64] = [
     ]),
 ];
 
-pub const HIDDEN_LAYER_4_BIAS: [i16; 1] = [5];
+pub static HIDDEN_LAYER_4_BIAS: [i16; 1] = [5];
 
-pub const HIDDEN_LAYER_5_WEIGHT: [i16x16; 64] = [
+pub static HIDDEN_LAYER_5_WEIGHT: [i16x16; 64] = [
     i16x16::new([
         -9, 9, -17, 12, 5, -29, 65, -6, -7, 60, 22, 26, -4, 37, -9, -3,
     ]),
@@ -73556,9 +73556,9 @@ pub const HIDDEN_LAYER_5_WEIGHT: [i16x16; 64] = [
     ]),
 ];
 
-pub const HIDDEN_LAYER_5_BIAS: [i16; 1] = [6];
+pub static HIDDEN_LAYER_5_BIAS: [i16; 1] = [6];
 
-pub const HIDDEN_LAYER_6_WEIGHT: [i16x16; 64] = [
+pub static HIDDEN_LAYER_6_WEIGHT: [i16x16; 64] = [
     i16x16::new([
         -9, 8, -18, 15, -4, -29, 5, -6, -6, 72, 22, 27, -2, 29, -9, -3,
     ]),
@@ -73717,9 +73717,9 @@ pub const HIDDEN_LAYER_6_WEIGHT: [i16x16; 64] = [
     ]),
 ];
 
-pub const HIDDEN_LAYER_6_BIAS: [i16; 1] = [6];
+pub static HIDDEN_LAYER_6_BIAS: [i16; 1] = [6];
 
-pub const HIDDEN_LAYER_7_WEIGHT: [i16x16; 64] = [
+pub static HIDDEN_LAYER_7_WEIGHT: [i16x16; 64] = [
     i16x16::new([
         -9, 8, -19, 15, -11, -25, -3, -5, -5, 13, 25, 30, -2, 20, -8, -3,
     ]),
@@ -73866,4 +73866,4 @@ pub const HIDDEN_LAYER_7_WEIGHT: [i16x16; 64] = [
     ]),
 ];
 
-pub const HIDDEN_LAYER_7_BIAS: [i16; 1] = [7];
+pub static HIDDEN_LAYER_7_BIAS: [i16; 1] = [7];
