@@ -32,34 +32,24 @@ impl<'a> Search<'a> {
     }
 
     pub fn go(&mut self, mut board: Board) -> (Option<Move>, Option<Move>) {
-        ///////////////////////////////////////////////////////////////////
-        // Start iterative deepening.
-        ///////////////////////////////////////////////////////////////////
-        let mut alpha = -Self::MATE;
-        let mut beta = Self::MATE;
-        let mut best_move = None;
-        let mut ponder_move = None;
-        let mut value = 0;
-        let mut depth = 1;
-
-        ///////////////////////////////////////////////////////////////////
-        // If there's only one legal move, just play
-        // it instead of searching.
-        ///////////////////////////////////////////////////////////////////
         let moves = MoveList::from(&board);
-
         if moves.len() == 0 {
             return (None, None);
         }
 
-        if moves.len() == 1 {
-            return (Some(moves[0].m), None);
-        }
+        let (mut best_move, mut value) = self.search_root(&mut board, 1, -Self::MATE, Self::MATE);
+        let mut pv = Vec::new();
 
-        while self.timer.start_check(depth) && !Self::is_checkmate(value) && depth < i8::MAX {
-            (best_move, value) = self.search_root(&mut board, depth, alpha, beta);
+        for depth in 2..i8::MAX {
+            if !self.timer.start_check(depth)
+                || (moves.len() == 1 && depth >= Self::MIN_SEARCH_DEPTH)
+            {
+                break;
+            }
 
-            ponder_move = self.pv_table[0].get(1).cloned();
+            (best_move, value) = self.aspiration(&mut board, depth, value);
+
+            pv = self.pv_table[0].clone();
 
             ///////////////////////////////////////////////////////////////////
             // Update the clock if the score is changing
@@ -69,22 +59,8 @@ impl<'a> Search<'a> {
                 self.timer.update(best_move);
             }
 
-            ///////////////////////////////////////////////////////////////////
-            // Widen aspiration windows.
-            ///////////////////////////////////////////////////////////////////
-            if value <= alpha {
-                alpha = -Self::MATE;
-            } else if value >= beta {
-                beta = Self::MATE;
-            } else {
-                // Only print info if we're in the main thread
-                alpha = value - Self::ASPIRATION_WINDOW;
-                beta = value + Self::ASPIRATION_WINDOW;
-                depth += 1;
-            }
-
             if self.id == 0 {
-                best_move.inspect(|&m| self.print_info(depth, m, value));
+                best_move.inspect(|&m| self.print_info(depth, m, value, &pv));
             }
             self.sel_depth = 0;
         }
@@ -95,18 +71,33 @@ impl<'a> Search<'a> {
 
         // Ensure the ponder move from the last pv is still legal.
         // It could be illegal if the last search was only partially completed and the best_move had changed.
-        ponder_move = best_move
-            .zip(ponder_move)
+        let ponder_move = best_move
+            .zip(pv.get(1).cloned())
             .and_then(|(best_move, ponder_move)| {
                 board.push(best_move);
-                let ponder_move = MoveList::from(&board)
+                let m = MoveList::from(&board)
                     .contains(ponder_move)
                     .then_some(ponder_move);
                 board.pop();
-                ponder_move
+                m
             });
 
         (best_move, ponder_move)
+    }
+
+    fn aspiration(&mut self, board: &mut Board, depth: i8, pred: i32) -> (Option<Move>, i32) {
+        let alpha = (pred - Self::ASPIRATION_WINDOW).max(-Self::MATE);
+        let beta = (pred + Self::ASPIRATION_WINDOW).min(Self::MATE);
+
+        let (best_move, value) = self.search_root(board, depth, alpha, beta);
+
+        if value <= alpha {
+            self.search_root(board, depth, -Self::MATE, beta)
+        } else if value >= beta {
+            self.search_root(board, depth, alpha, Self::MATE)
+        } else {
+            (best_move, value)
+        }
     }
 
     fn search_root(
@@ -137,13 +128,13 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         // Score moves and begin searching recursively.
         ///////////////////////////////////////////////////////////////////
-        let ply = 0;
         let mut best_move = None;
+        let mut value = -Self::MATE;
         let mut idx = 0;
 
         let mut moves = MoveList::from(board);
         self.move_sorter
-            .score_moves(&mut moves, board, ply, hash_move);
+            .score_moves(&mut moves, board, 0, hash_move);
 
         while let Some(m) = moves.next_best(idx) {
             if self.id == 0 && self.timer.elapsed() >= Self::PRINT_CURRMOVENUMBER_TIME {
@@ -151,14 +142,9 @@ impl<'a> Search<'a> {
             }
 
             board.push(m);
-            let value = if idx == 0
-                || -self.search(board, depth - 1, -alpha - 1, -alpha, ply + 1) > alpha
-            {
-                -self.search(board, depth - 1, -beta, -alpha, ply + 1)
-            } else {
-                alpha
+            if idx == 0 || -self.search(board, depth - 1, -alpha - 1, -alpha, 1) > alpha {
+                value = -self.search(board, depth - 1, -beta, -alpha, 1)
             };
-
             board.pop();
 
             if self.timer.local_stop() {
@@ -200,6 +186,7 @@ impl<'a> Search<'a> {
         // Clear the pv line.
         ///////////////////////////////////////////////////////////////////
         self.pv_table[ply].clear();
+        self.sel_depth = self.sel_depth.max(ply);
 
         ///////////////////////////////////////////////////////////////////
         // Mate distance pruning - will help reduce
@@ -250,13 +237,19 @@ impl<'a> Search<'a> {
         let tt_entry = self.tt.get(board);
         if let Some(tt_entry) = tt_entry {
             if tt_entry.depth() >= depth && !is_pv && excluded_move.is_none() {
+                let mut tt_value = tt_entry.value();
+
+                if Self::is_checkmate(tt_value) {
+                    tt_value = mate_value * tt_value.signum();
+                }
+
                 match tt_entry.bound() {
-                    Bound::Exact => return tt_entry.value(),
-                    Bound::Lower => alpha = alpha.max(tt_entry.value()),
-                    Bound::Upper => beta = beta.min(tt_entry.value()),
+                    Bound::Exact => return tt_value,
+                    Bound::Lower => alpha = alpha.max(tt_value),
+                    Bound::Upper => beta = beta.min(tt_value),
                 }
                 if alpha >= beta {
-                    return tt_entry.value();
+                    return tt_value;
                 }
             }
         } else if Self::can_apply_iid(depth, in_check, is_pv, excluded_move) {
@@ -458,13 +451,20 @@ impl<'a> Search<'a> {
 
         let tt_entry = self.tt.get(board);
         if let Some(tt_entry) = tt_entry {
+            let mut tt_value = tt_entry.value();
+
+            if Self::is_checkmate(tt_value) {
+                let mate_value = Self::MATE - ply as i32;
+                tt_value = mate_value * tt_value.signum();
+            }
+
             match tt_entry.bound() {
-                Bound::Exact => return tt_entry.value(),
-                Bound::Lower => alpha = alpha.max(tt_entry.value()),
-                Bound::Upper => beta = beta.min(tt_entry.value()),
+                Bound::Exact => return tt_value,
+                Bound::Lower => alpha = alpha.max(tt_value),
+                Bound::Upper => beta = beta.min(tt_value),
             }
             if alpha >= beta {
-                return tt_entry.value();
+                return tt_value;
             }
         }
 
@@ -592,15 +592,7 @@ impl<'a> Search<'a> {
         after.iter_mut().for_each(|line| line.clear());
     }
 
-    fn get_pv(&self) -> String {
-        self.pv_table[0]
-            .iter()
-            .map(|m| m.to_string())
-            .collect::<Vec<String>>()
-            .join(" ")
-    }
-
-    fn print_info(&self, depth: i8, m: Move, value: i32) {
+    fn print_info(&self, depth: i8, m: Move, value: i32, pv: &Vec<Move>) {
         let score_str = if Self::is_checkmate(value) {
             let mate_value = if value > 0 {
                 (Self::MATE - value + 1) / 2
@@ -615,6 +607,11 @@ impl<'a> Search<'a> {
         let elapsed = self.timer.elapsed();
         let nodes = self.timer.nodes();
         let hashfull = self.tt.hashfull();
+        let pv_str = pv
+            .iter()
+            .map(|m| m.to_string())
+            .collect::<Vec<String>>()
+            .join(" ");
 
         println!(
             "info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv}",
@@ -625,7 +622,7 @@ impl<'a> Search<'a> {
             score_str = score_str,
             nodes = nodes,
             nps = (nodes as f64 / elapsed.as_secs_f64()) as u64,
-            pv = self.get_pv()
+            pv = pv_str
         );
     }
 
@@ -656,6 +653,7 @@ impl Search<'_> {
     const LMR_MOVE_DIVIDER: f32 = 1.56;
     const SING_EXTEND_MIN_DEPTH: i8 = 4;
     const SING_EXTEND_DEPTH_MARGIN: i8 = 2;
+    const MIN_SEARCH_DEPTH: i8 = 5;
     const MATE: i32 = 32000;
 }
 
