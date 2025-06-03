@@ -93,8 +93,8 @@ impl SearchMaster {
 
         let board = self.board.duplicate();
 
-        self.pondering.store(ponder, Ordering::SeqCst);
-        self.stop.store(false, Ordering::SeqCst);
+        self.pondering.store(ponder, Ordering::Release);
+        self.stop.store(false, Ordering::Release);
         self.tt.age_up();
         let nodes = Arc::new(AtomicU64::new(0));
 

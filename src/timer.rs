@@ -209,7 +209,7 @@ impl Timer {
             return false;
         }
 
-        if self.global_stop.load(Ordering::Relaxed) {
+        if self.global_stop.load(Ordering::Acquire) {
             self.nodes.fetch_add(self.times_checked, Ordering::Relaxed);
             return false;
         }
@@ -219,7 +219,7 @@ impl Timer {
             return true;
         }
 
-        if self.pondering.load(Ordering::Relaxed) {
+        if self.pondering.load(Ordering::Acquire) {
             return true;
         }
 
@@ -251,12 +251,12 @@ impl Timer {
         let nodes = self.nodes.fetch_add(self.times_checked, Ordering::Relaxed);
         self.times_checked = 0;
 
-        self.local_stop = self.global_stop.load(Ordering::Relaxed);
+        self.local_stop = self.global_stop.load(Ordering::Acquire);
         if self.local_stop {
             return true;
         }
 
-        if self.pondering.load(Ordering::Relaxed) {
+        if self.pondering.load(Ordering::Acquire) {
             return false;
         }
 
@@ -278,7 +278,7 @@ impl Timer {
 
     pub fn stop(&mut self) {
         self.local_stop = true;
-        self.global_stop.store(true, Ordering::SeqCst);
+        self.global_stop.store(true, Ordering::Release);
     }
 
     pub fn elapsed(&self) -> Duration {
@@ -294,7 +294,7 @@ impl Timer {
     }
 
     pub fn pondering(&self) -> bool {
-        self.pondering.load(Ordering::Relaxed)
+        self.pondering.load(Ordering::Acquire)
     }
 
     pub fn update(&mut self, best_move: Option<Move>) {

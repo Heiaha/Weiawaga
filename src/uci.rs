@@ -46,10 +46,10 @@ impl UCI {
                 Ok(cmd) => match cmd {
                     UCICommand::Quit => return,
                     UCICommand::Stop => {
-                        self.stop.store(true, Ordering::SeqCst);
-                        self.pondering.store(false, Ordering::SeqCst);
+                        self.stop.store(true, Ordering::Release);
+                        self.pondering.store(false, Ordering::Release);
                     }
-                    UCICommand::PonderHit => self.pondering.store(false, Ordering::SeqCst),
+                    UCICommand::PonderHit => self.pondering.store(false, Ordering::Release),
                     _ => self
                         .main_tx
                         .send(cmd)

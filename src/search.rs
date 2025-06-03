@@ -41,9 +41,7 @@ impl<'a> Search<'a> {
         let mut pv = Vec::new();
 
         for depth in 2..i8::MAX {
-            if !self.timer.start_check(depth)
-                || (moves.len() == 1 && depth >= Self::MIN_SEARCH_DEPTH)
-            {
+            if !self.timer.start_check(depth) {
                 break;
             }
 
@@ -600,7 +598,7 @@ impl<'a> Search<'a> {
 
     fn print_info(&self, depth: i8, m: Move, value: i32, pv: &Vec<Move>) {
         let score_str = if Self::is_checkmate(value) {
-            let mate_value = 1 + (Self::MATE - value.abs()) * value.signum() / 2;
+            let mate_value = (Self::MATE - value.abs() + 1) * value.signum() / 2;
             format!("mate {}", mate_value)
         } else {
             format!("cp {}", value)
@@ -655,7 +653,6 @@ impl Search<'_> {
     const LMR_MOVE_DIVIDER: f32 = 1.56;
     const SING_EXTEND_MIN_DEPTH: i8 = 4;
     const SING_EXTEND_DEPTH_MARGIN: i8 = 2;
-    const MIN_SEARCH_DEPTH: i8 = 5;
     const MATE: i32 = 32000;
 }
 
