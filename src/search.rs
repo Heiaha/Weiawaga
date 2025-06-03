@@ -108,9 +108,10 @@ impl<'a> Search<'a> {
         beta: i32,
     ) -> (Option<Move>, i32) {
         ///////////////////////////////////////////////////////////////////
-        // Clear the pv line.
+        // Clear the pv line and excluded moves.
         ///////////////////////////////////////////////////////////////////
         self.pv_table.iter_mut().for_each(|line| line.clear());
+        self.excluded_moves.iter_mut().for_each(|m| *m = None);
 
         ///////////////////////////////////////////////////////////////////
         // Check extension.
@@ -129,7 +130,8 @@ impl<'a> Search<'a> {
         // Score moves and begin searching recursively.
         ///////////////////////////////////////////////////////////////////
         let mut best_move = None;
-        let mut value = -Self::MATE;
+        let mut best_value = -Self::MATE;
+        let mut value = 0;
         let mut idx = 0;
 
         let mut moves = MoveList::from(board);
@@ -151,16 +153,21 @@ impl<'a> Search<'a> {
                 break;
             }
 
-            if value > alpha {
+            if value > best_value {
+                best_value = value;
                 best_move = Some(m);
-                self.update_pv(m, 0);
-                if value >= beta {
-                    self.tt.insert(board, depth, beta, best_move, Bound::Lower);
-                    return (best_move, beta);
+
+                if value > alpha {
+                    self.update_pv(m, 0);
+                    if value >= beta {
+                        self.tt.insert(board, depth, beta, best_move, Bound::Lower);
+                        return (best_move, beta);
+                    }
+                    alpha = value;
+                    self.tt.insert(board, depth, alpha, best_move, Bound::Upper);
                 }
-                alpha = value;
-                self.tt.insert(board, depth, alpha, best_move, Bound::Upper);
             }
+
             idx += 1;
         }
 
@@ -171,7 +178,7 @@ impl<'a> Search<'a> {
         if !self.timer.local_stop() {
             self.tt.insert(board, depth, alpha, best_move, Bound::Exact);
         }
-        (best_move, alpha)
+        (best_move, best_value)
     }
 
     fn search(
@@ -289,6 +296,7 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         let mut tt_flag = Bound::Upper;
         let mut best_move = None;
+        let mut best_value = -Self::MATE;
         let mut idx = 0;
 
         let mut moves = MoveList::from(board);
@@ -381,28 +389,31 @@ impl<'a> Search<'a> {
             ///////////////////////////////////////////////////////////////////
             // Re-bound, check for cutoffs, and add killers and history.
             ///////////////////////////////////////////////////////////////////
-            if value > alpha {
-                best_move = Some(m);
+            if value > best_value {
+                best_value = value;
 
-                if is_pv {
-                    self.update_pv(m, ply);
-                }
-
-                if value >= beta {
-                    if m.is_quiet() {
-                        self.move_sorter.add_killer(m, ply);
-                        self.move_sorter.add_history(m, board.ctm(), depth);
-                        if let Some(p_move) = board.peek() {
-                            self.move_sorter.add_counter(p_move, m);
-                        }
+                if value > alpha {
+                    best_move = Some(m);
+                    if is_pv {
+                        self.update_pv(m, ply);
                     }
-                    tt_flag = Bound::Lower;
-                    alpha = beta;
-                    break;
+
+                    if value >= beta {
+                        if m.is_quiet() {
+                            self.move_sorter.add_killer(m, ply);
+                            self.move_sorter.add_history(m, board.ctm(), depth);
+                            if let Some(p_move) = board.peek() {
+                                self.move_sorter.add_counter(p_move, m);
+                            }
+                        }
+                        tt_flag = Bound::Lower;
+                        break;
+                    }
+                    tt_flag = Bound::Exact;
+                    alpha = value;
                 }
-                tt_flag = Bound::Exact;
-                alpha = value;
             }
+
             idx += 1;
         }
 
@@ -411,24 +422,19 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         if moves.len() == 0 && excluded_move.is_none() {
             if in_check {
-                alpha = -mate_value;
+                best_value = -mate_value;
             } else {
-                alpha = 0;
+                best_value = 0;
             }
         }
 
         if !self.timer.local_stop() {
-            best_move = best_move.or_else(|| {
-                if moves.len() > 0 {
-                    Some(moves[0].m)
-                } else {
-                    None
-                }
-            });
-
-            self.tt.insert(board, depth, alpha, best_move, tt_flag);
+            best_move = best_move
+                .or_else(|| self.tt.get(board).and_then(|e| e.best_move()))
+                .or_else(|| moves.into_iter().next().map(|mv| mv.m));
+            self.tt.insert(board, depth, best_value, best_move, tt_flag);
         }
-        alpha
+        best_value
     }
 
     fn q_search(&mut self, board: &mut Board, mut alpha: i32, mut beta: i32, ply: usize) -> i32 {
@@ -594,11 +600,7 @@ impl<'a> Search<'a> {
 
     fn print_info(&self, depth: i8, m: Move, value: i32, pv: &Vec<Move>) {
         let score_str = if Self::is_checkmate(value) {
-            let mate_value = if value > 0 {
-                (Self::MATE - value + 1) / 2
-            } else {
-                -(value + Self::MATE) / 2
-            };
+            let mate_value = 1 + (Self::MATE - value.abs()) * value.signum() / 2;
             format!("mate {}", mate_value)
         } else {
             format!("cp {}", value)
@@ -614,7 +616,7 @@ impl<'a> Search<'a> {
             .join(" ");
 
         println!(
-            "info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv}",
+            "info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv_str}",
             m = m,
             depth = depth,
             sel_depth = self.sel_depth,
@@ -622,7 +624,7 @@ impl<'a> Search<'a> {
             score_str = score_str,
             nodes = nodes,
             nps = (nodes as f64 / elapsed.as_secs_f64()) as u64,
-            pv = pv_str
+            pv_str = pv_str
         );
     }
 
