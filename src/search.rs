@@ -129,6 +129,7 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         let mut best_move = None;
         let mut best_value = -Self::MATE;
+        let mut tt_flag = Bound::Upper;
         let mut value = 0;
         let mut idx = 0;
 
@@ -158,11 +159,11 @@ impl<'a> Search<'a> {
                 if value > alpha {
                     self.update_pv(m, 0);
                     if value >= beta {
-                        self.tt.insert(board, depth, beta, best_move, Bound::Lower);
-                        return (best_move, beta);
+                        tt_flag = Bound::Lower;
+                        break;
                     }
                     alpha = value;
-                    self.tt.insert(board, depth, alpha, best_move, Bound::Upper);
+                    tt_flag = Bound::Exact;
                 }
             }
 
@@ -174,7 +175,7 @@ impl<'a> Search<'a> {
             .or_else(|| moves.into_iter().next().map(|mv| mv.m));
 
         if !self.timer.local_stop() {
-            self.tt.insert(board, depth, alpha, best_move, Bound::Exact);
+            self.tt.insert(board, depth, best_value, best_move, tt_flag);
         }
         (best_move, best_value)
     }

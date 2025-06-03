@@ -1,10 +1,10 @@
-use std::io::Write;
 use super::board::*;
 use super::perft::*;
 use super::search::*;
 use super::timer::*;
 use super::tt::*;
 use super::uci::*;
+use std::io::Write;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::Receiver;
@@ -97,7 +97,6 @@ impl SearchMaster {
 
         self.pondering.store(ponder, Ordering::Release);
         self.stop.store(false, Ordering::Release);
-        self.tt.age_up();
         let nodes = Arc::new(AtomicU64::new(0));
 
         let (best_move, ponder_move) = thread::scope(|s| {
@@ -142,6 +141,7 @@ impl SearchMaster {
             (Some(best), _) => println!("bestmove {}", best),
             (None, _) => println!("bestmove (none)"),
         }
+        self.tt.age_up();
     }
 
     fn set_board(&mut self, fen: Option<String>, moves: Vec<String>) -> Result<(), &str> {
