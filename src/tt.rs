@@ -164,7 +164,11 @@ impl TT {
         self.table
             .iter()
             .take(1000)
-            .filter(|&aentry| TTEntry(aentry.load(Ordering::Relaxed)).age() == self.age)
+            .filter(|&aentry| {
+                let data = aentry.load(Ordering::Relaxed);
+                let entry = (data != 0).then(|| TTEntry(data));
+                entry.is_some_and(|entry| entry.age() == self.age)
+            })
             .count()
     }
 
