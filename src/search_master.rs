@@ -84,6 +84,7 @@ impl SearchMaster {
                 }
             }
             std::io::stdout().flush().unwrap();
+            std::io::stderr().flush().unwrap();
         }
     }
 
