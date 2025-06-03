@@ -26,9 +26,9 @@ impl TimeControl {
     fn parse_duration(m: Option<Match>) -> Result<Option<Duration>, &'static str> {
         m.map(|m| {
             m.as_str()
-                .parse::<u64>()
+                .parse::<i64>()
                 .map_err(|_| "Unable to parse time.")
-                .map(Duration::from_millis)
+                .map(|x| Duration::from_millis(x.max(0) as u64))
         })
         .transpose()
     }
@@ -121,8 +121,8 @@ static GO_RE: LazyLock<Regex> = LazyLock::new(|| {
                     \s+depth\s+(?P<depth>\d+) |
                     \s+nodes\s+(?P<nodes>\d+) |
                     \s+movetime\s+(?P<movetime>\d+) |
-                    \s+wtime\s+(?P<wtime>\d+) |
-                    \s+btime\s+(?P<btime>\d+) |
+                    \s+wtime\s+(?P<wtime>-?\d+) |
+                    \s+btime\s+(?P<btime>-?\d+) |
                     \s+winc\s+(?P<winc>\d+) |
                     \s+binc\s+(?P<binc>\d+) |
                     \s+mate\s+(?P<mate>\d+) |

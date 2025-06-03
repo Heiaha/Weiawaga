@@ -1,3 +1,4 @@
+use std::io::Write;
 use super::board::*;
 use super::perft::*;
 use super::search::*;
@@ -82,6 +83,7 @@ impl SearchMaster {
                     eprintln!("Unexpected UCI Command.");
                 }
             }
+            std::io::stdout().flush().unwrap();
         }
     }
 
