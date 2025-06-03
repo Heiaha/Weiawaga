@@ -118,15 +118,13 @@ impl TT {
         debug_assert!(idx < self.table.len());
         let aentry = &self.table[idx];
         let data = aentry.load(Ordering::Relaxed);
+        let entry = (data != 0).then(|| TTEntry(data));
 
-        let should_replace = data == 0 || {
-            let entry = TTEntry(data);
+        if entry.is_none_or(|entry| {
             bound == Bound::Exact
                 || self.age != entry.age()
                 || depth >= entry.depth() - Self::DEPTH_MARGIN
-        };
-
-        if should_replace {
+        }) {
             aentry.store(
                 TTEntry::new(board.hash(), value, best_move, depth, bound, self.age).0,
                 Ordering::Relaxed,
@@ -150,7 +148,7 @@ impl TT {
     }
 
     pub fn age_up(&mut self) {
-        self.age = self.age.wrapping_add(1) & TTEntry::AGE_MASK as u8;
+        self.age = (self.age + 1) & TTEntry::AGE_MASK as u8;
     }
 
     fn index(&self, board: &Board) -> usize {
