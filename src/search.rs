@@ -47,7 +47,9 @@ impl<'a> Search<'a> {
 
             (best_move, value) = self.aspiration(&mut board, depth, value);
 
-            pv = self.pv_table[0].clone();
+            if !self.pv_table[0].is_empty() {
+                pv = self.pv_table[0].clone();
+            }
 
             ///////////////////////////////////////////////////////////////////
             // Update the clock if the score is changing
