@@ -59,14 +59,14 @@ impl<'a> Search<'a> {
                 self.timer.update(best_move);
             }
 
-            if self.id == 0 && !self.timer.local_stop() {
+            if self.id == 0 && !self.timer.is_stopped() {
                 best_move.inspect(|&m| self.print_info(depth, m, value, &pv));
             }
             self.sel_depth = 0;
         }
 
         if self.id == 0 {
-            self.timer.stop();
+            self.timer.set_stop();
         }
 
         // Ensure the ponder move from the last pv is still legal.
@@ -142,7 +142,7 @@ impl<'a> Search<'a> {
         while let Some(m) = moves.next_best(idx) {
             if self.id == 0
                 && self.timer.elapsed() >= Self::PRINT_CURRMOVENUMBER_TIME
-                && !self.timer.local_stop()
+                && !self.timer.is_stopped()
             {
                 Self::print_currmovenumber(depth, m, idx);
             }
@@ -153,7 +153,7 @@ impl<'a> Search<'a> {
             };
             board.pop();
 
-            if self.timer.local_stop() {
+            if self.timer.is_stopped() {
                 break;
             }
 
@@ -179,7 +179,7 @@ impl<'a> Search<'a> {
             .or_else(|| self.tt.get(board).and_then(|e| e.best_move()))
             .or_else(|| moves.into_iter().next().map(|mv| mv.m));
 
-        if !self.timer.local_stop() {
+        if !self.timer.is_stopped() {
             self.tt.insert(board, depth, best_value, best_move, tt_flag);
         }
         (best_move, best_value)
@@ -286,7 +286,7 @@ impl<'a> Search<'a> {
             board.push_null();
             let value = -self.search(board, depth - r - 1, -beta, -beta + 1, ply);
             board.pop_null();
-            if self.timer.local_stop() {
+            if self.timer.is_stopped() {
                 return 0;
             }
             if value >= beta {
@@ -386,7 +386,7 @@ impl<'a> Search<'a> {
 
             board.pop();
 
-            if self.timer.local_stop() {
+            if self.timer.is_stopped() {
                 return 0;
             }
 
@@ -432,7 +432,7 @@ impl<'a> Search<'a> {
             }
         }
 
-        if !self.timer.local_stop() {
+        if !self.timer.is_stopped() {
             best_move = best_move
                 .or_else(|| self.tt.get(board).and_then(|e| e.best_move()))
                 .or_else(|| moves.into_iter().next().map(|mv| mv.m));
@@ -501,7 +501,7 @@ impl<'a> Search<'a> {
             let value = -self.q_search(board, -beta, -alpha, ply + 1);
             board.pop();
 
-            if self.timer.local_stop() {
+            if self.timer.is_stopped() {
                 return 0;
             }
 

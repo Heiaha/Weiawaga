@@ -139,10 +139,9 @@ pub struct Timer {
     control: TimeControl,
     start_time: Instant,
     pondering: Arc<AtomicBool>,
-    global_stop: Arc<AtomicBool>,
-    local_stop: bool,
+    stop: Arc<AtomicBool>,
     nodes: Arc<AtomicU64>,
-    times_checked: u64,
+    batch: u64,
     time_target: Duration,
     time_maximum: Duration,
     overhead: Duration,
@@ -167,15 +166,14 @@ impl Timer {
         Self {
             start_time: Instant::now(),
             pondering,
-            local_stop: false,
-            global_stop: stop,
+            stop,
+            batch: 0,
             nodes,
             control,
             overhead,
             time_target,
             time_maximum,
             last_best_move: None,
-            times_checked: 0,
         }
     }
 
@@ -205,18 +203,8 @@ impl Timer {
     }
 
     pub fn start_check(&mut self, depth: i8) -> bool {
-        if self.local_stop {
+        if self.stop.load(Ordering::Acquire) {
             return false;
-        }
-
-        if self.global_stop.load(Ordering::Acquire) {
-            self.nodes.fetch_add(self.times_checked, Ordering::Relaxed);
-            return false;
-        }
-
-        // Always search to a depth of at least 1
-        if depth <= 1 {
-            return true;
         }
 
         if self.pondering.load(Ordering::Acquire) {
@@ -232,27 +220,16 @@ impl Timer {
         };
 
         if !start {
-            self.stop();
+            self.set_stop();
         }
         start
     }
 
     pub fn stop_check(&mut self) -> bool {
-        if self.local_stop {
-            return true;
-        }
 
-        self.times_checked += 1;
+        self.increment();
 
-        if self.times_checked < Self::CHECK_FREQ {
-            return false;
-        }
-
-        let nodes = self.nodes.fetch_add(self.times_checked, Ordering::Relaxed);
-        self.times_checked = 0;
-
-        self.local_stop = self.global_stop.load(Ordering::Acquire);
-        if self.local_stop {
+        if self.stop.load(Ordering::Acquire) {
             return true;
         }
 
@@ -265,31 +242,38 @@ impl Timer {
             TimeControl::FixedDuration(duration) => self.elapsed() + self.overhead >= duration,
             TimeControl::Variable { .. } => self.elapsed() + self.overhead >= self.time_maximum,
             TimeControl::FixedDepth(_) => false,
-            TimeControl::FixedNodes(stop_nodes) => nodes >= stop_nodes,
+            TimeControl::FixedNodes(stop_nodes) => self.nodes() >= stop_nodes,
         };
 
         if stop {
-            self.stop();
+            self.set_stop();
         }
 
         stop
     }
 
-    pub fn stop(&mut self) {
-        self.local_stop = true;
-        self.global_stop.store(true, Ordering::Release);
+    pub fn set_stop(&mut self) {
+        self.stop.store(true, Ordering::Release);
     }
 
     pub fn elapsed(&self) -> Duration {
         self.start_time.elapsed()
     }
 
-    pub fn nodes(&self) -> u64 {
-        self.nodes.load(Ordering::Relaxed) + self.times_checked
+    pub fn increment(&mut self) {
+        self.batch += 1;
+        if self.batch >= Self::BATCH_SIZE {
+            self.nodes.fetch_add(self.batch, Ordering::Relaxed);
+            self.batch = 0;
+        }
     }
 
-    pub fn local_stop(&self) -> bool {
-        self.local_stop
+    pub fn nodes(&self) -> u64 {
+        self.nodes.load(Ordering::Relaxed) + self.batch
+    }
+
+    pub fn is_stopped(&self) -> bool {
+        self.stop.load(Ordering::Acquire)
     }
 
     pub fn pondering(&self) -> bool {
@@ -309,5 +293,5 @@ impl Timer {
 }
 
 impl Timer {
-    const CHECK_FREQ: u64 = 4096;
+    const BATCH_SIZE: u64 = 4096;
 }
