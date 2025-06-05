@@ -57,7 +57,7 @@ impl<'a> Search<'a> {
                 self.timer.update(best_move);
             }
 
-            if self.id == 0 {
+            if self.id == 0 && !self.timer.local_stop() {
                 best_move.inspect(|&m| self.print_info(depth, m, value, &pv));
             }
             self.sel_depth = 0;
@@ -138,7 +138,10 @@ impl<'a> Search<'a> {
             .score_moves(&mut moves, board, 0, hash_move);
 
         while let Some(m) = moves.next_best(idx) {
-            if self.id == 0 && self.timer.elapsed() >= Self::PRINT_CURRMOVENUMBER_TIME {
+            if self.id == 0
+                && self.timer.elapsed() >= Self::PRINT_CURRMOVENUMBER_TIME
+                && !self.timer.local_stop()
+            {
                 Self::print_currmovenumber(depth, m, idx);
             }
 

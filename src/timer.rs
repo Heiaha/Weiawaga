@@ -269,7 +269,6 @@ impl Timer {
         };
 
         if stop {
-            self.nodes.fetch_add(self.times_checked, Ordering::Relaxed);
             self.stop();
         }
 
