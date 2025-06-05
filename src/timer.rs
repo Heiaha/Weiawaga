@@ -84,11 +84,11 @@ impl TryFrom<&str> for TimeControl {
         }
 
         let moves_to_go = re_captures
-            .name("moves_to_go")
+            .name("movestogo")
             .map(|m| {
                 m.as_str()
                     .parse::<u32>()
-                    .map_err(|_| "Unable to parse moves_to_go.")
+                    .map_err(|_| "Unable to parse movestogo.")
             })
             .transpose()?;
 
