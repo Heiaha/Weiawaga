@@ -118,7 +118,7 @@ impl TT {
         debug_assert!(idx < self.table.len());
         let aentry = &self.table[idx];
         let data = aentry.load(Ordering::Relaxed);
-        let entry = (data != 0).then(|| TTEntry(data));
+        let entry = (data != 0).then_some(TTEntry(data));
 
         if entry.is_none_or(|entry| {
             bound == Bound::Exact
@@ -137,7 +137,7 @@ impl TT {
         debug_assert!(idx < self.table.len());
         let data = self.table[idx].load(Ordering::Relaxed);
         (data != 0)
-            .then(|| TTEntry(data))
+            .then_some(TTEntry(data))
             .filter(|entry| entry.key() == (board.hash() >> TTEntry::KEY_SHIFT))
     }
 
@@ -166,7 +166,7 @@ impl TT {
             .take(1000)
             .filter(|&aentry| {
                 let data = aentry.load(Ordering::Relaxed);
-                let entry = (data != 0).then(|| TTEntry(data));
+                let entry = (data != 0).then_some(TTEntry(data));
                 entry.is_some_and(|entry| entry.age() == self.age)
             })
             .count()

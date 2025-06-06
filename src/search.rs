@@ -602,7 +602,7 @@ impl<'a> Search<'a> {
         after.iter_mut().for_each(|line| line.clear());
     }
 
-    fn print_info(&self, depth: i8, m: Move, value: i32, pv: &Vec<Move>) {
+    fn print_info(&self, depth: i8, m: Move, value: i32, pv: &[Move]) {
         let score_str = if Self::is_checkmate(value) {
             let mate_value = (Self::MATE - value.abs() + 1) * value.signum() / 2;
             format!("mate {}", mate_value)
