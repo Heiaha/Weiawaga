@@ -56,7 +56,7 @@ impl<'a> Search<'a> {
             // by a lot.
             ///////////////////////////////////////////////////////////////////
             if depth >= Self::SEARCHES_WO_TIMER_UPDATE {
-                self.timer.update(best_move);
+                self.timer.update_timer(best_move);
             }
 
             if self.id == 0 && !self.timer.is_stopped() {
@@ -156,6 +156,8 @@ impl<'a> Search<'a> {
             if self.timer.is_stopped() {
                 break;
             }
+
+            self.timer.update_node_table(m);
 
             if value > best_value {
                 best_value = value;

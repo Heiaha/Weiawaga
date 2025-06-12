@@ -1,6 +1,8 @@
 use super::board::*;
 use super::moov::*;
 use super::piece::*;
+use crate::square::SQ;
+use crate::types::SQMap;
 use regex::{Match, Regex};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock};
@@ -145,7 +147,8 @@ pub struct Timer {
     time_target: Duration,
     time_maximum: Duration,
     overhead: Duration,
-    last_best_move: Option<Move>,
+    current_nodes: u64,
+    nodes_table: SQMap<SQMap<u64>>,
 }
 
 impl Timer {
@@ -173,7 +176,8 @@ impl Timer {
             overhead,
             time_target,
             time_maximum,
-            last_best_move: None,
+            current_nodes: 0,
+            nodes_table: SQMap::new([SQMap::new([0; SQ::N_SQUARES]); SQ::N_SQUARES]),
         }
     }
 
@@ -226,7 +230,6 @@ impl Timer {
     }
 
     pub fn stop_check(&mut self) -> bool {
-
         self.increment();
 
         if self.stop.load(Ordering::Acquire) {
@@ -262,6 +265,7 @@ impl Timer {
 
     pub fn increment(&mut self) {
         self.batch += 1;
+        self.current_nodes += 1;
         if self.batch >= Self::BATCH_SIZE {
             self.nodes.fetch_add(self.batch, Ordering::Relaxed);
             self.batch = 0;
@@ -280,18 +284,37 @@ impl Timer {
         self.pondering.load(Ordering::Acquire)
     }
 
-    pub fn update(&mut self, best_move: Option<Move>) {
-        if self
-            .last_best_move
-            .is_some_and(|last_move| Some(last_move) != best_move)
-        {
-            self.time_target = self.time_maximum.min(self.time_target * 3 / 2);
+    pub fn update_node_table(&mut self, m: Move) {
+        let (from_sq, to_sq) = m.squares();
+        self.nodes_table[from_sq][to_sq] += self.current_nodes;
+        self.current_nodes = 0;
+    }
+
+    pub fn update_timer(&mut self, best_move: Option<Move>) {
+        let Some(m) = best_move else {
+            return;
+        };
+
+        let total_nodes = self.nodes_table.into_iter().flatten().sum::<u64>();
+        if total_nodes == 0 {
+            return;
         }
 
-        self.last_best_move = best_move;
+        let (from_sq, to_sq) = m.squares();
+        let effort_ratio = self.nodes_table[from_sq][to_sq] as f64 / total_nodes as f64;
+        let logistic = 1.0 / (1.0 + (-Self::K * (effort_ratio - Self::X0)).exp());
+        let mult = Self::MIN_TIMER_UPDATE
+            + (Self::MAX_TIMER_UPDATE - Self::MIN_TIMER_UPDATE) * (1.0 - logistic);
+
+        self.time_target = self.time_maximum.min(self.time_target.mul_f64(mult));
+        self.nodes_table.iter_mut().flatten().for_each(|x| *x = 0);
     }
 }
 
 impl Timer {
     const BATCH_SIZE: u64 = 4096;
+    const K: f64 = 10.0;
+    const X0: f64 = 0.5;
+    const MIN_TIMER_UPDATE: f64 = 1.0;
+    const MAX_TIMER_UPDATE: f64 = 1.25;
 }
