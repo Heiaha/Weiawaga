@@ -1,10 +1,10 @@
-#[cfg(target_arch = "x86_64")]
-use core::arch::x86_64;
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use super::board::*;
 use super::moov::*;
 use super::search::*;
+use crate::types::Score;
+#[cfg(target_arch = "x86_64")]
+use core::arch::x86_64;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 ///////////////////////////////////////////////////////////////////
 // Transposition Table Entry
@@ -63,6 +63,12 @@ impl TTEntry {
         let m = (self.0 & Self::MOVE_MASK) as u16;
         (m != 0).then(|| Move::from(m))
     }
+
+    pub fn with_value(self, value: i32) -> Self {
+        let value16 = (value as i16 as u16 as u64) << Self::VALUE_SHIFT;
+        let cleared = self.0 & !(Self::VALUE_MASK << Self::VALUE_SHIFT);
+        Self(cleared | value16)
+    }
 }
 
 impl TTEntry {
@@ -110,9 +116,10 @@ impl TT {
         &self,
         board: &Board,
         depth: i8,
-        value: i32,
+        mut value: i32,
         best_move: Option<Move>,
         bound: Bound,
+        ply: usize,
     ) {
         let idx = self.index(board);
         debug_assert!(idx < self.table.len());
@@ -125,6 +132,10 @@ impl TT {
                 || self.age != entry.age()
                 || depth >= entry.depth() - Self::DEPTH_MARGIN
         }) {
+            if value.is_checkmate() {
+                value += value.signum() * ply as i32;
+            }
+
             aentry.store(
                 TTEntry::new(board.hash(), value, best_move, depth, bound, self.age).0,
                 Ordering::Relaxed,
@@ -132,13 +143,26 @@ impl TT {
         }
     }
 
-    pub fn get(&self, board: &Board) -> Option<TTEntry> {
+    pub fn get(&self, board: &Board, ply: usize) -> Option<TTEntry> {
         let idx = self.index(board);
         debug_assert!(idx < self.table.len());
+
         let data = self.table[idx].load(Ordering::Relaxed);
-        (data != 0)
-            .then_some(TTEntry(data))
-            .filter(|entry| entry.key() == (board.hash() >> TTEntry::KEY_SHIFT))
+        if data == 0 {
+            return None;
+        }
+
+        let mut entry = TTEntry(data);
+        if entry.key() != (board.hash() >> TTEntry::KEY_SHIFT) {
+            return None;
+        }
+
+        let value = entry.value();
+        if value.is_checkmate() {
+            entry = entry.with_value(value - value.signum() * ply as i32);
+        }
+
+        Some(entry)
     }
 
     pub fn clear(&self) {

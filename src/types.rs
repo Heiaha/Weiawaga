@@ -65,3 +65,15 @@ where
         &mut self.0[idx]
     }
 }
+
+pub trait Score {
+    fn is_checkmate(&self) -> bool;
+
+    const MATE: i32 = 32000;
+}
+
+impl Score for i32 {
+    fn is_checkmate(&self) -> bool {
+        self.abs() >= Self::MATE >> 1
+    }
+}

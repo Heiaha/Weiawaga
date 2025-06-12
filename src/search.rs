@@ -7,6 +7,7 @@ use super::move_list::*;
 use super::move_sorter::*;
 use super::timer::*;
 use super::tt::*;
+use super::types::*;
 
 pub struct Search<'a> {
     id: u16,
@@ -37,7 +38,7 @@ impl<'a> Search<'a> {
             return (None, None);
         }
 
-        let (mut best_move, mut value) = self.search_root(&mut board, 1, -Self::MATE, Self::MATE);
+        let (mut best_move, mut value) = self.search_root(&mut board, 1, -i32::MATE, i32::MATE);
         let mut pv = Vec::new();
 
         for depth in 2..i8::MAX {
@@ -86,15 +87,15 @@ impl<'a> Search<'a> {
     }
 
     fn aspiration(&mut self, board: &mut Board, depth: i8, pred: i32) -> (Option<Move>, i32) {
-        let alpha = (pred - Self::ASPIRATION_WINDOW).max(-Self::MATE);
-        let beta = (pred + Self::ASPIRATION_WINDOW).min(Self::MATE);
+        let alpha = (pred - Self::ASPIRATION_WINDOW).max(-i32::MATE);
+        let beta = (pred + Self::ASPIRATION_WINDOW).min(i32::MATE);
 
         let (best_move, value) = self.search_root(board, depth, alpha, beta);
 
         if value <= alpha {
-            self.search_root(board, depth, -Self::MATE, beta)
+            self.search_root(board, depth, -i32::MATE, beta)
         } else if value >= beta {
-            self.search_root(board, depth, alpha, Self::MATE)
+            self.search_root(board, depth, alpha, i32::MATE)
         } else {
             (best_move, value)
         }
@@ -124,13 +125,13 @@ impl<'a> Search<'a> {
         // Check the hash table for the current
         // position, primarily for move ordering.
         ///////////////////////////////////////////////////////////////////
-        let hash_move = self.tt.get(board).and_then(|entry| entry.best_move());
+        let hash_move = self.tt.get(board, 0).and_then(|entry| entry.best_move());
 
         ///////////////////////////////////////////////////////////////////
         // Score moves and begin searching recursively.
         ///////////////////////////////////////////////////////////////////
         let mut best_move = None;
-        let mut best_value = -Self::MATE;
+        let mut best_value = -i32::MATE;
         let mut tt_flag = Bound::Upper;
         let mut value = 0;
         let mut idx = 0;
@@ -178,11 +179,12 @@ impl<'a> Search<'a> {
         }
 
         best_move = best_move
-            .or_else(|| self.tt.get(board).and_then(|e| e.best_move()))
+            .or_else(|| self.tt.get(board, 0).and_then(|e| e.best_move()))
             .or_else(|| moves.into_iter().next().map(|mv| mv.m));
 
         if !self.timer.is_stopped() {
-            self.tt.insert(board, depth, best_value, best_move, tt_flag);
+            self.tt
+                .insert(board, depth, best_value, best_move, tt_flag, 0);
         }
         (best_move, best_value)
     }
@@ -205,7 +207,7 @@ impl<'a> Search<'a> {
         // Mate distance pruning - will help reduce
         // some nodes when checkmate is near.
         ///////////////////////////////////////////////////////////////////
-        let mate_value = Self::MATE - (ply as i32);
+        let mate_value = i32::MATE - (ply as i32);
         alpha = alpha.max(-mate_value);
         beta = beta.min(mate_value - 1);
         if alpha >= beta {
@@ -247,14 +249,10 @@ impl<'a> Search<'a> {
         // Probe the hash table and adjust the value.
         // If appropriate, produce a cutoff.
         ///////////////////////////////////////////////////////////////////
-        let tt_entry = self.tt.get(board);
+        let tt_entry = self.tt.get(board, ply);
         if let Some(tt_entry) = tt_entry {
             if tt_entry.depth() >= depth && !is_pv && excluded_move.is_none() {
-                let mut tt_value = tt_entry.value();
-
-                if Self::is_checkmate(tt_value) {
-                    tt_value = mate_value * tt_value.signum();
-                }
+                let tt_value = tt_entry.value();
 
                 match tt_entry.bound() {
                     Bound::Exact => return tt_value,
@@ -302,7 +300,7 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         let mut tt_flag = Bound::Upper;
         let mut best_move = None;
-        let mut best_value = -Self::MATE;
+        let mut best_value = -i32::MATE;
         let mut idx = 0;
 
         let mut moves = MoveList::from(board);
@@ -436,9 +434,10 @@ impl<'a> Search<'a> {
 
         if !self.timer.is_stopped() {
             best_move = best_move
-                .or_else(|| self.tt.get(board).and_then(|e| e.best_move()))
+                .or_else(|| self.tt.get(board, ply).and_then(|e| e.best_move()))
                 .or_else(|| moves.into_iter().next().map(|mv| mv.m));
-            self.tt.insert(board, depth, best_value, best_move, tt_flag);
+            self.tt
+                .insert(board, depth, best_value, best_move, tt_flag, ply);
         }
         best_value
     }
@@ -461,14 +460,9 @@ impl<'a> Search<'a> {
         }
         alpha = alpha.max(eval);
 
-        let tt_entry = self.tt.get(board);
+        let tt_entry = self.tt.get(board, ply);
         if let Some(tt_entry) = tt_entry {
-            let mut tt_value = tt_entry.value();
-
-            if Self::is_checkmate(tt_value) {
-                let mate_value = Self::MATE - ply as i32;
-                tt_value = mate_value * tt_value.signum();
-            }
+            let tt_value = tt_entry.value();
 
             match tt_entry.bound() {
                 Bound::Exact => return tt_value,
@@ -532,7 +526,7 @@ impl<'a> Search<'a> {
             && depth >= Self::NULL_MIN_DEPTH
             && board.has_non_pawn_material()
             && board.eval() >= beta
-            && !Self::is_checkmate(beta)
+            && !beta.is_checkmate()
             && excluded_move.is_none()
     }
 
@@ -550,7 +544,7 @@ impl<'a> Search<'a> {
         depth <= Self::RFP_MAX_DEPTH
             && !in_check
             && !is_pv
-            && !Self::is_checkmate(beta)
+            && !beta.is_checkmate()
             && excluded_move.is_none()
     }
 
@@ -566,7 +560,7 @@ impl<'a> Search<'a> {
     ) -> bool {
         entry.best_move() == Some(m)
             && depth >= Self::SING_EXTEND_MIN_DEPTH
-            && !Self::is_checkmate(entry.value())
+            && !entry.value().is_checkmate()
             && excluded_move.is_none()
             && entry.depth() + Self::SING_EXTEND_DEPTH_MARGIN >= depth
             && entry.bound() != Bound::Upper
@@ -586,10 +580,6 @@ impl<'a> Search<'a> {
         LMR_TABLE[depth.min(63) as usize][move_index.min(63)]
     }
 
-    fn is_checkmate(value: i32) -> bool {
-        value.abs() >= Self::MATE >> 1
-    }
-
     fn update_pv(&mut self, m: Move, ply: usize) {
         let (before, after) = self.pv_table.split_at_mut(ply + 1);
 
@@ -605,8 +595,8 @@ impl<'a> Search<'a> {
     }
 
     fn print_info(&self, depth: i8, m: Move, value: i32, pv: &[Move]) {
-        let score_str = if Self::is_checkmate(value) {
-            let mate_value = (Self::MATE - value.abs() + 1) * value.signum() / 2;
+        let score_str = if value.is_checkmate() {
+            let mate_value = (i32::MATE - value.abs() + 1) * value.signum() / 2;
             format!("mate {}", mate_value)
         } else {
             format!("cp {}", value)
@@ -661,7 +651,6 @@ impl Search<'_> {
     const LMR_MOVE_DIVIDER: f32 = 1.56;
     const SING_EXTEND_MIN_DEPTH: i8 = 4;
     const SING_EXTEND_DEPTH_MARGIN: i8 = 2;
-    const MATE: i32 = 32000;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
