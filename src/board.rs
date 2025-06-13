@@ -67,43 +67,72 @@ impl Board {
     }
 
     pub fn set_piece_at(&mut self, pc: Piece, sq: SQ) {
-        self.network.activate(pc, sq);
-        self.hasher.update_piece(pc, sq);
-
-        self.board[sq] = Some(pc);
-        self.color_bb[pc.color_of()] |= sq.bb();
-        self.piece_type_bb[pc.type_of()] |= sq.bb();
+        self.set_piece_at_i::<true>(pc, sq)
     }
 
-    pub fn remove_piece(&mut self, sq: SQ) {
-        let Some(pc) = self.piece_at(sq) else { return };
-
-        self.network.deactivate(pc, sq);
-        self.hasher.update_piece(pc, sq);
-
-        self.piece_type_bb[pc.type_of()] &= !sq.bb();
-        self.color_bb[pc.color_of()] &= !sq.bb();
-        self.board[sq] = None;
+    pub fn remove_piece(&mut self, sq: SQ) -> Option<Piece> {
+        self.remove_piece_i::<true>(sq)
     }
 
     pub fn move_piece_quiet(&mut self, from_sq: SQ, to_sq: SQ) {
-        let pc = self
-            .piece_at(from_sq)
-            .expect("Tried to move a piece off of an empty square.");
-
-        self.network.move_piece(pc, from_sq, to_sq);
-        self.hasher.move_piece(pc, from_sq, to_sq);
-
-        let mask = from_sq.bb() | to_sq.bb();
-        self.piece_type_bb[pc.type_of()] ^= mask;
-        self.color_bb[pc.color_of()] ^= mask;
-        self.board[to_sq] = self.board[from_sq];
-        self.board[from_sq] = None;
+        self.move_piece_quiet_i::<true>(from_sq, to_sq)
     }
 
     pub fn move_piece(&mut self, from_sq: SQ, to_sq: SQ) {
-        self.remove_piece(to_sq);
-        self.move_piece_quiet(from_sq, to_sq);
+        self.remove_piece_i::<true>(to_sq);
+        self.move_piece_quiet_i::<true>(from_sq, to_sq);
+    }
+
+    #[inline(always)]
+    fn set_piece_at_i<const NNUE: bool>(&mut self, pc: Piece, sq: SQ) {
+        if NNUE {
+            self.network.activate(pc, sq);
+        }
+        self.hasher.update_piece(pc, sq);
+
+        let bb = sq.bb();
+        self.board[sq] = Some(pc);
+        self.color_bb[pc.color_of()] |= bb;
+        self.piece_type_bb[pc.type_of()] |= bb;
+    }
+
+    #[inline(always)]
+    fn remove_piece_i<const NNUE: bool>(&mut self, sq: SQ) -> Option<Piece> {
+        let pc = self.board[sq]?;
+
+        if NNUE {
+            self.network.deactivate(pc, sq);
+        }
+        self.hasher.update_piece(pc, sq);
+
+        let bb_mask = !sq.bb();
+        self.color_bb[pc.color_of()] &= bb_mask;
+        self.piece_type_bb[pc.type_of()] &= bb_mask;
+        self.board[sq] = None;
+
+        Some(pc)
+    }
+
+    #[inline(always)]
+    fn move_piece_quiet_i<const NNUE: bool>(&mut self, from_sq: SQ, to_sq: SQ) {
+        let pc = self.board[from_sq].expect("Tried to move a piece off an empty square");
+
+        if NNUE {
+            self.network.move_piece_quiet(pc, from_sq, to_sq);
+        }
+        self.hasher.move_piece(pc, from_sq, to_sq);
+
+        let mask = from_sq.bb() | to_sq.bb();
+        self.color_bb[pc.color_of()] ^= mask;
+        self.piece_type_bb[pc.type_of()] ^= mask;
+        self.board[to_sq] = Some(pc);
+        self.board[from_sq] = None;
+    }
+
+    #[inline(always)]
+    fn move_piece_i<const NNUE: bool>(&mut self, from_sq: SQ, to_sq: SQ) {
+        self.remove_piece_i::<NNUE>(to_sq);
+        self.move_piece_quiet_i::<NNUE>(from_sq, to_sq);
     }
 
     pub fn eval(&self) -> i32 {
@@ -115,7 +144,7 @@ impl Board {
     }
 
     pub fn bitboard_of_pc(&self, pc: Piece) -> Bitboard {
-        self.piece_type_bb[pc.type_of().index()] & self.color_bb[pc.color_of()]
+        self.piece_type_bb[pc.type_of()] & self.color_bb[pc.color_of()]
     }
 
     pub fn bitboard_of_pt(&self, pt: PieceType) -> Bitboard {
@@ -267,12 +296,22 @@ impl Board {
         self.ctm = !self.ctm;
     }
 
+    // By default, push updates the accumulator but pop doesn't. This is because the NNUE is copy-make.
     pub fn push(&mut self, m: Move) {
+        self.ipush::<true>(m);
+    }
+
+    pub fn pop(&mut self) -> Option<Move> {
+        self.ipop::<false>()
+    }
+
+    fn ipush<const NNUE_UPDATE: bool>(&mut self, m: Move) {
         let mut half_move_counter = self.history[self.ply].half_move_counter + 1;
         let mut captured = None;
         let mut epsq = None;
         let (from_sq, to_sq) = m.squares();
         self.ply += 1;
+        self.network.push();
 
         if self.piece_type_at(from_sq) == Some(PieceType::Pawn) {
             half_move_counter = 0;
@@ -280,40 +319,51 @@ impl Board {
 
         match m.flags() {
             MoveFlags::Quiet => {
-                self.move_piece_quiet(from_sq, to_sq);
+                self.move_piece_quiet_i::<NNUE_UPDATE>(from_sq, to_sq);
             }
             MoveFlags::DoublePush => {
-                self.move_piece_quiet(from_sq, m.to_sq());
+                self.move_piece_quiet_i::<NNUE_UPDATE>(from_sq, to_sq);
                 epsq = Some(from_sq + Direction::North.relative(self.ctm));
                 if let Some(sq) = epsq {
                     self.hasher.update_ep(sq.file());
                 }
             }
             MoveFlags::OO => {
-                self.move_piece_quiet(SQ::E1.relative(self.ctm), SQ::G1.relative(self.ctm));
-                self.move_piece_quiet(SQ::H1.relative(self.ctm), SQ::F1.relative(self.ctm));
+                self.move_piece_quiet_i::<NNUE_UPDATE>(
+                    SQ::E1.relative(self.ctm),
+                    SQ::G1.relative(self.ctm),
+                );
+                self.move_piece_quiet_i::<NNUE_UPDATE>(
+                    SQ::H1.relative(self.ctm),
+                    SQ::F1.relative(self.ctm),
+                );
             }
             MoveFlags::OOO => {
-                self.move_piece_quiet(SQ::E1.relative(self.ctm), SQ::C1.relative(self.ctm));
-                self.move_piece_quiet(SQ::A1.relative(self.ctm), SQ::D1.relative(self.ctm));
+                self.move_piece_quiet_i::<NNUE_UPDATE>(
+                    SQ::E1.relative(self.ctm),
+                    SQ::C1.relative(self.ctm),
+                );
+                self.move_piece_quiet_i::<NNUE_UPDATE>(
+                    SQ::A1.relative(self.ctm),
+                    SQ::D1.relative(self.ctm),
+                );
             }
             MoveFlags::EnPassant => {
-                self.move_piece_quiet(from_sq, to_sq);
-                self.remove_piece(to_sq + Direction::South.relative(self.ctm));
+                self.move_piece_quiet_i::<NNUE_UPDATE>(from_sq, to_sq);
+                self.remove_piece_i::<NNUE_UPDATE>(to_sq + Direction::South.relative(self.ctm));
             }
             MoveFlags::Capture => {
                 captured = self.piece_at(to_sq);
                 half_move_counter = 0;
-                self.move_piece(from_sq, to_sq);
+                self.move_piece_i::<NNUE_UPDATE>(from_sq, to_sq);
             }
             // Promotions:
             _ => {
                 if m.is_capture() {
-                    captured = self.piece_at(to_sq);
-                    self.remove_piece(to_sq);
+                    captured = self.remove_piece_i::<NNUE_UPDATE>(to_sq);
                 }
-                self.remove_piece(from_sq);
-                self.set_piece_at(
+                self.remove_piece_i::<NNUE_UPDATE>(from_sq);
+                self.set_piece_at_i::<NNUE_UPDATE>(
                     Piece::make_piece(
                         self.ctm,
                         m.promotion()
@@ -336,7 +386,7 @@ impl Board {
         self.hasher.update_color();
     }
 
-    pub fn pop(&mut self) -> Option<Move> {
+    pub fn ipop<const NNUE_UPDATE: bool>(&mut self) -> Option<Move> {
         self.ctm = !self.ctm;
         self.hasher.update_color();
 
@@ -345,37 +395,55 @@ impl Board {
 
         match m.flags() {
             MoveFlags::Quiet => {
-                self.move_piece_quiet(to_sq, from_sq);
+                self.move_piece_quiet_i::<NNUE_UPDATE>(to_sq, from_sq);
             }
             MoveFlags::DoublePush => {
-                self.move_piece_quiet(to_sq, from_sq);
+                self.move_piece_quiet_i::<NNUE_UPDATE>(to_sq, from_sq);
                 if let Some(sq) = self.history[self.ply].epsq {
                     self.hasher.update_ep(sq.file());
                 }
             }
             MoveFlags::OO => {
-                self.move_piece_quiet(SQ::G1.relative(self.ctm), SQ::E1.relative(self.ctm));
-                self.move_piece_quiet(SQ::F1.relative(self.ctm), SQ::H1.relative(self.ctm));
+                self.move_piece_quiet_i::<NNUE_UPDATE>(
+                    SQ::G1.relative(self.ctm),
+                    SQ::E1.relative(self.ctm),
+                );
+                self.move_piece_quiet_i::<NNUE_UPDATE>(
+                    SQ::F1.relative(self.ctm),
+                    SQ::H1.relative(self.ctm),
+                );
             }
             MoveFlags::OOO => {
-                self.move_piece_quiet(SQ::C1.relative(self.ctm), SQ::E1.relative(self.ctm));
-                self.move_piece_quiet(SQ::D1.relative(self.ctm), SQ::A1.relative(self.ctm));
+                self.move_piece_quiet_i::<NNUE_UPDATE>(
+                    SQ::C1.relative(self.ctm),
+                    SQ::E1.relative(self.ctm),
+                );
+                self.move_piece_quiet_i::<NNUE_UPDATE>(
+                    SQ::D1.relative(self.ctm),
+                    SQ::A1.relative(self.ctm),
+                );
             }
             MoveFlags::EnPassant => {
-                self.move_piece_quiet(to_sq, from_sq);
-                self.set_piece_at(
+                self.move_piece_quiet_i::<NNUE_UPDATE>(to_sq, from_sq);
+                self.set_piece_at_i::<NNUE_UPDATE>(
                     Piece::make_piece(!self.ctm, PieceType::Pawn),
                     to_sq + Direction::South.relative(self.ctm),
                 );
             }
             MoveFlags::PrKnight | MoveFlags::PrBishop | MoveFlags::PrRook | MoveFlags::PrQueen => {
-                self.remove_piece(to_sq);
-                self.set_piece_at(Piece::make_piece(self.ctm, PieceType::Pawn), from_sq);
+                self.remove_piece_i::<NNUE_UPDATE>(to_sq);
+                self.set_piece_at_i::<NNUE_UPDATE>(
+                    Piece::make_piece(self.ctm, PieceType::Pawn),
+                    from_sq,
+                );
             }
             MoveFlags::PcKnight | MoveFlags::PcBishop | MoveFlags::PcRook | MoveFlags::PcQueen => {
-                self.remove_piece(to_sq);
-                self.set_piece_at(Piece::make_piece(self.ctm, PieceType::Pawn), from_sq);
-                self.set_piece_at(
+                self.remove_piece_i::<NNUE_UPDATE>(to_sq);
+                self.set_piece_at_i::<NNUE_UPDATE>(
+                    Piece::make_piece(self.ctm, PieceType::Pawn),
+                    from_sq,
+                );
+                self.set_piece_at_i::<NNUE_UPDATE>(
                     self.history[self.ply]
                         .captured
                         .expect("Tried to revert a capture move with no capture."),
@@ -383,8 +451,8 @@ impl Board {
                 );
             }
             MoveFlags::Capture => {
-                self.move_piece_quiet(to_sq, from_sq);
-                self.set_piece_at(
+                self.move_piece_quiet_i::<NNUE_UPDATE>(to_sq, from_sq);
+                self.set_piece_at_i::<NNUE_UPDATE>(
                     self.history[self.ply]
                         .captured
                         .expect("Tried to revert a capture move with no capture."),
@@ -393,6 +461,7 @@ impl Board {
             }
         }
         self.ply -= 1;
+        self.network.pop();
         Some(m)
     }
 
@@ -1108,7 +1177,7 @@ impl fmt::Debug for Board {
 }
 
 impl Board {
-    const N_HISTORIES: usize = 1000;
+    const N_HISTORIES: usize = 1024;
     const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 }
 

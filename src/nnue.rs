@@ -31,12 +31,20 @@ impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
     }
 }
 
+#[derive(Copy, Clone)]
+#[repr(C, align(64))]
+struct Accumulator {
+    acc: ColorMap<[i16x16; Network::L1 / Network::LANES]>,
+    pop_count: i16,
+}
+
 #[derive(Clone)]
 pub struct Network {
     input_layer: Embedding<{ Self::N_INPUTS }, { Self::L1 / Self::LANES }>,
     hidden_layers: [Linear<{ 2 * Self::L1 / Self::LANES }, 1>; Self::N_BUCKETS],
-    accumulator: ColorMap<[i16x16; Self::L1 / Self::LANES]>,
-    pop_count: i16,
+
+    stack: Vec<Accumulator>,
+    idx: usize,
 }
 
 impl Network {
@@ -53,9 +61,29 @@ impl Network {
                 Linear::new(&HIDDEN_LAYER_6_WEIGHT, &HIDDEN_LAYER_6_BIAS),
                 Linear::new(&HIDDEN_LAYER_7_WEIGHT, &HIDDEN_LAYER_7_BIAS),
             ],
-            accumulator: ColorMap::new([INPUT_LAYER_BIAS; Color::N_COLORS]),
-            pop_count: 0,
+            stack: vec![
+                Accumulator {
+                    acc: ColorMap::new([INPUT_LAYER_BIAS; Color::N_COLORS]),
+                    pop_count: 0
+                };
+                Self::N_ACCUMULATORS
+            ],
+            idx: 0,
         }
+    }
+
+    #[inline]
+    pub fn push(&mut self) {
+        debug_assert!(self.idx < Self::N_ACCUMULATORS);
+        let next = self.idx + 1;
+        self.stack[next] = self.stack[self.idx].clone();
+        self.idx = next;
+    }
+
+    #[inline]
+    pub fn pop(&mut self) {
+        debug_assert!(self.idx > 0);
+        self.idx -= 1;
     }
 
     pub fn activate(&mut self, pc: Piece, sq: SQ) {
@@ -66,56 +94,70 @@ impl Network {
         self.update_activation::<-1>(pc, sq);
     }
 
-    pub fn move_piece(&mut self, pc: Piece, from_sq: SQ, to_sq: SQ) {
+    pub fn move_piece_quiet(&mut self, pc: Piece, from_sq: SQ, to_sq: SQ) {
+        let cur = &mut self.stack[self.idx];
         for color in [Color::White, Color::Black] {
             let pc_idx = pc.relative(color).index();
-            let from_sq_idx = from_sq.relative(color).index();
-            let to_sq_idx = to_sq.relative(color).index();
-
-            let from_idx = pc_idx * SQ::N_SQUARES + from_sq_idx;
-            let to_idx = pc_idx * SQ::N_SQUARES + to_sq_idx;
+            let from_idx = pc_idx * SQ::N_SQUARES + from_sq.relative(color).index();
+            let to_idx = pc_idx * SQ::N_SQUARES + to_sq.relative(color).index();
 
             let from_weights = self.input_layer.weights[from_idx].iter();
             let to_weights = self.input_layer.weights[to_idx].iter();
 
-            self.accumulator[color]
+            cur.acc[color]
                 .iter_mut()
                 .zip(from_weights.zip(to_weights))
-                .for_each(|(activation, (&w_from, &w_to))| *activation += w_to - w_from);
+                .for_each(|(act, (&w_from, &w_to))| *act += w_to - w_from);
         }
     }
 
+    pub fn move_piece(
+        &mut self,
+        moved_pc: Piece,
+        captured_pc: Option<Piece>,
+        from_sq: SQ,
+        to_sq: SQ,
+    ) {
+        if let Some(captured_pc) = captured_pc {
+            self.deactivate(captured_pc, to_sq);
+        }
+        self.move_piece_quiet(moved_pc, from_sq, to_sq);
+    }
+
     fn update_activation<const SIGN: i16>(&mut self, pc: Piece, sq: SQ) {
+        let cur = &mut self.stack[self.idx];
+
         for color in [Color::White, Color::Black] {
             let pc_idx = pc.relative(color).index();
             let sq_idx = sq.relative(color).index();
             let idx = pc_idx * SQ::N_SQUARES + sq_idx;
-            let weights = self.input_layer.weights[idx].iter();
-            self.accumulator[color]
-                .iter_mut()
-                .zip(weights)
-                .for_each(|(activation, &weight)| *activation += SIGN * weight);
-        }
-        self.pop_count += SIGN;
-    }
 
-    fn eval_color(&self, color: Color, weights: &[i16x16]) -> i32x8 {
-        self.accumulator[color]
-            .iter()
-            .zip(weights)
-            .map(|(&activation, &weight)| {
-                let clamped = Self::clipped_relu(activation);
-                (weight * clamped).dot(clamped)
-            })
-            .sum()
+            cur.acc[color]
+                .iter_mut()
+                .zip(self.input_layer.weights[idx].iter())
+                .for_each(|(act, &w)| *act += SIGN * w);
+        }
+        cur.pop_count += SIGN;
     }
 
     pub fn eval(&self, ctm: Color) -> i32 {
-        let bucket = (self.pop_count as usize - 2) / Self::BUCKET_DIV;
+        let acc = &self.stack[self.idx];
+        let bucket = (acc.pop_count as usize - 2) / Self::BUCKET_DIV;
         let hidden_layer = &self.hidden_layers[bucket];
 
-        let output = self.eval_color(ctm, &hidden_layer.weights[..Self::L1 / Self::LANES])
-            + self.eval_color(!ctm, &hidden_layer.weights[Self::L1 / Self::LANES..]);
+        let eval_color = |color, weights: &[i16x16]| -> i32x8 {
+            acc.acc[color]
+                .iter()
+                .zip(weights)
+                .map(|(&act, &w)| {
+                    let clamped = Self::clipped_relu(act);
+                    (w * clamped).dot(clamped)
+                })
+                .sum()
+        };
+
+        let output = eval_color(ctm, &hidden_layer.weights[..Self::L1 / Self::LANES])
+            + eval_color(!ctm, &hidden_layer.weights[Self::L1 / Self::LANES..]);
 
         i32::from(hidden_layer.biases[0]) * Self::NNUE2SCORE / Self::HIDDEN_SCALE
             + (output.reduce_add() / Self::INPUT_SCALE) * Self::NNUE2SCORE / Self::COMB_SCALE
@@ -129,6 +171,7 @@ impl Network {
 
 impl Network {
     const N_INPUTS: usize = Piece::N_PIECES * SQ::N_SQUARES;
+    const N_ACCUMULATORS: usize = 1024;
     const L1: usize = 512;
     const N_BUCKETS: usize = 8;
     const BUCKET_DIV: usize = (32 + Self::N_BUCKETS - 1) / Self::N_BUCKETS;
