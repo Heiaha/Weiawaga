@@ -30,7 +30,7 @@ impl SearchMaster {
             board: Board::new(),
             num_threads: 1,
             tt: TT::new(16),
-            overhead: Duration::ZERO,
+            overhead: Duration::from_millis(10),
         }
     }
 
@@ -49,7 +49,7 @@ impl SearchMaster {
                     println!("id author {}", env!("CARGO_PKG_AUTHORS"));
                     println!("option name Hash type spin default 16 min 1 max 65536");
                     println!("option name Threads type spin default 1 min 1 max 512");
-                    println!("option name Overhead type spin default 0 min 0 max 5000");
+                    println!("option name MoveOverhead type spin default 10 min 0 max 5000");
                     println!("option name Ponder type check default false");
                     println!("uciok");
                 }
@@ -170,10 +170,10 @@ impl SearchMaster {
                 self.num_threads = value.parse::<u16>().map_err(|_| ())?;
                 format!("Threads to {}", self.num_threads)
             }
-            "Overhead" => {
+            "MoveOverhead" => {
                 let ms = value.parse::<u64>().map_err(|_| ())?;
                 self.overhead = Duration::from_millis(ms);
-                format!("Overhead to {}ms", self.overhead.as_millis())
+                format!("MoveOverhead to {}ms", self.overhead.as_millis())
             }
             "Ponder" => {
                 let enabled = match value.trim().to_ascii_lowercase().as_str() {
