@@ -23,7 +23,7 @@ impl TTEntry {
         bound: Bound,
         age: u8,
     ) -> Self {
-        let key16 = (hash >> 48) as u16 as u64;
+        let key16 = (hash >> Self::KEY_SHIFT) as u16 as u64;
         let m16 = best_move.map_or(0, |m| m.move_int()) as u64;
         let value16 = value as i16 as u16 as u64;
         let depth8 = depth as u8 as u64;
