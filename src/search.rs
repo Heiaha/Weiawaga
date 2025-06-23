@@ -255,10 +255,7 @@ impl<'a> Search<'a> {
                     return tt_value;
                 }
             }
-        } else if Self::can_apply_iid(depth, in_check, is_pv, excluded_move) {
-            depth -= Self::IID_DEPTH_REDUCTION;
         }
-
         ///////////////////////////////////////////////////////////////////
         // Reverse Futility Pruning
         ///////////////////////////////////////////////////////////////////
@@ -284,6 +281,10 @@ impl<'a> Search<'a> {
             if value >= beta {
                 return beta;
             }
+        }
+
+        if Self::can_apply_iid(tt_entry, depth) {
+            depth -= Self::IID_DEPTH_REDUCTION;
         }
 
         ///////////////////////////////////////////////////////////////////
@@ -522,8 +523,8 @@ impl<'a> Search<'a> {
             && excluded_move.is_none()
     }
 
-    fn can_apply_iid(depth: i8, in_check: bool, is_pv: bool, excluded_move: Option<Move>) -> bool {
-        depth >= Self::IID_MIN_DEPTH && !in_check && !is_pv && excluded_move.is_none()
+    fn can_apply_iid(tt_entry: Option<TTEntry>, depth: i8) -> bool {
+        depth >= Self::IID_MIN_DEPTH && tt_entry.is_none_or(|entry| entry.best_move().is_none())
     }
 
     fn can_apply_rfp(
@@ -628,15 +629,14 @@ impl<'a> Search<'a> {
 
 impl Search<'_> {
     const PRINT_CURRMOVENUMBER_TIME: Duration = Duration::from_millis(3000);
-    const SEARCHES_WO_TIMER_UPDATE: i8 = 8;
     const RFP_MAX_DEPTH: i8 = 9;
     const RFP_MARGIN_MULTIPLIER: i32 = 63;
     const ASPIRATION_WINDOW: i32 = 61;
     const NULL_MIN_DEPTH: i8 = 2;
     const NULL_MIN_DEPTH_REDUCTION: i8 = 1;
     const NULL_DEPTH_DIVIDER: i8 = 2;
-    const IID_MIN_DEPTH: i8 = 7;
-    const IID_DEPTH_REDUCTION: i8 = 2;
+    const IID_MIN_DEPTH: i8 = 4;
+    const IID_DEPTH_REDUCTION: i8 = 1;
     const LMR_MOVE_WO_REDUCTION: usize = 3;
     const LMR_MIN_DEPTH: i8 = 2;
     const LMR_BASE_REDUCTION: f32 = 0.11;
