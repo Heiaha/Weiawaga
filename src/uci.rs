@@ -160,16 +160,16 @@ impl UCICommand {
     }
 
     fn parse_option(line: &str) -> Result<Self, &'static str> {
-        let caps = OPTION_RE
+        let re_captures = OPTION_RE
             .captures(line)
             .ok_or("Option must include a 'name' and 'value' part.")?;
 
-        let name = caps
+        let name = re_captures
             .name("name")
             .map(|m| m.as_str().to_string())
             .ok_or("Invalid name in option.")?;
 
-        let value = caps
+        let value = re_captures
             .name("value")
             .map(|m| m.as_str().to_string())
             .ok_or("Invalid value in option.")?;
