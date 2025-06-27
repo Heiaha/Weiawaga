@@ -646,6 +646,7 @@ impl Search<'_> {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
 pub enum Bound {
     Exact,
     Lower,

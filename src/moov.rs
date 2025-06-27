@@ -80,6 +80,7 @@ impl fmt::Display for Move {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[repr(u8)]
 pub enum MoveFlags {
     Quiet = 0b0000,
     DoublePush = 0b0001,
