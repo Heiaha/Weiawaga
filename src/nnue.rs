@@ -8,12 +8,11 @@ use wide::*;
 #[derive(Clone)]
 struct Embedding<const N: usize, const D: usize> {
     weights: &'static [[i16x16; D]; N],
-    biases: &'static [i16x16; D],
 }
 
 impl<const N: usize, const D: usize> Embedding<N, D> {
-    pub fn new(weights: &'static [[i16x16; D]; N], biases: &'static [i16x16; D]) -> Self {
-        Self { weights, biases }
+    pub fn new(weights: &'static [[i16x16; D]; N]) -> Self {
+        Self { weights }
     }
 }
 
@@ -50,7 +49,7 @@ pub struct Network {
 impl Network {
     pub fn new() -> Self {
         Self {
-            input_layer: Embedding::new(&INPUT_LAYER_WEIGHT, &INPUT_LAYER_BIAS),
+            input_layer: Embedding::new(&INPUT_LAYER_WEIGHT),
             hidden_layers: [
                 Linear::new(&HIDDEN_LAYER_0_WEIGHT, &HIDDEN_LAYER_0_BIAS),
                 Linear::new(&HIDDEN_LAYER_1_WEIGHT, &HIDDEN_LAYER_1_BIAS),
@@ -109,19 +108,6 @@ impl Network {
                 .zip(from_weights.zip(to_weights))
                 .for_each(|(act, (&w_from, &w_to))| *act += w_to - w_from);
         }
-    }
-
-    pub fn move_piece(
-        &mut self,
-        moved_pc: Piece,
-        captured_pc: Option<Piece>,
-        from_sq: SQ,
-        to_sq: SQ,
-    ) {
-        if let Some(captured_pc) = captured_pc {
-            self.deactivate(captured_pc, to_sq);
-        }
-        self.move_piece_quiet(moved_pc, from_sq, to_sq);
     }
 
     fn update_activation<const SIGN: i16>(&mut self, pc: Piece, sq: SQ) {

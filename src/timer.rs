@@ -286,10 +286,6 @@ impl Timer {
         self.stop.load(Ordering::Acquire)
     }
 
-    pub fn pondering(&self) -> bool {
-        self.pondering.load(Ordering::Acquire)
-    }
-
     pub fn update_node_table(&mut self, m: Move) {
         let (from_sq, to_sq) = m.squares();
         self.nodes_table[from_sq][to_sq] += self.current_nodes;

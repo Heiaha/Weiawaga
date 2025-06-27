@@ -1,9 +1,3 @@
-#![allow(static_mut_refs)]
-#![allow(dead_code)]
-#![allow(non_snake_case)] // Allow so we don't get a warning about the uppercase name.
-
-use crate::uci::*;
-
 #[macro_use]
 mod bitboard;
 mod attacks;
@@ -26,6 +20,6 @@ mod uci;
 mod zobrist;
 
 fn main() {
-    let uci = UCI::new();
+    let uci = uci::UCI::new();
     uci.run();
 }
