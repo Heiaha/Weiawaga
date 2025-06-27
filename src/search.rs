@@ -580,7 +580,7 @@ impl<'a> Search<'a> {
         pv.clear();
         pv.push(m);
 
-        if let Some(next_pv) = after.get(0) {
+        if let Some(next_pv) = after.first() {
             pv.extend(next_pv);
         }
 
@@ -590,9 +590,9 @@ impl<'a> Search<'a> {
     fn print_info(&self, depth: i8, m: Move, value: i32, pv: &[Move]) {
         let score_str = if value.is_checkmate() {
             let mate_value = (i32::MATE - value.abs() + 1) * value.signum() / 2;
-            format!("mate {}", mate_value)
+            format!("mate {mate_value}")
         } else {
-            format!("cp {}", value)
+            format!("cp {value}")
         };
 
         let elapsed = self.timer.elapsed();

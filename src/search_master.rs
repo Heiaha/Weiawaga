@@ -56,7 +56,7 @@ impl SearchMaster {
                 UCICommand::Position { fen, moves } => {
                     match self.set_board(fen, moves) {
                         Ok(_) => (),
-                        Err(err) => eprintln!("{}", err),
+                        Err(e) => eprintln!("{e}"),
                     };
                 }
                 UCICommand::Go {
@@ -66,11 +66,11 @@ impl SearchMaster {
                     self.go(time_control, ponder);
                 }
                 UCICommand::Perft(depth) => {
-                    let mut board = self.board.duplicate();
+                    let mut board = self.board.clone();
                     print_perft(&mut board, depth);
                 }
                 UCICommand::Option { name, value } => match self.set_option(name, value) {
-                    Ok(result) => println!("info string set {}", result),
+                    Ok(result) => println!("info string set {result}"),
                     Err(_) => eprintln!("Option not recognized or parsing error."),
                 },
                 UCICommand::Eval => {
@@ -94,7 +94,7 @@ impl SearchMaster {
             return;
         }
 
-        let board = self.board.duplicate();
+        let board = self.board.clone();
 
         self.pondering.store(ponder, Ordering::Release);
         self.stop.store(false, Ordering::Release);
@@ -117,7 +117,7 @@ impl SearchMaster {
 
             // Create helper search threads which will stop when self.stop resolves to true.
             for id in 1..self.num_threads {
-                let thread_board = board.duplicate();
+                let thread_board = board.clone();
                 let mut helper_search_thread = Search::new(
                     Timer::new(
                         &thread_board,
@@ -132,14 +132,14 @@ impl SearchMaster {
                 );
                 s.spawn(move || helper_search_thread.go(thread_board));
             }
-            main_search_thread.go(board.duplicate())
+            main_search_thread.go(board.clone())
         });
 
         match (best_move, ponder_move) {
             (Some(best), Some(ponder)) if self.ponder_enabled => {
-                println!("bestmove {} ponder {}", best, ponder)
+                println!("bestmove {best} ponder {ponder}")
             }
-            (Some(best), _) => println!("bestmove {}", best),
+            (Some(best), _) => println!("bestmove {best}"),
             (None, _) => println!("bestmove (none)"),
         }
         self.tt.age_up();

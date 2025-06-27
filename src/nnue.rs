@@ -30,7 +30,7 @@ impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C, align(64))]
 struct Accumulator {
     acc: ColorMap<[i16x16; Network::L1 / Network::LANES]>,
@@ -160,7 +160,7 @@ impl Network {
     const N_ACCUMULATORS: usize = 1024;
     const L1: usize = 512;
     const N_BUCKETS: usize = 8;
-    const BUCKET_DIV: usize = (32 + Self::N_BUCKETS - 1) / Self::N_BUCKETS;
+    const BUCKET_DIV: usize = 32_usize.div_ceil(Self::N_BUCKETS);
     const LANES: usize = i16x16::LANES as usize;
     const NNUE2SCORE: i32 = 400;
     const INPUT_SCALE: i32 = 255;

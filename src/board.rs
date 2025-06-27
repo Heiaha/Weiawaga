@@ -11,6 +11,7 @@ use regex::Regex;
 use std::fmt;
 use std::sync::LazyLock;
 
+#[derive(Clone)]
 pub struct Board {
     board: SQMap<Option<Piece>>,
     piece_type_bb: PieceTypeMap<Bitboard>,
@@ -42,20 +43,6 @@ impl Board {
 
         self.hasher.clear();
         self.network = Network::new();
-    }
-
-    // explicit duplicate function to disallow potential implicit copying
-    pub fn duplicate(&self) -> Self {
-        Self {
-            ply: self.ply,
-            ctm: self.ctm,
-            history: self.history,
-            color_bb: self.color_bb,
-            piece_type_bb: self.piece_type_bb,
-            board: self.board,
-            hasher: self.hasher.clone(),
-            network: self.network.clone(),
-        }
     }
 
     pub fn piece_at(&self, sq: SQ) -> Option<Piece> {
@@ -1172,7 +1159,7 @@ impl fmt::Debug for Board {
                 }
             }
         }
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 

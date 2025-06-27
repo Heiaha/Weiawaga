@@ -56,7 +56,7 @@ impl UCI {
                         .expect("Unable to communicate with main thread."),
                 },
                 Err(e) => {
-                    eprintln!("{}", e);
+                    eprintln!("{e}");
                 }
             }
         }

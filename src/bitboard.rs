@@ -277,7 +277,7 @@ impl fmt::Debug for Bitboard {
             }
             result.push('\n');
         }
-        write!(f, "{}", result)
+        write!(f, "{result}")
     }
 }
 

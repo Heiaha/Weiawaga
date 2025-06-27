@@ -72,7 +72,7 @@ impl fmt::Display for Move {
         write!(f, "{}{}", self.from_sq(), self.to_sq())?;
 
         if let Some(promotion_pt) = self.promotion() {
-            write!(f, "{}", promotion_pt)?;
+            write!(f, "{promotion_pt}")?;
         }
 
         Ok(())

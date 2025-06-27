@@ -28,7 +28,7 @@ pub fn print_perft(board: &mut Board, depth: i8) -> u128 {
     let hash = board.hash();
     let material_hash = board.material_hash();
     for m in moves.iter_moves() {
-        print!("{}: ", m);
+        print!("{m}: ");
         let move_nodes;
         if depth <= 1 {
             move_nodes = 1;
@@ -38,7 +38,7 @@ pub fn print_perft(board: &mut Board, depth: i8) -> u128 {
             board.pop();
         }
         nodes += move_nodes;
-        println!("{}", move_nodes);
+        println!("{move_nodes}");
     }
 
     assert_eq!(board.hash(), hash);
@@ -46,13 +46,14 @@ pub fn print_perft(board: &mut Board, depth: i8) -> u128 {
 
     let elapsed = now.elapsed().as_secs_f32();
     println!();
-    println!("{:?}", board);
-    println!("FEN: {}", board);
+    println!("{board:?}");
+    println!("FEN: {board}");
     println!("Hash: {:#x}", board.hash());
-    println!("Nodes: {}", nodes);
+    println!("Nodes: {nodes}");
     if elapsed > 0.0 {
-        println!("NPS: {:.0}", nodes as f32 / elapsed);
-        println!("Elapsed: {:.1} seconds", elapsed);
+        let nps = nodes as f32 / elapsed;
+        println!("NPS: {nps:.0}");
+        println!("Elapsed: {elapsed:.1} seconds");
     }
     nodes
 }
