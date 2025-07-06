@@ -132,21 +132,12 @@ impl MoveSorter {
 
         let (from_sq, to_sq) = m.squares();
 
-        let Some(captured_pt) = board.piece_type_at(to_sq) else {
-            return false;
-        };
+        let captured_pt = board.piece_type_at(to_sq).expect("No captured pt in see.");
+        let mut attacking_pt = board
+            .piece_type_at(from_sq)
+            .expect("No attacking pt in see.");
 
-        let mut value = Self::SEE_PIECE_TYPE[captured_pt];
-
-        if value < 0 {
-            return false;
-        }
-
-        let Some(mut attacking_pt) = board.piece_type_at(from_sq) else {
-            return false;
-        };
-
-        value -= Self::SEE_PIECE_TYPE[attacking_pt];
+        let mut value = Self::SEE_PIECE_TYPE[captured_pt] - Self::SEE_PIECE_TYPE[attacking_pt];
 
         if value >= 0 {
             return true;
