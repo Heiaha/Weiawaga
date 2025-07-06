@@ -29,9 +29,9 @@ impl Bitboard {
     }
 
     pub fn pop_lsb(&mut self) -> SQ {
-        let s = self.lsb();
+        let sq = self.lsb();
         self.0 &= self.0 - 1;
-        s
+        sq
     }
 
     pub fn is_several(&self) -> bool {
