@@ -99,14 +99,19 @@ impl TryFrom<&str> for SQ {
     type Error = &'static str;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        if value.len() != 2 {
+        let mut chars = value.chars();
+
+        let file_char = chars.next().ok_or("Invalid square.")?;
+        let rank_char = chars.next().ok_or("Invalid square.")?;
+
+        if chars.next().is_some() {
             return Err("Invalid square.");
         }
-        let (file_str, rank_str) = value.split_at(1);
-        let file = File::try_from(file_str)?;
-        let rank = Rank::try_from(rank_str)?;
-        let sq = Self::encode(rank, file);
-        Ok(sq)
+
+        let file = File::try_from(file_char)?;
+        let rank = Rank::try_from(rank_char)?;
+
+        Ok(Self::encode(rank, file))
     }
 }
 
@@ -195,11 +200,11 @@ impl fmt::Display for Rank {
     }
 }
 
-impl TryFrom<&str> for Rank {
+impl TryFrom<char> for Rank {
     type Error = &'static str;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let n = value.parse().map_err(|_| "Invalid rank.")?;
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        let n = value.to_digit(10).ok_or("Invalid rank.")? as u8;
         match n {
             1..=8 => Ok(Self::from(n - 1)),
             _ => Err("Invalid rank."),
@@ -256,18 +261,13 @@ impl Into<usize> for File {
     }
 }
 
-impl TryFrom<&str> for File {
+impl TryFrom<char> for File {
     type Error = &'static str;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let bytes = value.as_bytes();
-        if bytes.len() != 1 {
-            return Err("Invalid file.");
-        }
-
-        let ch = bytes[0];
-        match ch {
-            b'a'..=b'h' => Ok(Self::from(ch - b'a')),
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        let byte = value as u8;
+        match byte {
+            b'a'..=b'h' => Ok(Self::from(byte - b'a')),
             _ => Err("Invalid file."),
         }
     }
