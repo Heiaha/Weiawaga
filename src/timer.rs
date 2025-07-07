@@ -60,16 +60,20 @@ impl TimeControl {
     }
 
     fn parse_variable(caps: &Captures) -> Result<Option<Self>, &'static str> {
-        let wtime = Self::opt_duration(caps, "wtime")?.unwrap_or(Duration::ZERO);
-        let btime = Self::opt_duration(caps, "btime")?.unwrap_or(Duration::ZERO);
+        let wtime = Self::opt_duration(caps, "wtime")?;
+        let btime = Self::opt_duration(caps, "btime")?;
 
         let winc = Self::opt_duration(caps, "winc")?;
         let binc = Self::opt_duration(caps, "binc")?;
         let moves_to_go = Self::opt_number::<u32>(caps, "movestogo", "Unable to parse movestogo.")?;
 
+        if wtime.is_none() && btime.is_none() {
+            return Ok(None);
+        }
+
         Ok(Some(Self::Variable {
-            wtime,
-            btime,
+            wtime: wtime.unwrap_or(Duration::ZERO),
+            btime: btime.unwrap_or(Duration::ZERO),
             winc,
             binc,
             moves_to_go,
