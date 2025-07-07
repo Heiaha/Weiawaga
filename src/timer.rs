@@ -1,8 +1,8 @@
 use super::board::*;
 use super::moov::*;
 use super::piece::*;
-use crate::square::SQ;
-use crate::types::SQMap;
+use super::square::*;
+use super::types::*;
 use regex::{Captures, Regex};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock};

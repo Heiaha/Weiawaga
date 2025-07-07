@@ -1,7 +1,7 @@
 use super::attacks::*;
 use super::bitboard::*;
 use super::square::*;
-use crate::types::*;
+use super::types::*;
 use std::sync::LazyLock;
 
 // Fancy magic bitboard implementation inspired by Rustfish's port of Stockfish
