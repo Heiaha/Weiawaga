@@ -31,9 +31,9 @@ impl MoveSorter {
         ply: usize,
         hash_move: Option<Move>,
     ) {
-        for entry in moves.iter_mut() {
-            entry.score = self.score_move(entry.m, board, ply, hash_move);
-        }
+        moves
+            .iter_mut()
+            .for_each(|entry| entry.score = self.score_move(entry.m, board, ply, hash_move));
     }
 
     fn score_move(&self, m: Move, board: &Board, ply: usize, hash_move: Option<Move>) -> i32 {

@@ -132,11 +132,11 @@ impl std::ops::Index<usize> for MoveList {
 
 impl std::fmt::Debug for MoveList {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let result: String = self
-            .0
-            .iter()
-            .map(|entry| format!("{}, ", entry.m))
-            .collect();
-        write!(f, "[{}]", result.trim_end_matches(", "))
+        f.debug_list()
+            .entries(self.0.iter().map(|entry| {
+                let (from_sq, to_sq) = entry.m.squares();
+                format!("{}{}", from_sq, to_sq)
+            }))
+            .finish()
     }
 }

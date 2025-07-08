@@ -483,18 +483,15 @@ impl Board {
         danger |= self
             .bitboard_of(them, PieceType::Knight)
             .map(attacks::knight_attacks)
-            .reduce(|a, b| a | b)
-            .unwrap_or(Bitboard::ZERO);
+            .fold(Bitboard::ZERO, |a, b| a | b);
 
         danger |= their_diag_sliders
             .map(|sq| attacks::bishop_attacks(sq, all ^ our_king.bb()))
-            .reduce(|a, b| a | b)
-            .unwrap_or(Bitboard::ZERO);
+            .fold(Bitboard::ZERO, |a, b| a | b);
 
         danger |= their_orth_sliders
             .map(|sq| attacks::rook_attacks(sq, all ^ our_king.bb()))
-            .reduce(|a, b| a | b)
-            .unwrap_or(Bitboard::ZERO);
+            .fold(Bitboard::ZERO, |a, b| a | b);
 
         ///////////////////////////////////////////////////////////////////
         // The king can move to any square that isn't attacked or occupied
