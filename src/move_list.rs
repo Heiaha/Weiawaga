@@ -135,7 +135,7 @@ impl std::fmt::Debug for MoveList {
         f.debug_list()
             .entries(self.0.iter().map(|entry| {
                 let (from_sq, to_sq) = entry.m.squares();
-                format!("{}{}", from_sq, to_sq)
+                format!("{from_sq}{to_sq}")
             }))
             .finish()
     }
