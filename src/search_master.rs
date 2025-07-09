@@ -16,7 +16,7 @@ pub struct SearchMaster {
     pondering: Arc<AtomicBool>,
     ponder_enabled: bool,
     board: Board,
-    num_threads: u16,
+    n_threads: u16,
     tt: TT,
     overhead: Duration,
 }
@@ -28,7 +28,7 @@ impl SearchMaster {
             pondering,
             ponder_enabled: false,
             board: Board::new(),
-            num_threads: 1,
+            n_threads: 1,
             tt: TT::new(16),
             overhead: Duration::from_millis(10),
         }
@@ -47,41 +47,47 @@ impl SearchMaster {
                 UCICommand::UCI => {
                     println!("id name Weiawaga v{}", env!("CARGO_PKG_VERSION"));
                     println!("id author {}", env!("CARGO_PKG_AUTHORS"));
-                    println!("option name Hash type spin default 16 min 1 max 65536");
-                    println!("option name Threads type spin default 1 min 1 max 512");
-                    println!("option name MoveOverhead type spin default 10 min 0 max 5000");
-                    println!("option name Ponder type check default false");
+                    println!(
+                        "option name Hash type spin default {} min {} max {}",
+                        EngineOption::HASH_DEFAULT,
+                        EngineOption::HASH_MIN,
+                        EngineOption::HASH_MAX,
+                    );
+                    println!(
+                        "option name Threads type spin default {} min {} max {}",
+                        EngineOption::THREADS_DEFAULT,
+                        EngineOption::THREADS_MIN,
+                        EngineOption::THREADS_MAX,
+                    );
+                    println!(
+                        "option name Move Overhead type spin default {} min {} max {}",
+                        EngineOption::MOVE_OVERHEAD_DEFAULT.as_millis(),
+                        EngineOption::MOVE_OVERHEAD_MIN.as_millis(),
+                        EngineOption::MOVE_OVERHEAD_MAX.as_millis(),
+                    );
+                    println!(
+                        "option name Ponder type check default {}",
+                        EngineOption::PONDER_DEFAULT,
+                    );
+                    println!("option name Clear Hash type button");
                     println!("uciok");
                 }
-                UCICommand::Position { fen, moves } => {
-                    match self.set_board(fen, moves) {
-                        Ok(_) => (),
-                        Err(e) => eprintln!("{e}"),
-                    };
-                }
+                UCICommand::Position(board) => self.board = *board,
                 UCICommand::Go {
                     time_control,
                     ponder,
-                } => {
-                    self.go(time_control, ponder);
-                }
+                } => self.go(time_control, ponder),
                 UCICommand::Perft(depth) => {
                     let mut board = self.board.clone();
                     print_perft(&mut board, depth);
                 }
-                UCICommand::Option { name, value } => match self.set_option(name, value) {
-                    Ok(result) => println!("info string set {result}"),
-                    Err(_) => eprintln!("Option not recognized or parsing error."),
+                UCICommand::Option(engine_option) => match self.set_option(engine_option) {
+                    Ok(_) => (),
+                    Err(e) => eprintln!("{e}"),
                 },
-                UCICommand::Eval => {
-                    println!("{}", self.board.eval());
-                }
-                UCICommand::Fen => {
-                    println!("{}", self.board);
-                }
-                _ => {
-                    eprintln!("Unexpected UCI Command.");
-                }
+                UCICommand::Eval => println!("{}", self.board.eval()),
+                UCICommand::Fen => println!("{}", self.board),
+                _ => eprintln!("Unexpected UCI Command."),
             }
             std::io::stdout().flush().unwrap();
             std::io::stderr().flush().unwrap();
@@ -116,7 +122,7 @@ impl SearchMaster {
             );
 
             // Create helper search threads which will stop when self.stop resolves to true.
-            for id in 1..self.num_threads {
+            for id in 1..self.n_threads {
                 let thread_board = board.clone();
                 let mut helper_search_thread = Search::new(
                     Timer::new(
@@ -145,50 +151,43 @@ impl SearchMaster {
         self.tt.age_up();
     }
 
-    fn set_board(&mut self, fen: Option<String>, moves: Vec<String>) -> Result<(), &str> {
-        let mut board = Board::new();
-        if let Some(fen) = fen {
-            board.set_fen(&fen)?;
-        }
-
-        for m in moves {
-            board.push_str(&m)?;
-        }
-
-        self.board = board;
-        Ok(())
-    }
-
-    fn set_option(&mut self, name: String, value: String) -> Result<String, ()> {
-        let result = match name.as_str() {
-            "Hash" => {
-                let mb = value.parse::<usize>().map_err(|_| ())?;
+    fn set_option(&mut self, engine_option: EngineOption) -> Result<(), &'static str> {
+        match engine_option {
+            EngineOption::Hash(mb) => {
+                if !(EngineOption::HASH_MIN..=EngineOption::HASH_MAX).contains(&mb) {
+                    return Err("Hash size out of range.");
+                }
                 self.tt = TT::new(mb);
-                format!("Hash to {}MB", self.tt.mb_size())
+                println!("Set Hash to {}MB.", self.tt.mb_size());
             }
-            "Threads" => {
-                self.num_threads = value.parse::<u16>().map_err(|_| ())?;
-                format!("Threads to {}", self.num_threads)
+            EngineOption::Threads(n_threads) => {
+                if !(EngineOption::THREADS_MIN..=EngineOption::THREADS_MAX).contains(&n_threads) {
+                    return Err("Threads out of range.");
+                }
+                self.n_threads = n_threads;
+                println!("Set Threads to {}.", self.n_threads);
             }
-            "MoveOverhead" => {
-                let ms = value.parse::<u64>().map_err(|_| ())?;
-                self.overhead = Duration::from_millis(ms);
-                format!("MoveOverhead to {}ms", self.overhead.as_millis())
+            EngineOption::MoveOverhead(overhead) => {
+                if !(EngineOption::MOVE_OVERHEAD_MIN..=EngineOption::MOVE_OVERHEAD_MAX)
+                    .contains(&overhead)
+                {
+                    return Err("Hash size out of range.");
+                }
+                self.overhead = overhead;
+                println!("Set Move Overhead to {}ms.", self.overhead.as_millis());
             }
-            "Ponder" => {
-                let enabled = match value.trim().to_ascii_lowercase().as_str() {
-                    "true" | "on" | "1" => Ok(true),
-                    "false" | "off" | "0" => Ok(false),
-                    _ => Err(()),
-                }?;
-                self.ponder_enabled = enabled;
-                format!("Ponder {}", if enabled { "on" } else { "off" })
+            EngineOption::Ponder(ponder_enabled) => {
+                self.ponder_enabled = ponder_enabled;
+                println!(
+                    "Set Ponder {}.",
+                    if self.ponder_enabled { "on" } else { "off" }
+                );
             }
-            _ => {
-                return Err(());
+            EngineOption::ClearHash => {
+                self.tt.clear();
+                println!("Cleared hash.");
             }
         };
-
-        Ok(result)
+        Ok(())
     }
 }

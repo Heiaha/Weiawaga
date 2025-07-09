@@ -1,3 +1,4 @@
+use super::board::Board;
 use super::search_master::*;
 use super::timer::*;
 use regex::Regex;
@@ -8,6 +9,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     mpsc,
 };
+use std::time::Duration;
 use std::{io, thread};
 // Asymptote inspired a lot of this nice uci implementation.
 
@@ -63,14 +65,98 @@ impl UCI {
     }
 }
 
+pub enum EngineOption {
+    Hash(usize),
+    Threads(u16),
+    MoveOverhead(Duration),
+    Ponder(bool),
+    ClearHash,
+}
+
+impl EngineOption {
+    // Constants for Hash
+    pub const HASH_MIN: usize = 1;
+    pub const HASH_MAX: usize = 1048576;
+    pub const HASH_DEFAULT: usize = 16;
+
+    // Constants for Threads
+    pub const THREADS_MIN: u16 = 1;
+    pub const THREADS_MAX: u16 = 512;
+    pub const THREADS_DEFAULT: u16 = 1;
+
+    // Constants for MoveOverhead
+    pub const MOVE_OVERHEAD_MIN: Duration = Duration::from_millis(0);
+    pub const MOVE_OVERHEAD_MAX: Duration = Duration::from_millis(5000);
+    pub const MOVE_OVERHEAD_DEFAULT: Duration = Duration::from_millis(10);
+
+    // Constants for Ponder
+    pub const PONDER_DEFAULT: bool = false;
+}
+
+impl TryFrom<&str> for EngineOption {
+    type Error = &'static str;
+
+    fn try_from(line: &str) -> Result<Self, Self::Error> {
+        let re_captures = OPTION_RE.captures(line).ok_or("Unable to parse option.")?;
+
+        let name = re_captures
+            .name("name")
+            .map(|m| m.as_str().to_string())
+            .ok_or("Invalid name in option.")?;
+
+        let value = re_captures.name("value").map(|m| m.as_str().to_string());
+
+        let result = match name.as_str() {
+            "Hash" => {
+                let mb = value
+                    .ok_or("No mb value specified.")?
+                    .parse::<usize>()
+                    .map_err(|_| "Unable to parse hash mb.")?;
+                Self::Hash(mb)
+            }
+            "Threads" => {
+                let num_threads = value
+                    .ok_or("No threads value specified.")?
+                    .parse::<u16>()
+                    .map_err(|_| "Unable to parse number of threads.")?;
+                Self::Threads(num_threads)
+            }
+            "Move Overhead" => {
+                let ms = value
+                    .ok_or("No overhead value specified.")?
+                    .parse::<u64>()
+                    .map_err(|_| "Unable to parse overhead ms.")?;
+                let overhead = Duration::from_millis(ms);
+                Self::MoveOverhead(overhead)
+            }
+            "Ponder" => {
+                let enabled = match value
+                    .ok_or("No ponder value specified.")?
+                    .trim()
+                    .to_ascii_lowercase()
+                    .as_str()
+                {
+                    "true" | "on" | "1" => Ok(true),
+                    "false" | "off" | "0" => Ok(false),
+                    _ => Err("Unrecognized ponder value."),
+                }?;
+                Self::Ponder(enabled)
+            }
+            "Clear Hash" => Self::ClearHash,
+            _ => {
+                return Err("Unable to parse option.");
+            }
+        };
+
+        Ok(result)
+    }
+}
+
 pub enum UCICommand {
     UCINewGame,
     UCI,
     IsReady,
-    Position {
-        fen: Option<String>,
-        moves: Vec<String>,
-    },
+    Position(Box<Board>),
     Go {
         time_control: TimeControl,
         ponder: bool,
@@ -79,10 +165,7 @@ pub enum UCICommand {
     Quit,
     Stop,
     Perft(i8),
-    Option {
-        name: String,
-        value: String,
-    },
+    Option(EngineOption),
     Eval,
     Fen,
 }
@@ -141,40 +224,31 @@ impl UCICommand {
             .then(|| {
                 re_captures
                     .name("fen")
-                    .map(|m| m.as_str().to_string())
+                    .map(|m| m.as_str())
                     .ok_or("Missing starting position.")
             })
             .transpose()?;
 
         let moves = re_captures
             .name("moves")
-            .map(|m| {
-                m.as_str()
-                    .split_whitespace()
-                    .map(|s| s.to_string())
-                    .collect::<Vec<String>>()
-            })
+            .map(|m| m.as_str().split_whitespace().collect::<Vec<&str>>())
             .unwrap_or_default();
 
-        Ok(Self::Position { fen, moves })
+        let mut board = match fen {
+            Some(fen) => Board::try_from(fen)?,
+            None => Board::new(),
+        };
+
+        for m in moves {
+            board.push_str(m)?;
+        }
+
+        Ok(Self::Position(Box::new(board)))
     }
 
     fn parse_option(line: &str) -> Result<Self, &'static str> {
-        let re_captures = OPTION_RE
-            .captures(line)
-            .ok_or("Option must include a 'name' and 'value' part.")?;
-
-        let name = re_captures
-            .name("name")
-            .map(|m| m.as_str().to_string())
-            .ok_or("Invalid name in option.")?;
-
-        let value = re_captures
-            .name("value")
-            .map(|m| m.as_str().to_string())
-            .ok_or("Invalid value in option.")?;
-
-        Ok(Self::Option { name, value })
+        let engine_option = EngineOption::try_from(line)?;
+        Ok(Self::Option(engine_option))
     }
 
     fn parse_perft(line: &str) -> Result<Self, &'static str> {
@@ -205,8 +279,8 @@ static OPTION_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r"(?x)^
                 setoption\s+
-                name\s+(?P<name>.*?)\s+
-                value\s+(?P<value>.+)
+                name\s+(?P<name>.*?)
+                (?:\s+value\s+(?P<value>.+))?
             $",
     )
     .expect("Failed to compile option regex.")
