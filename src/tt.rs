@@ -179,10 +179,6 @@ impl TT {
         (board.hash() & self.bitmask) as usize
     }
 
-    pub fn mb_size(&self) -> usize {
-        self.table.len() * size_of::<AtomicU64>() / 1024 / 1024
-    }
-
     pub fn hashfull(&self) -> usize {
         // Sample the first 1000 entries to estimate how full the table is.
         self.table

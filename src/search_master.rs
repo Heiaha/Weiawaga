@@ -158,14 +158,12 @@ impl SearchMaster {
                     return Err("Hash size out of range.");
                 }
                 self.tt = TT::new(mb);
-                println!("Set Hash to {}MB.", self.tt.mb_size());
             }
             EngineOption::Threads(n_threads) => {
                 if !(EngineOption::THREADS_MIN..=EngineOption::THREADS_MAX).contains(&n_threads) {
                     return Err("Threads out of range.");
                 }
                 self.n_threads = n_threads;
-                println!("Set Threads to {}.", self.n_threads);
             }
             EngineOption::MoveOverhead(overhead) => {
                 if !(EngineOption::MOVE_OVERHEAD_MIN..=EngineOption::MOVE_OVERHEAD_MAX)
@@ -174,18 +172,12 @@ impl SearchMaster {
                     return Err("Hash size out of range.");
                 }
                 self.overhead = overhead;
-                println!("Set Move Overhead to {}ms.", self.overhead.as_millis());
             }
             EngineOption::Ponder(ponder_enabled) => {
                 self.ponder_enabled = ponder_enabled;
-                println!(
-                    "Set Ponder {}.",
-                    if self.ponder_enabled { "on" } else { "off" }
-                );
             }
             EngineOption::ClearHash => {
                 self.tt.clear();
-                println!("Cleared hash.");
             }
         };
         Ok(())
