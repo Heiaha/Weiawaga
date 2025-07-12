@@ -1,5 +1,5 @@
 use super::bitboard::*;
-use super::piece::*;
+use super::traits::*;
 use super::types::*;
 use std::fmt;
 use std::ops::{Add, Sub};
@@ -49,19 +49,14 @@ impl SQ {
         AntiDiagonal::from((value >> 3) + (value & 7))
     }
 
-    pub fn mirror(self) -> Self {
-        Self::from(self as u8 ^ 0x38)
-    }
-
-    pub fn relative(self, c: Color) -> Self {
-        match c {
-            Color::White => self,
-            Color::Black => self.mirror(),
-        }
-    }
-
     pub fn iter(start: Self, end: Self) -> impl Iterator<Item = Self> {
         (start as u8..=end as u8).map(Self::from)
+    }
+}
+
+impl Mirror for SQ {
+    fn mirror(&self) -> Self {
+        Self::from(*self as u8 ^ 0x38)
     }
 }
 
@@ -140,12 +135,9 @@ pub enum Direction {
     SouthWest = -9,
 }
 
-impl Direction {
-    pub fn relative(self, c: Color) -> Direction {
-        match c {
-            Color::White => self,
-            Color::Black => Direction::from(-(self as i8)),
-        }
+impl Mirror for Direction {
+    fn mirror(&self) -> Self {
+        Direction::from(-(*self as i8))
     }
 }
 
@@ -176,9 +168,11 @@ impl Rank {
     pub fn index(self) -> usize {
         self as usize
     }
+}
 
-    pub fn relative(self, c: Color) -> Self {
-        Self::from((self as u8) ^ (c as u8 * 7))
+impl Mirror for Rank {
+    fn mirror(&self) -> Self {
+        Self::from((*self as u8) ^ 7)
     }
 }
 

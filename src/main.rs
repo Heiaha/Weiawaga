@@ -14,6 +14,7 @@ mod search;
 mod search_master;
 mod square;
 mod timer;
+mod traits;
 mod tt;
 mod types;
 mod uci;

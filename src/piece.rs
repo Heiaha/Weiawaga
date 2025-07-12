@@ -1,3 +1,4 @@
+use super::traits::*;
 use std::fmt;
 use std::ops::Not;
 
@@ -23,10 +24,6 @@ impl Piece {
         self as usize - 2 * self.color_of().index()
     }
 
-    pub fn flip(self) -> Piece {
-        Self::from(self as u8 ^ 0b1000)
-    }
-
     pub fn type_of(self) -> PieceType {
         PieceType::from(self as u8 & 0b111)
     }
@@ -39,13 +36,6 @@ impl Piece {
         Self::from(((color as u8) << 3) + pt as u8)
     }
 
-    pub fn relative(&self, color: Color) -> Piece {
-        match color {
-            Color::White => *self,
-            Color::Black => self.flip(),
-        }
-    }
-
     // Use this iterator pattern for Piece, PieceType, and Bitboard iterator for SQ
     // until we can return to Step implementation once it's stabilized.
     // https://github.com/rust-lang/rust/issues/42168
@@ -53,6 +43,12 @@ impl Piece {
         (start as u8..=end as u8)
             .filter(|n| !matches!(n, 0b0110 | 0b0111)) // Skip over 6 and 7, as they're not assigned to a piece so as to align color bits
             .map(Self::from)
+    }
+}
+
+impl Mirror for Piece {
+    fn mirror(&self) -> Self {
+        Self::from(*self as u8 ^ 0b1000)
     }
 }
 

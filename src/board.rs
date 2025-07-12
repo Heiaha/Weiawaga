@@ -5,6 +5,7 @@ use super::move_list::*;
 use super::nnue::*;
 use super::piece::*;
 use super::square::*;
+use super::traits::*;
 use super::types::*;
 use super::zobrist::*;
 use regex::Regex;

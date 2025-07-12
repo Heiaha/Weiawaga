@@ -2,6 +2,7 @@ use super::bitboard::*;
 use super::magics::*;
 use super::piece::*;
 use super::square::*;
+use super::traits::*;
 use super::types::*;
 
 #[rustfmt::skip]

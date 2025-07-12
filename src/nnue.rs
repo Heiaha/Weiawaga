@@ -1,6 +1,7 @@
 use super::nnue_weights::*;
 use super::piece::*;
 use super::square::*;
+use super::traits::*;
 use super::types::*;
 
 use wide::*;
