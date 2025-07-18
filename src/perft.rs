@@ -4,7 +4,7 @@ use super::board::*;
 use super::move_list::*;
 
 fn perft<const ROOT: bool>(board: &mut Board, depth: i8) -> u128 {
-    let moves: MoveList = MoveList::from(board);
+    let moves: MoveList = MoveList::from::<false>(board);
 
     if depth == 1 {
         return moves.len() as u128;
@@ -12,7 +12,7 @@ fn perft<const ROOT: bool>(board: &mut Board, depth: i8) -> u128 {
 
     let mut nodes = 0;
 
-    for m in moves.iter_moves() {
+    for m in moves.into_iter().cloned() {
         board.push(m);
         let count = perft::<false>(board, depth - 1);
         board.pop();

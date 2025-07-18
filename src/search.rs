@@ -4,7 +4,7 @@ use std::time::Duration;
 use super::board::*;
 use super::moov::*;
 use super::move_list::*;
-use super::move_sorter::*;
+use super::move_sorting::*;
 use super::timer::*;
 use super::tt::*;
 use super::types::*;
@@ -14,7 +14,7 @@ pub struct Search<'a> {
     sel_depth: usize,
     timer: Timer,
     tt: &'a TT,
-    move_sorter: MoveSorter,
+    scorer: MoveScorer,
     excluded_moves: [Option<Move>; MAX_MOVES],
     pv_table: Vec<Vec<Move>>,
 }
@@ -26,14 +26,14 @@ impl<'a> Search<'a> {
             timer,
             tt,
             sel_depth: 0,
-            move_sorter: MoveSorter::new(),
+            scorer: MoveScorer::new(),
             excluded_moves: [None; MAX_MOVES],
             pv_table: vec![Vec::new(); MAX_MOVES],
         }
     }
 
     pub fn go(&mut self, mut board: Board) -> (Option<Move>, Option<Move>) {
-        let moves = MoveList::from(&board);
+        let moves = MoveList::from::<false>(&board);
         if moves.len() == 0 {
             return (None, None);
         }
@@ -68,7 +68,7 @@ impl<'a> Search<'a> {
             .zip(pv.get(1).cloned())
             .and_then(|(best_move, ponder_move)| {
                 board.push(best_move);
-                let m = MoveList::from(&board)
+                let m = MoveList::from::<false>(&board)
                     .contains(ponder_move)
                     .then_some(ponder_move);
                 board.pop();
@@ -126,13 +126,13 @@ impl<'a> Search<'a> {
         let mut best_value = -i32::MATE;
         let mut tt_flag = Bound::Upper;
         let mut value = 0;
-        let mut idx = 0;
 
-        let mut moves = MoveList::from(board);
-        self.move_sorter
-            .score_moves(&mut moves, board, 0, hash_move);
+        let mut moves = MoveList::from::<false>(board);
+        let moves_sorter = self
+            .scorer
+            .create_sorter::<false>(&mut moves, &board, 0, hash_move);
 
-        while let Some(m) = moves.next_best(idx) {
+        for (idx, m) in moves_sorter.enumerate() {
             if self.id == 0
                 && self.timer.elapsed() >= Self::PRINT_CURRMOVENUMBER_TIME
                 && !self.timer.is_stopped()
@@ -166,13 +166,11 @@ impl<'a> Search<'a> {
                     tt_flag = Bound::Exact;
                 }
             }
-
-            idx += 1;
         }
 
         best_move = best_move
-            .or_else(|| self.tt.get(board, 0).and_then(|e| e.best_move()))
-            .or_else(|| moves.into_iter().next().map(|mv| mv.m));
+            .or_else(|| self.tt.get(board, 0).and_then(|entry| entry.best_move()))
+            .or_else(|| moves.into_iter().next().cloned());
 
         if !self.timer.is_stopped() {
             self.tt
@@ -294,19 +292,17 @@ impl<'a> Search<'a> {
         let mut tt_flag = Bound::Upper;
         let mut best_move = None;
         let mut best_value = -i32::MATE;
-        let mut idx = 0;
 
-        let mut moves = MoveList::from(board);
-        self.move_sorter.score_moves(
+        let mut moves = MoveList::from::<false>(board);
+        let sorter = self.scorer.create_sorter::<false>(
             &mut moves,
-            board,
+            &board,
             ply,
             tt_entry.and_then(|entry| entry.best_move()),
         );
 
-        while let Some(m) = moves.next_best(idx) {
+        for (idx, m) in sorter.enumerate() {
             if Some(m) == excluded_move {
-                idx += 1;
                 continue;
             }
 
@@ -397,10 +393,10 @@ impl<'a> Search<'a> {
 
                     if value >= beta {
                         if m.is_quiet() {
-                            self.move_sorter.add_killer(m, ply);
-                            self.move_sorter.add_history(m, board.ctm(), depth);
+                            self.scorer.add_killer(m, ply);
+                            self.scorer.add_history(m, board.ctm(), depth);
                             if let Some(p_move) = board.peek() {
-                                self.move_sorter.add_counter(p_move, m);
+                                self.scorer.add_counter(p_move, m);
                             }
                         }
                         tt_flag = Bound::Lower;
@@ -410,8 +406,6 @@ impl<'a> Search<'a> {
                     alpha = value;
                 }
             }
-
-            idx += 1;
         }
 
         ///////////////////////////////////////////////////////////////////
@@ -427,8 +421,9 @@ impl<'a> Search<'a> {
 
         if !self.timer.is_stopped() {
             best_move = best_move
-                .or_else(|| self.tt.get(board, ply).and_then(|e| e.best_move()))
-                .or_else(|| moves.into_iter().next().map(|mv| mv.m));
+                .or_else(|| self.tt.get(board, ply).and_then(|entry| entry.best_move()))
+                .or_else(|| moves.into_iter().next().cloned());
+
             self.tt
                 .insert(board, depth, best_value, best_move, tt_flag, ply);
         }
@@ -467,23 +462,17 @@ impl<'a> Search<'a> {
             }
         }
 
-        let mut moves = MoveList::from_q(board);
-        self.move_sorter.score_moves(
+        let mut moves = MoveList::from::<true>(board);
+        let sorter = self.scorer.create_sorter::<true>(
             &mut moves,
-            board,
+            &board,
             ply,
             tt_entry.and_then(|entry| entry.best_move()),
         );
 
-        let mut idx = 0;
-        while let Some(m) = moves.next_best(idx) {
-            ///////////////////////////////////////////////////////////////////
-            // Effectively a SEE check. Bad captures will have a score < 0
-            // given by the SEE + the bad capture offset,
-            // and here we skip bad captures.
-            ///////////////////////////////////////////////////////////////////
-            if moves[idx].score < 0 {
-                break;
+        for m in sorter {
+            if !MoveScorer::see(board, m) {
+                continue;
             }
 
             board.push(m);
@@ -500,7 +489,6 @@ impl<'a> Search<'a> {
                 }
                 alpha = value;
             }
-            idx += 1;
         }
         alpha
     }

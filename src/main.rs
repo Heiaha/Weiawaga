@@ -5,7 +5,7 @@ mod board;
 mod magics;
 mod moov;
 mod move_list;
-mod move_sorter;
+mod move_sorting;
 mod nnue;
 mod nnue_weights;
 mod perft;

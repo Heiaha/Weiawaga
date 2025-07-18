@@ -453,7 +453,7 @@ impl Board {
         Some(m)
     }
 
-    pub fn generate_legal_moves<const QUIET: bool>(&self, moves: &mut MoveList) {
+    pub fn generate_legal_moves<const QUIESCENCE: bool>(&self, moves: &mut MoveList) {
         let us = self.ctm;
         let them = !self.ctm;
 
@@ -501,7 +501,7 @@ impl Board {
 
         let king_attacks = attacks::king_attacks(our_king) & !(us_bb | danger);
 
-        if QUIET {
+        if !QUIESCENCE {
             moves.make_q(our_king, king_attacks & !them_bb);
         }
         moves.make_c(our_king, king_attacks & them_bb);
@@ -592,7 +592,7 @@ impl Board {
                                 && sq.rank().relative(us) == Rank::Seven
                             {
                                 moves.push(Move::new(sq, checker_square, MoveFlags::PcQueen));
-                                if QUIET {
+                                if !QUIESCENCE {
                                     moves.push(Move::new(sq, checker_square, MoveFlags::PcRook));
                                     moves.push(Move::new(sq, checker_square, MoveFlags::PcKnight));
                                     moves.push(Move::new(sq, checker_square, MoveFlags::PcBishop));
@@ -674,7 +674,7 @@ impl Board {
                 // 2. The king is not in check.
                 // 3. The relevant squares are not attacked.
                 ///////////////////////////////////////////////////////////////////
-                if QUIET {
+                if !QUIESCENCE {
                     if ((self.history[self.ply].entry & Bitboard::oo_mask(us))
                         | ((all | danger) & Bitboard::oo_blockers_mask(us)))
                         == Bitboard::ZERO
@@ -706,7 +706,7 @@ impl Board {
                         .expect("Unexpected None for piece type.");
                     let attacks_along_pin =
                         attacks::attacks(pt, sq, all) & Bitboard::line(our_king, sq);
-                    if QUIET {
+                    if !QUIESCENCE {
                         moves.make_q(sq, attacks_along_pin & quiet_mask);
                     }
                     moves.make_c(sq, attacks_along_pin & capture_mask);
@@ -739,7 +739,7 @@ impl Board {
                         ///////////////////////////////////////////////////////////////////
                         // Single and double pawn pushes
                         ///////////////////////////////////////////////////////////////////
-                        if QUIET {
+                        if !QUIESCENCE {
                             let single_pinned_pushes = sq.bb().shift(Direction::North.relative(us))
                                 & !all
                                 & Bitboard::line(our_king, sq);
@@ -763,7 +763,7 @@ impl Board {
         for sq in self.bitboard_of(us, PieceType::Knight) & not_pinned {
             let knight_attacks = attacks::knight_attacks(sq);
             moves.make_c(sq, knight_attacks & capture_mask);
-            if QUIET {
+            if !QUIESCENCE {
                 moves.make_q(sq, knight_attacks & quiet_mask);
             }
         }
@@ -771,7 +771,7 @@ impl Board {
         for sq in our_diag_sliders & not_pinned {
             let diag_attacks = attacks::bishop_attacks(sq, all);
             moves.make_c(sq, diag_attacks & capture_mask);
-            if QUIET {
+            if !QUIESCENCE {
                 moves.make_q(sq, diag_attacks & quiet_mask);
             }
         }
@@ -779,7 +779,7 @@ impl Board {
         for sq in our_orth_sliders & not_pinned {
             let orth_attacks = attacks::rook_attacks(sq, all);
             moves.make_c(sq, orth_attacks & capture_mask);
-            if QUIET {
+            if !QUIESCENCE {
                 moves.make_q(sq, orth_attacks & quiet_mask);
             }
         }
@@ -793,7 +793,7 @@ impl Board {
 
         single_pushes &= quiet_mask;
 
-        if QUIET {
+        if !QUIESCENCE {
             for sq in single_pushes {
                 moves.push(Move::new(
                     sq - Direction::North.relative(us),
@@ -842,7 +842,7 @@ impl Board {
                     sq,
                     MoveFlags::PrQueen,
                 ));
-                if QUIET {
+                if !QUIESCENCE {
                     moves.push(Move::new(
                         sq - Direction::North.relative(us),
                         sq,
@@ -871,7 +871,7 @@ impl Board {
                     sq,
                     MoveFlags::PcQueen,
                 ));
-                if QUIET {
+                if !QUIESCENCE {
                     moves.push(Move::new(
                         sq - Direction::NorthWest.relative(us),
                         sq,
@@ -896,7 +896,7 @@ impl Board {
                     sq,
                     MoveFlags::PcQueen,
                 ));
-                if QUIET {
+                if !QUIESCENCE {
                     moves.push(Move::new(
                         sq - Direction::NorthEast.relative(us),
                         sq,
@@ -918,12 +918,13 @@ impl Board {
     }
 
     pub fn push_str(&mut self, move_str: &str) -> Result<(), &'static str> {
-        let m = MoveList::from(self)
-            .iter_moves()
+        let moves = MoveList::from::<false>(self);
+        let m = moves
+            .into_iter()
             .find(|m| m.to_string() == move_str)
             .ok_or("Invalid move.")?;
 
-        self.push(m);
+        self.push(*m);
         Ok(())
     }
 
