@@ -130,7 +130,7 @@ impl<'a> Search<'a> {
         let mut moves = MoveList::from::<false>(board);
         let moves_sorter = self
             .scorer
-            .create_sorter::<false>(&mut moves, &board, 0, hash_move);
+            .create_sorter::<false>(&mut moves, board, 0, hash_move);
 
         for (idx, m) in moves_sorter.enumerate() {
             if self.id == 0
@@ -296,7 +296,7 @@ impl<'a> Search<'a> {
         let mut moves = MoveList::from::<false>(board);
         let sorter = self.scorer.create_sorter::<false>(
             &mut moves,
-            &board,
+            board,
             ply,
             tt_entry.and_then(|entry| entry.best_move()),
         );
@@ -465,7 +465,7 @@ impl<'a> Search<'a> {
         let mut moves = MoveList::from::<true>(board);
         let sorter = self.scorer.create_sorter::<true>(
             &mut moves,
-            &board,
+            board,
             ply,
             tt_entry.and_then(|entry| entry.best_move()),
         );
