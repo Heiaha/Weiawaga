@@ -258,7 +258,7 @@ impl<'a> Search<'a> {
         // Reverse Futility Pruning
         ///////////////////////////////////////////////////////////////////
         if Self::can_apply_rfp(depth, in_check, is_pv, beta, excluded_move) {
-            let eval = tt_entry.map_or_else(|| board.eval(), |entry| entry.value());
+            let eval = board.eval();
 
             if eval - Self::rfp_margin(depth) >= beta {
                 return eval;
