@@ -91,7 +91,6 @@ impl TTEntry {
 
 pub struct TT {
     table: Vec<AtomicU64>,
-    bitmask: u64,
     age: u8,
 }
 
@@ -105,11 +104,7 @@ impl TT {
             table.push(AtomicU64::new(0));
         }
 
-        TT {
-            table,
-            bitmask: count as u64 - 1,
-            age: 0,
-        }
+        TT { table, age: 0 }
     }
 
     pub fn insert(
@@ -121,8 +116,10 @@ impl TT {
         bound: Bound,
         ply: usize,
     ) {
-        let idx = self.index(board);
+        let hash = board.hash();
+        let idx = (hash as usize) & (self.table.len() - 1);
         debug_assert!(idx < self.table.len());
+
         let aentry = &self.table[idx];
         let data = aentry.load(Ordering::Relaxed);
         let entry = (data != 0).then_some(TTEntry(data));
@@ -137,14 +134,15 @@ impl TT {
             }
 
             aentry.store(
-                TTEntry::new(board.hash(), value, best_move, depth, bound, self.age).0,
+                TTEntry::new(hash, value, best_move, depth, bound, self.age).0,
                 Ordering::Relaxed,
             );
         }
     }
 
     pub fn get(&self, board: &Board, ply: usize) -> Option<TTEntry> {
-        let idx = self.index(board);
+        let hash = board.hash();
+        let idx = (hash as usize) & (self.table.len() - 1);
         debug_assert!(idx < self.table.len());
 
         let data = self.table[idx].load(Ordering::Relaxed);
@@ -153,7 +151,7 @@ impl TT {
         }
 
         let mut entry = TTEntry(data);
-        if entry.key() != (board.hash() >> TTEntry::KEY_SHIFT) {
+        if entry.key() != hash >> TTEntry::KEY_SHIFT {
             return None;
         }
 
@@ -175,10 +173,6 @@ impl TT {
         self.age = (self.age + 1) & TTEntry::AGE_MASK as u8;
     }
 
-    fn index(&self, board: &Board) -> usize {
-        (board.hash() & self.bitmask) as usize
-    }
-
     pub fn hashfull(&self) -> usize {
         // Sample the first 1000 entries to estimate how full the table is.
         self.table
@@ -196,7 +190,8 @@ impl TT {
     pub fn prefetch(&self, board: &Board) {
         #[cfg(target_arch = "x86_64")]
         unsafe {
-            let ptr = &self.table[self.index(board)] as *const AtomicU64 as *const i8;
+            let ptr = &self.table[(board.hash() as usize) & (self.table.len() - 1)]
+                as *const AtomicU64 as *const i8;
             x86_64::_mm_prefetch(ptr, x86_64::_MM_HINT_T0);
         }
     }

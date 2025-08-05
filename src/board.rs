@@ -20,7 +20,7 @@ pub struct Board {
     history: [HistoryEntry; Self::N_HISTORIES],
     ctm: Color,
     ply: usize,
-    hasher: Hasher,
+    material_hash: u64,
     network: Network,
 }
 
@@ -42,7 +42,6 @@ impl Board {
         self.piece_type_bb = PieceTypeMap::new([Bitboard::ZERO; PieceType::N_PIECE_TYPES]);
         self.board = SQMap::new([None; SQ::N_SQUARES]);
 
-        self.hasher.clear();
         self.network = Network::new();
     }
 
@@ -76,7 +75,7 @@ impl Board {
         if NNUE {
             self.network.activate(pc, sq);
         }
-        self.hasher.update_piece(pc, sq);
+        self.material_hash ^= ZOBRIST.update_hash(pc, sq);
 
         let bb = sq.bb();
         self.board[sq] = Some(pc);
@@ -91,7 +90,7 @@ impl Board {
         if NNUE {
             self.network.deactivate(pc, sq);
         }
-        self.hasher.update_piece(pc, sq);
+        self.material_hash ^= ZOBRIST.update_hash(pc, sq);
 
         let bb_mask = !sq.bb();
         self.color_bb[pc.color_of()] &= bb_mask;
@@ -108,7 +107,7 @@ impl Board {
         if NNUE {
             self.network.move_piece_quiet(pc, from_sq, to_sq);
         }
-        self.hasher.move_piece(pc, from_sq, to_sq);
+        self.material_hash ^= ZOBRIST.move_hash(pc, from_sq, to_sq);
 
         let mask = from_sq.bb() | to_sq.bb();
         self.color_bb[pc.color_of()] ^= mask;
@@ -241,7 +240,7 @@ impl Board {
             .rev()
             .skip(1)
             .step_by(2)
-            .any(|entry| self.material_hash() == entry.material_hash)
+            .any(|entry| self.material_hash == entry.material_hash)
     }
 
     pub fn is_draw(&self) -> bool {
@@ -266,21 +265,11 @@ impl Board {
             material_hash: self.history[self.ply - 1].material_hash,
         };
 
-        if let Some(epsq) = self.history[self.ply - 1].epsq {
-            self.hasher.update_ep(epsq.file());
-        }
-
-        self.hasher.update_color();
         self.ctm = !self.ctm;
     }
 
     pub fn pop_null(&mut self) {
         self.ply -= 1;
-        self.hasher.update_color();
-
-        if let Some(epsq) = self.history[self.ply].epsq {
-            self.hasher.update_ep(epsq.file());
-        }
         self.ctm = !self.ctm;
     }
 
@@ -312,9 +301,6 @@ impl Board {
             MoveFlags::DoublePush => {
                 self.move_piece_quiet_i::<NNUE_UPDATE>(from_sq, to_sq);
                 epsq = Some(from_sq + Direction::North.relative(self.ctm));
-                if let Some(sq) = epsq {
-                    self.hasher.update_ep(sq.file());
-                }
             }
             MoveFlags::OO => {
                 self.move_piece_quiet_i::<NNUE_UPDATE>(
@@ -365,18 +351,16 @@ impl Board {
             entry: self.history[self.ply - 1].entry | to_sq.bb() | from_sq.bb(),
             moov: Some(m),
             plies_from_null: self.history[self.ply - 1].plies_from_null + 1,
-            material_hash: self.material_hash(),
+            material_hash: self.material_hash,
             half_move_counter,
             captured,
             epsq,
         };
         self.ctm = !self.ctm;
-        self.hasher.update_color();
     }
 
     pub fn ipop<const NNUE_UPDATE: bool>(&mut self) -> Option<Move> {
         self.ctm = !self.ctm;
-        self.hasher.update_color();
 
         let m = self.history[self.ply].moov?;
         let (from_sq, to_sq) = m.squares();
@@ -387,9 +371,6 @@ impl Board {
             }
             MoveFlags::DoublePush => {
                 self.move_piece_quiet_i::<NNUE_UPDATE>(to_sq, from_sq);
-                if let Some(sq) = self.history[self.ply].epsq {
-                    self.hasher.update_ep(sq.file());
-                }
             }
             MoveFlags::OO => {
                 self.move_piece_quiet_i::<NNUE_UPDATE>(
@@ -966,7 +947,6 @@ impl Board {
                 - 1);
         if self.ctm == Color::Black {
             self.ply += 1;
-            self.hasher.update_color();
         }
 
         let ranks = piece_placement.split('/');
@@ -1009,7 +989,6 @@ impl Board {
 
         let epsq = if en_passant_sq != "-" {
             let epsq = SQ::try_from(en_passant_sq)?;
-            self.hasher.update_ep(epsq.file());
             Some(epsq)
         } else {
             None
@@ -1022,7 +1001,7 @@ impl Board {
         self.history[self.ply] = HistoryEntry {
             entry: castling_mask,
             moov: None,
-            material_hash: self.material_hash(),
+            material_hash: self.material_hash,
             plies_from_null: 0,
             captured: None,
             epsq,
@@ -1040,11 +1019,17 @@ impl Board {
     }
 
     pub fn hash(&self) -> u64 {
-        self.hasher.hash()
+        let mut hash = self.material_hash;
+
+        if let Some(sq) = self.history[self.ply].epsq {
+            hash ^= ZOBRIST.ep_hash(sq);
+        }
+
+        hash ^ ZOBRIST.color_hash(self.ctm)
     }
 
     pub fn material_hash(&self) -> u64 {
-        self.hasher.material_hash()
+        self.material_hash
     }
 
     pub fn fullmove_number(&self) -> usize {
@@ -1060,7 +1045,7 @@ impl Default for Board {
             board: SQMap::new([None; SQ::N_SQUARES]),
             ctm: Color::White,
             ply: 0,
-            hasher: Hasher::new(),
+            material_hash: 0,
             network: Network::new(),
             history: [HistoryEntry::default(); Self::N_HISTORIES],
         }
