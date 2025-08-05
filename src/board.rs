@@ -42,6 +42,8 @@ impl Board {
         self.piece_type_bb = PieceTypeMap::new([Bitboard::ZERO; PieceType::N_PIECE_TYPES]);
         self.board = SQMap::new([None; SQ::N_SQUARES]);
 
+        self.material_hash = 0;
+
         self.network = Network::new();
     }
 
