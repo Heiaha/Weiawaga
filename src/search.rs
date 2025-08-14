@@ -441,13 +441,6 @@ impl<'a> Search<'a> {
 
         self.sel_depth = self.sel_depth.max(ply);
 
-        let eval = board.eval();
-
-        if eval >= beta {
-            return eval;
-        }
-        alpha = alpha.max(eval);
-
         let tt_entry = self.tt.get(board, ply);
         if let Some(tt_entry) = tt_entry {
             let tt_value = tt_entry.value();
@@ -462,6 +455,13 @@ impl<'a> Search<'a> {
             }
         }
 
+        let eval = board.eval();
+
+        if eval >= beta {
+            return eval;
+        }
+        alpha = alpha.max(eval);
+
         let mut moves = MoveList::from::<true>(board);
         let sorter = self.scorer.create_sorter::<true>(
             &mut moves,
@@ -469,6 +469,8 @@ impl<'a> Search<'a> {
             ply,
             tt_entry.and_then(|entry| entry.best_move()),
         );
+
+        let mut best_value = eval;
 
         for m in sorter {
             if !MoveScorer::see(board, m) {
@@ -483,14 +485,19 @@ impl<'a> Search<'a> {
                 return 0;
             }
 
-            if value > alpha {
-                if value >= beta {
-                    return value;
+            if value > best_value {
+                best_value = value;
+
+                if value > alpha {
+                    if value >= beta {
+                        break;
+                    }
+                    alpha = value;
                 }
-                alpha = value;
             }
         }
-        alpha
+
+        best_value
     }
 
     fn can_apply_null(
