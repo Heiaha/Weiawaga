@@ -277,7 +277,7 @@ impl<'a> Search<'a> {
                 return 0;
             }
             if value >= beta {
-                return beta;
+                return value;
             }
         }
 
@@ -444,7 +444,7 @@ impl<'a> Search<'a> {
         let eval = board.eval();
 
         if eval >= beta {
-            return beta;
+            return eval;
         }
         alpha = alpha.max(eval);
 
@@ -485,7 +485,7 @@ impl<'a> Search<'a> {
 
             if value > alpha {
                 if value >= beta {
-                    return beta;
+                    return value;
                 }
                 alpha = value;
             }
