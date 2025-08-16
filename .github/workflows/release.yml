@@ -1,0 +1,85 @@
+name: Release (baseline + AVX2)
+
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  BIN: Weiawaga
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux (glibc)
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            ext: tar.gz
+          # Windows (MSVC toolchain)
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: zip
+          # macOS Intel (x86_64)
+          - os: macos-13
+            target: x86_64-apple-darwin
+            ext: tar.gz
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build baseline (no AVX/AVX2)
+        shell: bash
+        run: |
+          set -eux
+          export RUSTFLAGS="-C target-cpu=x86-64-v2 -C target-feature=-avx,-avx2"
+          cargo build --release --target ${{ matrix.target }}
+          cp target/${{ matrix.target }}/release/${BIN}${{ matrix.os == 'windows-latest' && '.exe' || '' }} target/${{ matrix.target }}/release/${BIN}-baseline${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+
+      - name: Build AVX2 (x86-64-v3)
+        shell: bash
+        run: |
+          set -eux
+          export RUSTFLAGS="-C target-cpu=x86-64-v3"
+          cargo build --release --target ${{ matrix.target }}
+          cp target/${{ matrix.target }}/release/${BIN}${{ matrix.os == 'windows-latest' && '.exe' || '' }} target/${{ matrix.target }}/release/${BIN}-avx2${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+
+      - name: Package artifacts
+        shell: bash
+        run: |
+          set -eux
+          VERSION="${GITHUB_REF_NAME}"   # e.g. v1.2.3
+          REL="target/${{ matrix.target }}/release"
+          OUT="dist"
+          mkdir -p "$OUT"
+
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            powershell -NoProfile -Command "Compress-Archive -Path '${REL}/${BIN}-baseline.exe' -DestinationPath '${OUT}/${BIN}-${VERSION}-${{ matrix.target }}-baseline.zip'"
+            powershell -NoProfile -Command "Compress-Archive -Path '${REL}/${BIN}-avx2.exe' -DestinationPath '${OUT}/${BIN}-${VERSION}-${{ matrix.target }}-avx2.zip'"
+          else
+            strip "${REL}/${BIN}-baseline" || true
+            strip "${REL}/${BIN}-avx2" || true
+            tar -C "${REL}" -czf "${OUT}/${BIN}-${VERSION}-${{ matrix.target }}-baseline.tar.gz" "${BIN}-baseline"
+            tar -C "${REL}" -czf "${OUT}/${BIN}-${VERSION}-${{ matrix.target }}-avx2.tar.gz" "${BIN}-avx2"
+          fi
+
+          # Checksums
+          (cd "$OUT" && sha256sum * > "SHA256SUMS.txt") || (cd "$OUT" && shasum -a 256 * > "SHA256SUMS.txt")
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/SHA256SUMS.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
