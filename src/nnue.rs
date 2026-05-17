@@ -19,14 +19,12 @@ impl<const N: usize, const D: usize> Embedding<N, D> {
 
 #[derive(Clone)]
 struct Linear<const IN: usize, const OUT: usize> {
-    weights: &'static [i16x16],
-    biases: &'static [i16],
+    weights: &'static [i16x16; IN],
+    biases: &'static [i16; OUT],
 }
 
 impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
-    pub fn new(weights: &'static [i16x16], biases: &'static [i16]) -> Self {
-        assert_eq!(weights.len(), IN * OUT);
-        assert_eq!(biases.len(), OUT);
+    pub fn new(weights: &'static [i16x16; IN], biases: &'static [i16; OUT]) -> Self {
         Self { weights, biases }
     }
 }

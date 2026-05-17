@@ -85,7 +85,7 @@ impl TryFrom<&str> for TimeControl {
     type Error = &'static str;
 
     fn try_from(line: &str) -> Result<Self, Self::Error> {
-        if matches!(line, "go" | "go ponder") {
+        if line == "go" || line == "go ponder" || line.contains("infinite") {
             return Ok(TimeControl::Infinite);
         }
 
@@ -106,6 +106,7 @@ static GO_RE: LazyLock<Regex> = LazyLock::new(|| {
         r"(?x)^
                 go
                 (?:
+                    \s+infinite |
                     \s+depth\s+(?P<depth>\d+) |
                     \s+nodes\s+(?P<nodes>\d+) |
                     \s+movetime\s+(?P<movetime>\d+) |
@@ -146,10 +147,9 @@ impl Timer {
         nodes: Arc<AtomicU64>,
         overhead: Duration,
     ) -> Self {
-        let (time_target, time_maximum) = if let TimeControl::Variable { .. } = control {
-            Self::calculate_time(board, control)
-        } else {
-            (Duration::ZERO, Duration::ZERO)
+        let (time_target, time_maximum) = match control {
+            TimeControl::Variable { .. } => Self::calculate_time(board, control),
+            _ => (Duration::ZERO, Duration::ZERO),
         };
 
         Self {
