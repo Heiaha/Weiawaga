@@ -1,10 +1,26 @@
-use super::nnue_weights::*;
 use super::piece::*;
 use super::square::*;
 use super::traits::*;
 use super::types::*;
 
 use wide::*;
+
+#[repr(C, align(64))]
+struct Aligned<const N: usize>([u8; N]);
+
+static NETWORK: Aligned<{ Network::NET_BYTES }> = Aligned(*include_bytes!("network.bin"));
+
+struct Cursor {
+    bytes: &'static [u8],
+}
+
+impl Cursor {
+    fn take<T: bytemuck::Pod>(&mut self) -> &'static T {
+        let (head, tail) = self.bytes.split_at(core::mem::size_of::<T>());
+        self.bytes = tail;
+        bytemuck::from_bytes(head)
+    }
+}
 
 #[derive(Clone)]
 struct Embedding<const N: usize, const D: usize> {
@@ -47,21 +63,23 @@ pub struct Network {
 
 impl Network {
     pub fn new() -> Self {
+        let bytes: &'static [u8] = &NETWORK.0;
+        let (weights, biases) = bytes.split_at(2 * Self::W_I16);
+        let mut w = Cursor { bytes: weights };
+        let mut b = Cursor { bytes: biases };
+
+        let input_layer = Embedding::new(w.take());
+        let input_bias = *w.take::<[i16x16; Self::L1 / Self::LANES]>();
+
+        // Weights and biases live in separate regions, so walk them in parallel.
+        let hidden_layers = core::array::from_fn(|_| Linear::new(w.take(), b.take()));
+
         Self {
-            input_layer: Embedding::new(&INPUT_LAYER_WEIGHT),
-            hidden_layers: [
-                Linear::new(&HIDDEN_LAYER_0_WEIGHT, &HIDDEN_LAYER_0_BIAS),
-                Linear::new(&HIDDEN_LAYER_1_WEIGHT, &HIDDEN_LAYER_1_BIAS),
-                Linear::new(&HIDDEN_LAYER_2_WEIGHT, &HIDDEN_LAYER_2_BIAS),
-                Linear::new(&HIDDEN_LAYER_3_WEIGHT, &HIDDEN_LAYER_3_BIAS),
-                Linear::new(&HIDDEN_LAYER_4_WEIGHT, &HIDDEN_LAYER_4_BIAS),
-                Linear::new(&HIDDEN_LAYER_5_WEIGHT, &HIDDEN_LAYER_5_BIAS),
-                Linear::new(&HIDDEN_LAYER_6_WEIGHT, &HIDDEN_LAYER_6_BIAS),
-                Linear::new(&HIDDEN_LAYER_7_WEIGHT, &HIDDEN_LAYER_7_BIAS),
-            ],
+            input_layer,
+            hidden_layers,
             stack: vec![
                 Accumulator {
-                    acc: ColorMap::new([INPUT_LAYER_BIAS; Color::N_COLORS]),
+                    acc: ColorMap::new([input_bias; Color::N_COLORS]),
                     pop_count: 0
                 };
                 Self::N_ACCUMULATORS
@@ -165,4 +183,8 @@ impl Network {
     const INPUT_SCALE: i32 = 255;
     const HIDDEN_SCALE: i32 = 64;
     const COMB_SCALE: i32 = Self::HIDDEN_SCALE * Self::INPUT_SCALE;
+
+    const W_I16: usize = Self::N_INPUTS * Self::L1 + Self::L1 + Self::N_BUCKETS * (2 * Self::L1);
+    const B_I16: usize = Self::N_BUCKETS;
+    const NET_BYTES: usize = 2 * Self::W_I16 + 2 * Self::B_I16;
 }

@@ -7,7 +7,6 @@ mod moov;
 mod move_list;
 mod move_sorting;
 mod nnue;
-mod nnue_weights;
 mod perft;
 mod piece;
 mod search;

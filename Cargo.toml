@@ -9,6 +9,7 @@ rust-version = "1.85.0"
 
 [dependencies]
 arrayvec = "0.7.6"
+bytemuck = { version = "1", features = ["min_const_generics"] }
 regex = "1.11.1"
 rand = "0.9.1"
 wide = "0.7.33"
