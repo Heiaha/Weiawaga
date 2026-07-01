@@ -1,6 +1,8 @@
 use std::sync::LazyLock;
 use std::time::Duration;
 
+use arrayvec::ArrayVec;
+
 use super::board::*;
 use super::moov::*;
 use super::move_list::*;
@@ -292,6 +294,7 @@ impl<'a> Search<'a> {
         let mut tt_flag = Bound::Upper;
         let mut best_move = None;
         let mut best_value = -i32::MATE;
+        let mut quiets_tried = ArrayVec::<Move, MAX_MOVES>::new();
 
         let mut moves = MoveList::from::<false>(board);
         let sorter = self.scorer.create_sorter::<false>(
@@ -395,6 +398,11 @@ impl<'a> Search<'a> {
                         if m.is_quiet() {
                             self.scorer.add_killer(m, ply);
                             self.scorer.add_history(m, board.ctm(), depth);
+                            // Penalize the quiets searched before the cutoff
+                            // move so they sort lower in future nodes.
+                            for &q in &quiets_tried {
+                                self.scorer.sub_history(q, board.ctm(), depth);
+                            }
                             if let Some(p_move) = board.peek() {
                                 self.scorer.add_counter(p_move, m);
                             }
@@ -405,6 +413,10 @@ impl<'a> Search<'a> {
                     tt_flag = Bound::Exact;
                     alpha = value;
                 }
+            }
+
+            if m.is_quiet() {
+                quiets_tried.push(m);
             }
         }
 

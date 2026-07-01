@@ -126,12 +126,19 @@ impl MoveScorer {
     }
 
     pub fn add_history(&mut self, m: Move, ctm: Color, depth: i8) {
-        let depth = depth as i32;
+        self.update_history(m, ctm, (depth as i32).pow(2));
+    }
+
+    pub fn sub_history(&mut self, m: Move, ctm: Color, depth: i8) {
+        self.update_history(m, ctm, -(depth as i32).pow(2));
+    }
+
+    fn update_history(&mut self, m: Move, ctm: Color, delta: i32) {
         let (from_sq, to_sq) = m.squares();
         let score = &mut self.history_scores[ctm][from_sq][to_sq];
-        *score += depth * depth;
+        *score += delta;
 
-        if *score >= Self::HISTORY_MAX {
+        if score.abs() >= Self::HISTORY_MAX {
             self.history_scores
                 .iter_mut()
                 .flatten()
