@@ -136,15 +136,7 @@ impl MoveScorer {
     fn update_history(&mut self, m: Move, ctm: Color, delta: i32) {
         let (from_sq, to_sq) = m.squares();
         let score = &mut self.history_scores[ctm][from_sq][to_sq];
-        *score += delta;
-
-        if score.abs() >= Self::HISTORY_MAX {
-            self.history_scores
-                .iter_mut()
-                .flatten()
-                .flatten()
-                .for_each(|x| *x >>= 1);
-        }
+        *score += delta - *score * delta.abs() / Self::HISTORY_MAX;
     }
 
     pub fn add_counter(&mut self, p_move: Move, m: Move) {
