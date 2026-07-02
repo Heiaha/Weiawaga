@@ -18,6 +18,7 @@ pub struct Search<'a> {
     tt: &'a TT,
     scorer: MoveScorer,
     excluded_moves: [Option<Move>; MAX_MOVES],
+    eval_stack: [i32; MAX_MOVES],
     pv_table: Vec<Vec<Move>>,
 }
 
@@ -30,6 +31,7 @@ impl<'a> Search<'a> {
             sel_depth: 0,
             scorer: MoveScorer::new(),
             excluded_moves: [None; MAX_MOVES],
+            eval_stack: [0; MAX_MOVES],
             pv_table: vec![Vec::new(); MAX_MOVES],
         }
     }
@@ -120,6 +122,12 @@ impl<'a> Search<'a> {
         // position, primarily for move ordering.
         ///////////////////////////////////////////////////////////////////
         let hash_move = self.tt.get(board, 0).and_then(|entry| entry.best_move());
+
+        self.eval_stack[0] = if board.in_check() {
+            -i32::MATE
+        } else {
+            board.eval()
+        };
 
         ///////////////////////////////////////////////////////////////////
         // Score moves and begin searching recursively.
@@ -256,25 +264,35 @@ impl<'a> Search<'a> {
                 }
             }
         }
+        let static_eval = if in_check { -i32::MATE } else { board.eval() };
+        self.eval_stack[ply] = static_eval;
+
         ///////////////////////////////////////////////////////////////////
         // Reverse Futility Pruning
         ///////////////////////////////////////////////////////////////////
-        if Self::can_apply_rfp(depth, in_check, is_pv, beta, excluded_move) {
-            let eval = board.eval();
-
-            if eval - Self::rfp_margin(depth) >= beta {
-                return eval;
-            }
+        if Self::can_apply_rfp(depth, in_check, is_pv, beta, excluded_move)
+            && static_eval - Self::rfp_margin(depth) >= beta
+        {
+            return static_eval;
         }
 
         ///////////////////////////////////////////////////////////////////
         // Null move pruning.
         ///////////////////////////////////////////////////////////////////
-        if Self::can_apply_null(board, depth, beta, in_check, is_pv, excluded_move) {
+        if Self::can_apply_null(
+            board,
+            depth,
+            beta,
+            static_eval,
+            in_check,
+            is_pv,
+            excluded_move,
+        ) {
             let r = Self::null_reduction(depth);
             board.push_null();
             let value = -self.search(board, depth - r - 1, -beta, -beta + 1, ply);
             board.pop_null();
+            self.eval_stack[ply] = static_eval;
             if self.timer.is_stopped() {
                 return 0;
             }
@@ -483,7 +501,7 @@ impl<'a> Search<'a> {
         let mut best_value = eval;
 
         for m in sorter {
-            if !MoveScorer::see(board, m) {
+            if !MoveScorer::see(board, m, 0) {
                 continue;
             }
 
@@ -514,6 +532,7 @@ impl<'a> Search<'a> {
         board: &Board,
         depth: i8,
         beta: i32,
+        static_eval: i32,
         in_check: bool,
         is_pv: bool,
         excluded_move: Option<Move>,
@@ -523,7 +542,7 @@ impl<'a> Search<'a> {
             && board.peek().is_some()
             && depth >= Self::NULL_MIN_DEPTH
             && board.has_non_pawn_material()
-            && board.eval() >= beta
+            && static_eval >= beta
             && !beta.is_checkmate()
             && excluded_move.is_none()
     }
