@@ -98,7 +98,7 @@ impl MoveScorer {
             }
 
             score += Self::mvv_lva_score(board, m)
-                + if QUIESCENCE || Self::see(board, m) {
+                + if QUIESCENCE || Self::see(board, m, 0) {
                     Self::CAPTURE_SCORE
                 } else {
                     -Self::CAPTURE_SCORE
@@ -157,23 +157,31 @@ impl MoveScorer {
         self.history_scores[ctm][m.from_sq()][m.to_sq()]
     }
 
-    pub fn see(board: &Board, m: Move) -> bool {
+    pub fn see(board: &Board, m: Move, threshold: i32) -> bool {
         if m.promotion().is_some() {
             return true;
         }
 
         let (from_sq, to_sq) = m.squares();
 
-        let Some(captured_pt) = board.piece_type_at(to_sq) else {
-            return true;
+        let captured_value = if m.is_ep() {
+            Self::SEE_PIECE_TYPE[PieceType::Pawn]
+        } else {
+            board
+                .piece_type_at(to_sq)
+                .map_or(0, |pt| Self::SEE_PIECE_TYPE[pt])
         };
+
+        let mut value = captured_value - threshold;
+        if value < 0 {
+            return false;
+        }
 
         let mut attacking_pt = board
             .piece_type_at(from_sq)
             .expect("No attacking pt in see.");
 
-        let mut value = Self::SEE_PIECE_TYPE[captured_pt] - Self::SEE_PIECE_TYPE[attacking_pt];
-
+        value -= Self::SEE_PIECE_TYPE[attacking_pt];
         if value >= 0 {
             return true;
         }
