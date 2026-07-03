@@ -8,7 +8,6 @@ use super::square::*;
 use super::traits::*;
 use super::types::*;
 use super::zobrist::*;
-use arrayvec::ArrayVec;
 use regex::Regex;
 use std::fmt;
 use std::sync::LazyLock;
@@ -134,10 +133,10 @@ impl Board {
 
         let ksq_rel = king_bb.lsb().relative(color);
         if self.network.needs_refresh(color, ksq_rel) {
-            let pieces = self
-                .all_pieces()
-                .map(|sq| (self.board[sq].expect("No piece on occupied square."), sq))
-                .collect::<ArrayVec<_, { SQ::N_SQUARES }>>();
+            let mut pieces = PieceMap::new([Bitboard::ZERO; Piece::N_PIECES]);
+            for pc in Piece::iter(Piece::WhitePawn, Piece::BlackKing) {
+                pieces[pc] = self.bitboard_of_pc(pc);
+            }
             self.network.refresh(color, ksq_rel, &pieces);
         }
     }
