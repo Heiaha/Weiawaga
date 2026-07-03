@@ -39,6 +39,12 @@ impl SQ {
         File::from(self as u8 & 7)
     }
 
+    // Horizontal reflection (a-file <-> h-file); the Mirror trait's flip is
+    // the vertical, color-relative one.
+    pub fn hmirror(self) -> Self {
+        Self::from(self as u8 ^ 7)
+    }
+
     pub fn diagonal(self) -> Diagonal {
         let value = self as u8;
         Diagonal::from(7 + (value >> 3) - (value & 7))
