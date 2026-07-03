@@ -8,6 +8,7 @@ use super::square::*;
 use super::traits::*;
 use super::types::*;
 use super::zobrist::*;
+use arrayvec::ArrayVec;
 use regex::Regex;
 use std::fmt;
 use std::sync::LazyLock;
@@ -126,6 +127,19 @@ impl Board {
 
     pub fn eval(&self) -> i32 {
         self.network.eval(self.ctm)
+    }
+
+    fn refresh_network_if_needed(&mut self, color: Color) {
+        let king_bb = self.bitboard_of(color, PieceType::King);
+
+        let ksq_rel = king_bb.lsb().relative(color);
+        if self.network.needs_refresh(color, ksq_rel) {
+            let pieces = self
+                .all_pieces()
+                .map(|sq| (self.board[sq].expect("No piece on occupied square."), sq))
+                .collect::<ArrayVec<_, { SQ::N_SQUARES }>>();
+            self.network.refresh(color, ksq_rel, &pieces);
+        }
     }
 
     pub fn bitboard_of(&self, c: Color, pt: PieceType) -> Bitboard {
@@ -349,6 +363,11 @@ impl Board {
                 );
             }
         };
+
+        if NNUE_UPDATE {
+            self.refresh_network_if_needed(self.ctm);
+        }
+
         self.history[self.ply] = HistoryEntry {
             entry: self.history[self.ply - 1].entry | to_sq.bb() | from_sq.bb(),
             moov: Some(m),
@@ -977,6 +996,9 @@ impl Board {
             }
         }
 
+        self.refresh_network_if_needed(Color::White);
+        self.refresh_network_if_needed(Color::Black);
+
         let mut castling_mask = Bitboard::ALL_CASTLING_MASK;
         for (symbol, mask) in [
             ('K', Bitboard::WHITE_OO_MASK),
@@ -1182,6 +1204,50 @@ pub struct HistoryEntry {
 #[cfg(test)]
 mod tests {
     use crate::board::*;
+
+    fn walk_evals(board: &mut Board, depth: u8) {
+        let mut fresh = Board::new();
+        fresh.set_fen(&board.to_string()).expect("Roundtrip FEN.");
+        assert_eq!(
+            board.eval(),
+            fresh.eval(),
+            "incremental eval != from-scratch eval at {board}"
+        );
+
+        if depth == 0 {
+            return;
+        }
+
+        let moves = MoveList::from::<false>(board);
+        for i in 0..moves.len() {
+            board.push(moves[i]);
+            walk_evals(board, depth - 1);
+            board.pop();
+        }
+    }
+
+    #[test]
+    fn nnue_incremental_consistency() {
+        let positions = [
+            (Board::STARTING_FEN, 2),
+            (
+                "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+                2,
+            ),
+            ("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1", 3),
+            (
+                "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+                2,
+            ),
+            ("8/3k4/8/8/8/8/4K3/8 w - - 0 1", 5),
+        ];
+
+        for (fen, depth) in positions {
+            let mut board = Board::new();
+            board.set_fen(fen).expect("Test FEN should be valid.");
+            walk_evals(&mut board, depth);
+        }
+    }
 
     #[test]
     fn threefold_repetition() {
