@@ -64,10 +64,10 @@ impl FeatureCtx {
 
     fn king_bucket(ksq_norm: SQ) -> usize {
         match ksq_norm.rank() {
-            Rank::One => 0,
-            Rank::Two => 1,
-            Rank::Three | Rank::Four => 2,
-            _ => 3,
+            Rank::One => ksq_norm.file().index(),
+            Rank::Two => 4,
+            Rank::Three | Rank::Four => 5,
+            _ => 6,
         }
     }
 
@@ -101,7 +101,7 @@ pub struct Network {
 
 impl Network {
     const N_INPUTS: usize = Piece::N_PIECES * SQ::N_SQUARES;
-    const N_KING_BUCKETS: usize = 4;
+    const N_KING_BUCKETS: usize = 7;
     const N_ACCUMULATORS: usize = 1024;
     const L1: usize = 512;
     const N_BUCKETS: usize = 8;
@@ -267,11 +267,11 @@ mod tests {
         let w_ctx = FeatureCtx::new(SQ::B1);
         let b_ctx = FeatureCtx::new(SQ::G8.relative(Color::Black));
 
-        assert_eq!(flat_idx(wk, SQ::B1, Color::White, w_ctx), 321);
-        assert_eq!(flat_idx(bk, SQ::G8, Color::White, w_ctx), 766);
+        assert_eq!(flat_idx(wk, SQ::B1, Color::White, w_ctx), 1089);
+        assert_eq!(flat_idx(bk, SQ::G8, Color::White, w_ctx), 1534);
 
-        assert_eq!(flat_idx(wk, SQ::B1, Color::Black, b_ctx), 766);
-        assert_eq!(flat_idx(bk, SQ::G8, Color::Black, b_ctx), 321);
+        assert_eq!(flat_idx(wk, SQ::B1, Color::Black, b_ctx), 1534);
+        assert_eq!(flat_idx(bk, SQ::G8, Color::Black, b_ctx), 1089);
     }
 
     #[test]
@@ -282,13 +282,13 @@ mod tests {
         let w_ctx = FeatureCtx::new(SQ::D5);
         let b_ctx = FeatureCtx::new(SQ::G8.relative(Color::Black));
 
-        assert_eq!(w_ctx.bucket, 3);
-        assert_eq!(b_ctx.bucket, 0);
+        assert_eq!(w_ctx.bucket, 6);
+        assert_eq!(b_ctx.bucket, 1);
 
-        assert_eq!(flat_idx(bk, SQ::G8, Color::White, w_ctx), 3070);
-        assert_eq!(flat_idx(wk, SQ::D5, Color::White, w_ctx), 2659);
+        assert_eq!(flat_idx(bk, SQ::G8, Color::White, w_ctx), 5374);
+        assert_eq!(flat_idx(wk, SQ::D5, Color::White, w_ctx), 4963);
 
-        assert_eq!(flat_idx(bk, SQ::G8, Color::Black, b_ctx), 321);
-        assert_eq!(flat_idx(wk, SQ::D5, Color::Black, b_ctx), 732);
+        assert_eq!(flat_idx(bk, SQ::G8, Color::Black, b_ctx), 1089);
+        assert_eq!(flat_idx(wk, SQ::D5, Color::Black, b_ctx), 1500);
     }
 }
