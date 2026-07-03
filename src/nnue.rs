@@ -64,10 +64,10 @@ impl FeatureCtx {
 
     fn king_bucket(ksq_norm: SQ) -> usize {
         match ksq_norm.rank() {
-            Rank::One => 0,
-            Rank::Two => 1,
-            Rank::Three | Rank::Four => 2,
-            _ => 3,
+            Rank::One => ksq_norm.file().index(),
+            Rank::Two => 4,
+            Rank::Three | Rank::Four => 5,
+            _ => 6,
         }
     }
 
@@ -101,7 +101,7 @@ pub struct Network {
 
 impl Network {
     const N_INPUTS: usize = Piece::N_PIECES * SQ::N_SQUARES;
-    const N_KING_BUCKETS: usize = 4;
+    const N_KING_BUCKETS: usize = 7;
     const N_ACCUMULATORS: usize = 1024;
     const L1: usize = 512;
     const N_BUCKETS: usize = 8;
@@ -260,8 +260,8 @@ mod tests {
     }
 
     // Position "6k1/8/8/8/8/8/8/1K6 w - - 0 1": white king b1 (files a-d,
-    // not mirrored, bucket 0), black king g8 (mirrored to b8 -> relative
-    // rank 1, bucket 0).
+    // not mirrored, file bucket 1), black king g8 (mirrored to b8 ->
+    // relative b1, file bucket 1).
     #[test]
     fn feature_indices_match_trainer_convention() {
         let wk = Piece::make_piece(Color::White, PieceType::King);
@@ -271,18 +271,18 @@ mod tests {
         let b_ctx = FeatureCtx::new(SQ::G8.relative(Color::Black));
 
         // White perspective.
-        assert_eq!(flat_idx(wk, SQ::B1, Color::White, w_ctx), 321);
-        assert_eq!(flat_idx(bk, SQ::G8, Color::White, w_ctx), 766);
+        assert_eq!(flat_idx(wk, SQ::B1, Color::White, w_ctx), 1089);
+        assert_eq!(flat_idx(bk, SQ::G8, Color::White, w_ctx), 1534);
 
         // Black perspective: piece colors flip, ranks flip, and the black
         // king's file mirrors the whole board.
-        assert_eq!(flat_idx(wk, SQ::B1, Color::Black, b_ctx), 766);
-        assert_eq!(flat_idx(bk, SQ::G8, Color::Black, b_ctx), 321);
+        assert_eq!(flat_idx(wk, SQ::B1, Color::Black, b_ctx), 1534);
+        assert_eq!(flat_idx(bk, SQ::G8, Color::Black, b_ctx), 1089);
     }
 
     // Position "6k1/8/8/3K4/8/8/8/8 w - - 0 1": white king d5 (rank 5,
-    // bucket 3), black king g8 (mirrored, bucket 0). Exercises a non-zero
-    // bucket for the white perspective only.
+    // bucket 6), black king g8 (mirrored to b1, bucket 1). Exercises the
+    // up-board buckets for the white perspective only.
     #[test]
     fn feature_indices_bucket_offsets_match_trainer_convention() {
         let wk = Piece::make_piece(Color::White, PieceType::King);
@@ -291,15 +291,15 @@ mod tests {
         let w_ctx = FeatureCtx::new(SQ::D5);
         let b_ctx = FeatureCtx::new(SQ::G8.relative(Color::Black));
 
-        assert_eq!(w_ctx.bucket, 3);
-        assert_eq!(b_ctx.bucket, 0);
+        assert_eq!(w_ctx.bucket, 6);
+        assert_eq!(b_ctx.bucket, 1);
 
-        // White perspective: every feature comes from bucket 3.
-        assert_eq!(flat_idx(bk, SQ::G8, Color::White, w_ctx), 3070);
-        assert_eq!(flat_idx(wk, SQ::D5, Color::White, w_ctx), 2659);
+        // White perspective: every feature comes from bucket 6.
+        assert_eq!(flat_idx(bk, SQ::G8, Color::White, w_ctx), 5374);
+        assert_eq!(flat_idx(wk, SQ::D5, Color::White, w_ctx), 4963);
 
-        // Black perspective: bucket 0, mirrored.
-        assert_eq!(flat_idx(bk, SQ::G8, Color::Black, b_ctx), 321);
-        assert_eq!(flat_idx(wk, SQ::D5, Color::Black, b_ctx), 732);
+        // Black perspective: bucket 1, mirrored.
+        assert_eq!(flat_idx(bk, SQ::G8, Color::Black, b_ctx), 1089);
+        assert_eq!(flat_idx(wk, SQ::D5, Color::Black, b_ctx), 1500);
     }
 }
