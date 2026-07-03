@@ -1,3 +1,4 @@
+use super::bitboard::*;
 use super::piece::*;
 use super::square::*;
 use super::traits::*;
@@ -25,12 +26,11 @@ impl Cursor {
 #[derive(Clone)]
 struct Embedding<const N: usize, const D: usize> {
     weights: &'static [[i16x16; D]; N],
-    bias: &'static [i16x16; D],
 }
 
 impl<const N: usize, const D: usize> Embedding<N, D> {
-    fn new(weights: &'static [[i16x16; D]; N], bias: &'static [i16x16; D]) -> Self {
-        Self { weights, bias }
+    fn new(weights: &'static [[i16x16; D]; N]) -> Self {
+        Self { weights }
     }
 }
 
@@ -90,6 +90,13 @@ struct Accumulator {
     ctx: ColorMap<FeatureCtx>,
 }
 
+#[derive(Clone, Copy)]
+#[repr(C, align(64))]
+struct CacheEntry {
+    acc: [i16x16; Network::L1 / Network::LANES],
+    pieces: PieceMap<Bitboard>,
+}
+
 #[derive(Clone)]
 pub struct Network {
     input_layers: [Embedding<{ Self::N_INPUTS }, { Self::L1 / Self::LANES }>; Self::N_KING_BUCKETS],
@@ -97,6 +104,7 @@ pub struct Network {
 
     stack: Vec<Accumulator>,
     idx: usize,
+    cache: ColorMap<[[CacheEntry; 2]; Self::N_KING_BUCKETS]>,
 }
 
 impl Network {
@@ -127,9 +135,14 @@ impl Network {
         let input_weights: [&'static [[i16x16; Self::L1 / Self::LANES]; Self::N_INPUTS];
             Self::N_KING_BUCKETS] = core::array::from_fn(|_| w.take());
         let input_bias = w.take::<[i16x16; Self::L1 / Self::LANES]>();
-        let input_layers = input_weights.map(|weights| Embedding::new(weights, input_bias));
+        let input_layers = input_weights.map(Embedding::new);
 
         let hidden_layers = core::array::from_fn(|_| Linear::new(w.take(), b.take()));
+
+        let cold_entry = CacheEntry {
+            acc: *input_bias,
+            pieces: PieceMap::new([Bitboard::ZERO; Piece::N_PIECES]),
+        };
 
         Self {
             input_layers,
@@ -143,6 +156,7 @@ impl Network {
                 Self::N_ACCUMULATORS
             ],
             idx: 0,
+            cache: ColorMap::new([[[cold_entry; 2]; Self::N_KING_BUCKETS]; Color::N_COLORS]),
         }
     }
 
@@ -205,21 +219,34 @@ impl Network {
         self.stack[self.idx].ctx[color] != FeatureCtx::new(ksq_rel)
     }
 
-    pub fn refresh(&mut self, color: Color, ksq_rel: SQ, pieces: &[(Piece, SQ)]) {
+    pub fn refresh(&mut self, color: Color, ksq_rel: SQ, pieces: &PieceMap<Bitboard>) {
         let ctx = FeatureCtx::new(ksq_rel);
         let layer = &self.input_layers[ctx.bucket];
+        let entry = &mut self.cache[color][ctx.bucket][ctx.mirrored as usize];
+
+        for pc in Piece::iter(Piece::WhitePawn, Piece::BlackKing) {
+            for sq in pieces[pc] & !entry.pieces[pc] {
+                let idx = ctx.feature_idx(pc, sq, color);
+                entry
+                    .acc
+                    .iter_mut()
+                    .zip(layer.weights[idx].iter())
+                    .for_each(|(act, &w)| *act += w);
+            }
+            for sq in entry.pieces[pc] & !pieces[pc] {
+                let idx = ctx.feature_idx(pc, sq, color);
+                entry
+                    .acc
+                    .iter_mut()
+                    .zip(layer.weights[idx].iter())
+                    .for_each(|(act, &w)| *act -= w);
+            }
+            entry.pieces[pc] = pieces[pc];
+        }
+
         let cur = &mut self.stack[self.idx];
         cur.ctx[color] = ctx;
-        cur.acc[color] = *layer.bias;
-
-        for &(pc, sq) in pieces {
-            let idx = ctx.feature_idx(pc, sq, color);
-
-            cur.acc[color]
-                .iter_mut()
-                .zip(layer.weights[idx].iter())
-                .for_each(|(act, &w)| *act += w);
-        }
+        cur.acc[color] = entry.acc;
     }
 
     pub fn eval(&self, ctm: Color) -> i32 {
@@ -260,8 +287,8 @@ mod tests {
     }
 
     // Position "6k1/8/8/8/8/8/8/1K6 w - - 0 1": white king b1 (files a-d,
-    // not mirrored, bucket 0), black king g8 (mirrored to b8 -> relative
-    // rank 1, bucket 0).
+    // not mirrored), black king g8 (mirrored to b8 -> relative b1); both
+    // perspectives in bucket 0.
     #[test]
     fn feature_indices_match_trainer_convention() {
         let wk = Piece::make_piece(Color::White, PieceType::King);
@@ -281,8 +308,8 @@ mod tests {
     }
 
     // Position "6k1/8/8/3K4/8/8/8/8 w - - 0 1": white king d5 (rank 5,
-    // bucket 3), black king g8 (mirrored, bucket 0). Exercises a non-zero
-    // bucket for the white perspective only.
+    // bucket 3), black king g8 (mirrored to b1, bucket 0). Exercises the
+    // up-board buckets for the white perspective only.
     #[test]
     fn feature_indices_bucket_offsets_match_trainer_convention() {
         let wk = Piece::make_piece(Color::White, PieceType::King);
