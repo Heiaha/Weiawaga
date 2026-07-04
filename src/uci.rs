@@ -70,6 +70,7 @@ pub enum EngineOption {
     Threads(u16),
     MoveOverhead(Duration),
     Ponder(bool),
+    ShowWDL(bool),
     ClearHash,
 }
 
@@ -91,6 +92,17 @@ impl EngineOption {
 
     // Constants for Ponder
     pub const PONDER_DEFAULT: bool = false;
+
+    // Constants for UCI_ShowWDL
+    pub const SHOW_WDL_DEFAULT: bool = false;
+
+    fn parse_bool(value: String) -> Result<bool, &'static str> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "true" | "on" | "1" => Ok(true),
+            "false" | "off" | "0" => Ok(false),
+            _ => Err("Unrecognized boolean value."),
+        }
+    }
 }
 
 impl TryFrom<&str> for EngineOption {
@@ -130,17 +142,12 @@ impl TryFrom<&str> for EngineOption {
                 Self::MoveOverhead(overhead)
             }
             "Ponder" => {
-                let enabled = match value
-                    .ok_or("No ponder value specified.")?
-                    .trim()
-                    .to_ascii_lowercase()
-                    .as_str()
-                {
-                    "true" | "on" | "1" => Ok(true),
-                    "false" | "off" | "0" => Ok(false),
-                    _ => Err("Unrecognized ponder value."),
-                }?;
+                let enabled = Self::parse_bool(value.ok_or("No ponder value specified.")?)?;
                 Self::Ponder(enabled)
+            }
+            "UCI_ShowWDL" => {
+                let enabled = Self::parse_bool(value.ok_or("No wdl value specified.")?)?;
+                Self::ShowWDL(enabled)
             }
             "Clear Hash" => Self::ClearHash,
             _ => {

@@ -32,6 +32,22 @@ impl<const N: usize, const D: usize> Embedding<N, D> {
     fn new(weights: &'static [[i16x16; D]; N]) -> Self {
         Self { weights }
     }
+
+    fn update<const SIGN: i16>(&self, idx: usize, acc: &mut [i16x16; D]) {
+        acc.iter_mut()
+            .zip(self.weights[idx].iter())
+            .for_each(|(act, &w)| *act += SIGN * w);
+    }
+
+    fn add_sub(&self, add_idx: usize, sub_idx: usize, acc: &mut [i16x16; D]) {
+        acc.iter_mut()
+            .zip(
+                self.weights[add_idx]
+                    .iter()
+                    .zip(self.weights[sub_idx].iter()),
+            )
+            .for_each(|(act, (&w_add, &w_sub))| *act += w_add - w_sub);
+    }
 }
 
 #[derive(Clone)]
@@ -43,6 +59,54 @@ struct Linear<const IN: usize, const OUT: usize> {
 impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
     fn new(weights: &'static [i16x16; IN], biases: &'static [i16; OUT]) -> Self {
         Self { weights, biases }
+    }
+
+    // Fused clipped-relu-square dot product over both perspective halves,
+    // side to move first. Returns the raw quantized sum; scaling and the
+    // bias are the caller's concern.
+    fn forward(&self, stm: &[i16x16], nstm: &[i16x16]) -> i32 {
+        let (stm_weights, nstm_weights) = self.weights.split_at(stm.len());
+
+        let dot = |acts: &[i16x16], weights: &[i16x16]| -> i32x8 {
+            acts.iter()
+                .zip(weights)
+                .map(|(&act, &w)| {
+                    let clamped = Network::clipped_relu(act);
+                    (w * clamped).dot(clamped)
+                })
+                .sum()
+        };
+
+        (dot(stm, stm_weights) + dot(nstm, nstm_weights)).reduce_add()
+    }
+}
+
+#[derive(Clone)]
+struct WdlLayer<const IN: usize> {
+    weights: &'static [[f32; IN]; 3],
+    biases: &'static [f32; 3],
+}
+
+impl<const IN: usize> WdlLayer<IN> {
+    fn new(weights: &'static [[f32; IN]; 3], biases: &'static [f32; 3]) -> Self {
+        Self { weights, biases }
+    }
+
+    // Softmaxed loss/draw/win probabilities for the given activations.
+    fn forward(&self, activations: &[f32; IN]) -> [f32; 3] {
+        let mut logits = *self.biases;
+        for (logit, weights) in logits.iter_mut().zip(self.weights) {
+            *logit += weights
+                .iter()
+                .zip(activations)
+                .map(|(w, a)| w * a)
+                .sum::<f32>();
+        }
+
+        let max = logits.into_iter().fold(f32::MIN, f32::max);
+        let exps = logits.map(|logit| (logit - max).exp());
+        let sum = exps.iter().sum::<f32>();
+        exps.map(|exp| exp / sum)
     }
 }
 
@@ -101,6 +165,7 @@ struct CacheEntry {
 pub struct Network {
     input_layers: [Embedding<{ Self::N_INPUTS }, { Self::L1 / Self::LANES }>; Self::N_KING_BUCKETS],
     hidden_layers: [Linear<{ 2 * Self::L1 / Self::LANES }, 1>; Self::N_BUCKETS],
+    wdl_layer: WdlLayer<{ 2 * Self::L1 }>,
 
     stack: Vec<Accumulator>,
     idx: usize,
@@ -108,24 +173,6 @@ pub struct Network {
 }
 
 impl Network {
-    const N_INPUTS: usize = Piece::N_PIECES * SQ::N_SQUARES;
-    const N_KING_BUCKETS: usize = 4;
-    const N_ACCUMULATORS: usize = 1024;
-    const L1: usize = 512;
-    const N_BUCKETS: usize = 8;
-    const BUCKET_DIV: usize = 32_usize.div_ceil(Self::N_BUCKETS);
-    const LANES: usize = i16x16::LANES as usize;
-    const NNUE2SCORE: i32 = 400;
-    const INPUT_SCALE: i32 = 255;
-    const HIDDEN_SCALE: i32 = 64;
-    const COMB_SCALE: i32 = Self::HIDDEN_SCALE * Self::INPUT_SCALE;
-
-    const W_I16: usize = Self::N_KING_BUCKETS * Self::N_INPUTS * Self::L1
-        + Self::L1
-        + Self::N_BUCKETS * (2 * Self::L1);
-    const B_I16: usize = Self::N_BUCKETS;
-    const NET_BYTES: usize = 2 * Self::W_I16 + 2 * Self::B_I16;
-
     pub fn new() -> Self {
         let bytes: &'static [u8] = &NETWORK.0;
         let (weights, biases) = bytes.split_at(2 * Self::W_I16);
@@ -139,6 +186,8 @@ impl Network {
 
         let hidden_layers = core::array::from_fn(|_| Linear::new(w.take(), b.take()));
 
+        let wdl_layer = WdlLayer::new(b.take(), b.take());
+
         let cold_entry = CacheEntry {
             acc: *input_bias,
             pieces: PieceMap::new([Bitboard::ZERO; Piece::N_PIECES]),
@@ -147,6 +196,7 @@ impl Network {
         Self {
             input_layers,
             hidden_layers,
+            wdl_layer,
             stack: vec![
                 Accumulator {
                     acc: ColorMap::new([*input_bias; Color::N_COLORS]),
@@ -186,17 +236,10 @@ impl Network {
         let cur = &mut self.stack[self.idx];
         for color in [Color::White, Color::Black] {
             let ctx = cur.ctx[color];
-            let layer = &self.input_layers[ctx.bucket];
             let from_idx = ctx.feature_idx(pc, from_sq, color);
             let to_idx = ctx.feature_idx(pc, to_sq, color);
 
-            let from_weights = layer.weights[from_idx].iter();
-            let to_weights = layer.weights[to_idx].iter();
-
-            cur.acc[color]
-                .iter_mut()
-                .zip(from_weights.zip(to_weights))
-                .for_each(|(act, (&w_from, &w_to))| *act += w_to - w_from);
+            self.input_layers[ctx.bucket].add_sub(to_idx, from_idx, &mut cur.acc[color]);
         }
     }
 
@@ -207,10 +250,7 @@ impl Network {
             let ctx = cur.ctx[color];
             let idx = ctx.feature_idx(pc, sq, color);
 
-            cur.acc[color]
-                .iter_mut()
-                .zip(self.input_layers[ctx.bucket].weights[idx].iter())
-                .for_each(|(act, &w)| *act += SIGN * w);
+            self.input_layers[ctx.bucket].update::<SIGN>(idx, &mut cur.acc[color]);
         }
         cur.pop_count += SIGN;
     }
@@ -226,20 +266,10 @@ impl Network {
 
         for pc in Piece::iter(Piece::WhitePawn, Piece::BlackKing) {
             for sq in pieces[pc] & !entry.pieces[pc] {
-                let idx = ctx.feature_idx(pc, sq, color);
-                entry
-                    .acc
-                    .iter_mut()
-                    .zip(layer.weights[idx].iter())
-                    .for_each(|(act, &w)| *act += w);
+                layer.update::<1>(ctx.feature_idx(pc, sq, color), &mut entry.acc);
             }
             for sq in entry.pieces[pc] & !pieces[pc] {
-                let idx = ctx.feature_idx(pc, sq, color);
-                entry
-                    .acc
-                    .iter_mut()
-                    .zip(layer.weights[idx].iter())
-                    .for_each(|(act, &w)| *act -= w);
+                layer.update::<-1>(ctx.feature_idx(pc, sq, color), &mut entry.acc);
             }
             entry.pieces[pc] = pieces[pc];
         }
@@ -254,28 +284,53 @@ impl Network {
         let bucket = (acc.pop_count as usize - 2) / Self::BUCKET_DIV;
         let hidden_layer = &self.hidden_layers[bucket];
 
-        let eval_color = |color, weights: &[i16x16]| -> i32x8 {
-            acc.acc[color]
-                .iter()
-                .zip(weights)
-                .map(|(&act, &w)| {
-                    let clamped = Self::clipped_relu(act);
-                    (w * clamped).dot(clamped)
-                })
-                .sum()
-        };
-
-        let output = eval_color(ctm, &hidden_layer.weights[..Self::L1 / Self::LANES])
-            + eval_color(!ctm, &hidden_layer.weights[Self::L1 / Self::LANES..]);
+        let output = hidden_layer.forward(&acc.acc[ctm], &acc.acc[!ctm]);
 
         i32::from(hidden_layer.biases[0]) * Self::NNUE2SCORE / Self::HIDDEN_SCALE
-            + (output.reduce_add() / Self::INPUT_SCALE) * Self::NNUE2SCORE / Self::COMB_SCALE
+            + (output / Self::INPUT_SCALE) * Self::NNUE2SCORE / Self::COMB_SCALE
     }
 
     fn clipped_relu(x: i16x16) -> i16x16 {
         x.max(i16x16::ZERO)
             .min(i16x16::splat(Self::INPUT_SCALE as i16))
     }
+
+    pub fn wdl(&self, ctm: Color) -> [f32; 3] {
+        let acc = &self.stack[self.idx];
+
+        let mut activations = [0.0; 2 * Self::L1];
+        let lanes = [ctm, !ctm]
+            .into_iter()
+            .flat_map(|color| &acc.acc[color])
+            .flat_map(|&act| Self::clipped_relu(act).to_array());
+        for (activation, x) in activations.iter_mut().zip(lanes) {
+            let a = f32::from(x) / Self::INPUT_SCALE as f32;
+            *activation = a * a;
+        }
+
+        self.wdl_layer.forward(&activations)
+    }
+}
+
+impl Network {
+    const N_INPUTS: usize = Piece::N_PIECES * SQ::N_SQUARES;
+    const N_KING_BUCKETS: usize = 4;
+    const N_ACCUMULATORS: usize = 1024;
+    const L1: usize = 512;
+    const N_BUCKETS: usize = 8;
+    const BUCKET_DIV: usize = 32_usize.div_ceil(Self::N_BUCKETS);
+    const LANES: usize = i16x16::LANES as usize;
+    const NNUE2SCORE: i32 = 400;
+    const INPUT_SCALE: i32 = 255;
+    const HIDDEN_SCALE: i32 = 64;
+    const COMB_SCALE: i32 = Self::HIDDEN_SCALE * Self::INPUT_SCALE;
+
+    const W_I16: usize = Self::N_KING_BUCKETS * Self::N_INPUTS * Self::L1
+        + Self::L1
+        + Self::N_BUCKETS * (2 * Self::L1);
+    const B_I16: usize = Self::N_BUCKETS;
+    const WDL_F32: usize = 3 * (2 * Self::L1) + 3;
+    const NET_BYTES: usize = 2 * Self::W_I16 + 2 * Self::B_I16 + 4 * Self::WDL_F32;
 }
 
 #[cfg(test)]

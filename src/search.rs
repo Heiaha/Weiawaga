@@ -14,6 +14,7 @@ use super::types::*;
 pub struct Search<'a> {
     id: u16,
     sel_depth: usize,
+    show_wdl: bool,
     timer: Timer,
     tt: &'a TT,
     scorer: MoveScorer,
@@ -23,11 +24,12 @@ pub struct Search<'a> {
 }
 
 impl<'a> Search<'a> {
-    pub fn new(timer: Timer, tt: &'a TT, id: u16) -> Self {
+    pub fn new(timer: Timer, tt: &'a TT, id: u16, show_wdl: bool) -> Self {
         Self {
             id,
             timer,
             tt,
+            show_wdl,
             sel_depth: 0,
             scorer: MoveScorer::new(),
             excluded_moves: [None; MAX_MOVES],
@@ -57,7 +59,7 @@ impl<'a> Search<'a> {
             }
 
             if self.id == 0 && !self.timer.is_stopped() {
-                best_move.inspect(|&m| self.print_info(depth, m, value, &pv));
+                best_move.inspect(|&m| self.print_info(&mut board, depth, m, value, &pv));
             }
             self.sel_depth = 0;
         }
@@ -621,12 +623,51 @@ impl<'a> Search<'a> {
         after.iter_mut().for_each(|line| line.clear());
     }
 
-    fn print_info(&self, depth: i8, m: Move, value: i32, pv: &[Move]) {
+    fn print_info(&self, board: &mut Board, depth: i8, m: Move, value: i32, pv: &[Move]) {
         let score_str = if value.is_checkmate() {
             let mate_value = (i32::MATE - value.abs() + 1) * value.signum() / 2;
             format!("mate {mate_value}")
         } else {
             format!("cp {value}")
+        };
+
+        let wdl_str = if self.show_wdl {
+            // A proven mate overrides the network's prior.
+            let [loss, draw, win] = if value.is_checkmate() {
+                if value > 0 {
+                    [0.0, 0.0, 1.0]
+                } else {
+                    [1.0, 0.0, 0.0]
+                }
+            } else {
+                for &pv_move in pv {
+                    board.push(pv_move);
+                }
+                let mut leaf_ply = pv.len();
+                while leaf_ply > 0 && (!pv[leaf_ply - 1].is_quiet() || board.in_check()) {
+                    board.pop();
+                    leaf_ply -= 1;
+                }
+                let mut wdl = board.wdl();
+                for _ in 0..leaf_ply {
+                    board.pop();
+                }
+                // The head reports for the side to move at the leaf; flip
+                // back to the root's perspective after an odd number of plies.
+                if leaf_ply % 2 == 1 {
+                    wdl.reverse();
+                }
+                wdl
+            };
+            let per_mille = |p: f32| (p * 1000.0).round() as i32;
+            format!(
+                " wdl {} {} {}",
+                per_mille(win),
+                per_mille(draw),
+                per_mille(loss)
+            )
+        } else {
+            String::new()
         };
 
         let elapsed = self.timer.elapsed();
@@ -639,7 +680,7 @@ impl<'a> Search<'a> {
             .join(" ");
 
         println!(
-            "info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv_str}",
+            "info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str}{wdl_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv_str}",
             m = m,
             depth = depth,
             sel_depth = self.sel_depth,
