@@ -15,6 +15,7 @@ pub struct SearchMaster {
     stop: Arc<AtomicBool>,
     pondering: Arc<AtomicBool>,
     ponder_enabled: bool,
+    show_wdl: bool,
     board: Board,
     n_threads: u16,
     tt: TT,
@@ -27,6 +28,7 @@ impl SearchMaster {
             stop,
             pondering,
             ponder_enabled: false,
+            show_wdl: false,
             board: Board::new(),
             n_threads: 1,
             tt: TT::new(16),
@@ -68,6 +70,10 @@ impl SearchMaster {
                     println!(
                         "option name Ponder type check default {}",
                         EngineOption::PONDER_DEFAULT,
+                    );
+                    println!(
+                        "option name UCI_ShowWDL type check default {}",
+                        EngineOption::SHOW_WDL_DEFAULT,
                     );
                     println!("option name Clear Hash type button");
                     println!("uciok");
@@ -119,6 +125,7 @@ impl SearchMaster {
                 ),
                 &self.tt,
                 0,
+                self.show_wdl,
             );
 
             // Create helper search threads which will stop when self.stop resolves to true.
@@ -135,6 +142,7 @@ impl SearchMaster {
                     ),
                     &self.tt,
                     id,
+                    self.show_wdl,
                 );
                 s.spawn(move || helper_search_thread.go(thread_board));
             }
@@ -175,6 +183,9 @@ impl SearchMaster {
             }
             EngineOption::Ponder(ponder_enabled) => {
                 self.ponder_enabled = ponder_enabled;
+            }
+            EngineOption::ShowWDL(show_wdl) => {
+                self.show_wdl = show_wdl;
             }
             EngineOption::ClearHash => {
                 self.tt.clear();

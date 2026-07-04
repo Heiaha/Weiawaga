@@ -128,6 +128,10 @@ impl Board {
         self.network.eval(self.ctm)
     }
 
+    pub fn wdl(&self) -> [f32; 3] {
+        self.network.wdl(self.ctm)
+    }
+
     fn refresh_network_if_needed(&mut self, color: Color) {
         let king_bb = self.bitboard_of(color, PieceType::King);
 
