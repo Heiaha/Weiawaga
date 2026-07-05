@@ -1,4 +1,4 @@
-name: Release (baseline + AVX2)
+name: Release (baseline + AVX2 + AVX512)
 
 on:
   push:
@@ -52,6 +52,18 @@ jobs:
           cargo build --release --target ${{ matrix.target }}
           cp target/${{ matrix.target }}/release/${BIN}${{ matrix.os == 'windows-latest' && '.exe' || '' }} target/${{ matrix.target }}/release/${BIN}-avx2${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
+      # AVX512 (x86-64-v4 includes AVX512BW, which wide's i16x32 needs for the
+      # real 512-bit path). Skipped on macOS: x86_64 AVX512 is unrunnable there
+      # (Apple Silicon is ARM, Rosetta 2 lacks AVX512, Intel Macs mostly lack it).
+      - name: Build AVX512 (x86-64-v4)
+        if: matrix.os != 'macos-13'
+        shell: bash
+        run: |
+          set -eux
+          export RUSTFLAGS="-C target-cpu=x86-64-v4"
+          cargo build --release --target ${{ matrix.target }}
+          cp target/${{ matrix.target }}/release/${BIN}${{ matrix.os == 'windows-latest' && '.exe' || '' }} target/${{ matrix.target }}/release/${BIN}-avx512${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+
       - name: Package artifacts
         shell: bash
         run: |
@@ -64,11 +76,18 @@ jobs:
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             powershell -NoProfile -Command "Compress-Archive -Path '${REL}/${BIN}-baseline.exe' -DestinationPath '${OUT}/${BIN}-${VERSION}-${{ matrix.target }}-baseline.zip'"
             powershell -NoProfile -Command "Compress-Archive -Path '${REL}/${BIN}-avx2.exe' -DestinationPath '${OUT}/${BIN}-${VERSION}-${{ matrix.target }}-avx2.zip'"
+            if [[ -f "${REL}/${BIN}-avx512.exe" ]]; then
+              powershell -NoProfile -Command "Compress-Archive -Path '${REL}/${BIN}-avx512.exe' -DestinationPath '${OUT}/${BIN}-${VERSION}-${{ matrix.target }}-avx512.zip'"
+            fi
           else
             strip "${REL}/${BIN}-baseline" || true
             strip "${REL}/${BIN}-avx2" || true
             tar -C "${REL}" -czf "${OUT}/${BIN}-${VERSION}-${{ matrix.target }}-baseline.tar.gz" "${BIN}-baseline"
             tar -C "${REL}" -czf "${OUT}/${BIN}-${VERSION}-${{ matrix.target }}-avx2.tar.gz" "${BIN}-avx2"
+            if [[ -f "${REL}/${BIN}-avx512" ]]; then
+              strip "${REL}/${BIN}-avx512" || true
+              tar -C "${REL}" -czf "${OUT}/${BIN}-${VERSION}-${{ matrix.target }}-avx512.tar.gz" "${BIN}-avx512"
+            fi
           fi
 
           # Checksums

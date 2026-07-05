@@ -25,21 +25,21 @@ impl Cursor {
 
 #[derive(Clone)]
 struct Embedding<const N: usize, const D: usize> {
-    weights: &'static [[i16x16; D]; N],
+    weights: &'static [[i16x32; D]; N],
 }
 
 impl<const N: usize, const D: usize> Embedding<N, D> {
-    fn new(weights: &'static [[i16x16; D]; N]) -> Self {
+    fn new(weights: &'static [[i16x32; D]; N]) -> Self {
         Self { weights }
     }
 
-    fn update<const SIGN: i16>(&self, idx: usize, acc: &mut [i16x16; D]) {
+    fn update<const SIGN: i16>(&self, idx: usize, acc: &mut [i16x32; D]) {
         acc.iter_mut()
             .zip(self.weights[idx].iter())
             .for_each(|(act, &w)| *act += SIGN * w);
     }
 
-    fn add_sub(&self, add_idx: usize, sub_idx: usize, acc: &mut [i16x16; D]) {
+    fn add_sub(&self, add_idx: usize, sub_idx: usize, acc: &mut [i16x32; D]) {
         acc.iter_mut()
             .zip(
                 self.weights[add_idx]
@@ -52,22 +52,22 @@ impl<const N: usize, const D: usize> Embedding<N, D> {
 
 #[derive(Clone)]
 struct Linear<const IN: usize, const OUT: usize> {
-    weights: &'static [i16x16; IN],
+    weights: &'static [i16x32; IN],
     biases: &'static [i16; OUT],
 }
 
 impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
-    fn new(weights: &'static [i16x16; IN], biases: &'static [i16; OUT]) -> Self {
+    fn new(weights: &'static [i16x32; IN], biases: &'static [i16; OUT]) -> Self {
         Self { weights, biases }
     }
 
     // Fused clipped-relu-square dot product over both perspective halves,
     // side to move first. Returns the raw quantized sum; scaling and the
     // bias are the caller's concern.
-    fn forward(&self, stm: &[i16x16], nstm: &[i16x16]) -> i32 {
+    fn forward(&self, stm: &[i16x32], nstm: &[i16x32]) -> i32 {
         let (stm_weights, nstm_weights) = self.weights.split_at(stm.len());
 
-        let dot = |acts: &[i16x16], weights: &[i16x16]| -> i32x8 {
+        let dot = |acts: &[i16x32], weights: &[i16x32]| -> i32x16 {
             acts.iter()
                 .zip(weights)
                 .map(|(&act, &w)| {
@@ -149,7 +149,7 @@ impl FeatureCtx {
 #[derive(Clone)]
 #[repr(C, align(64))]
 struct Accumulator {
-    acc: ColorMap<[i16x16; Network::L1 / Network::LANES]>,
+    acc: ColorMap<[i16x32; Network::L1 / Network::LANES]>,
     pop_count: i16,
     ctx: ColorMap<FeatureCtx>,
 }
@@ -157,7 +157,7 @@ struct Accumulator {
 #[derive(Clone, Copy)]
 #[repr(C, align(64))]
 struct CacheEntry {
-    acc: [i16x16; Network::L1 / Network::LANES],
+    acc: [i16x32; Network::L1 / Network::LANES],
     pieces: PieceMap<Bitboard>,
 }
 
@@ -179,9 +179,9 @@ impl Network {
         let mut w = Cursor { bytes: weights };
         let mut b = Cursor { bytes: biases };
 
-        let input_weights: [&'static [[i16x16; Self::L1 / Self::LANES]; Self::N_INPUTS];
+        let input_weights: [&'static [[i16x32; Self::L1 / Self::LANES]; Self::N_INPUTS];
             Self::N_KING_BUCKETS] = core::array::from_fn(|_| w.take());
-        let input_bias = w.take::<[i16x16; Self::L1 / Self::LANES]>();
+        let input_bias = w.take::<[i16x32; Self::L1 / Self::LANES]>();
         let input_layers = input_weights.map(Embedding::new);
 
         let hidden_layers = core::array::from_fn(|_| Linear::new(w.take(), b.take()));
@@ -290,9 +290,9 @@ impl Network {
             + (output / Self::INPUT_SCALE) * Self::NNUE2SCORE / Self::COMB_SCALE
     }
 
-    fn clipped_relu(x: i16x16) -> i16x16 {
-        x.max(i16x16::ZERO)
-            .min(i16x16::splat(Self::INPUT_SCALE as i16))
+    fn clipped_relu(x: i16x32) -> i16x32 {
+        x.max(i16x32::ZERO)
+            .min(i16x32::splat(Self::INPUT_SCALE as i16))
     }
 
     pub fn wdl(&self, ctm: Color) -> [f32; 3] {
@@ -319,7 +319,7 @@ impl Network {
     const L1: usize = 512;
     const N_BUCKETS: usize = 8;
     const BUCKET_DIV: usize = 32_usize.div_ceil(Self::N_BUCKETS);
-    const LANES: usize = i16x16::LANES as usize;
+    const LANES: usize = i16x32::LANES as usize;
     const NNUE2SCORE: i32 = 400;
     const INPUT_SCALE: i32 = 255;
     const HIDDEN_SCALE: i32 = 64;
