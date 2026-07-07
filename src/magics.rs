@@ -76,8 +76,8 @@ fn init_magics_type(
     shift: u8,
 ) -> Magics {
     let mut magics = Magics {
-        masks: SQMap::new([Bitboard::ZERO; SQ::COUNT]),
-        magics: SQMap::new([Bitboard::ZERO; SQ::COUNT]),
+        masks: SQMap::default(),
+        magics: SQMap::default(),
         attacks: SQMap::new([const { Vec::new() }; SQ::COUNT]),
         shift,
     };

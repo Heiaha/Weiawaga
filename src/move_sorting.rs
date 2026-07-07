@@ -4,7 +4,6 @@ use super::board::*;
 use super::moov::*;
 use super::move_list::*;
 use super::piece::*;
-use super::square::*;
 use super::traits::*;
 use super::types::*;
 
@@ -44,8 +43,8 @@ impl MoveScorer {
     pub fn new() -> Self {
         Self {
             killer_moves: [None; MAX_MOVES],
-            history_scores: ColorMap::new([SQMap::new([SQMap::new([0; SQ::COUNT]); SQ::COUNT]); 2]),
-            counter_moves: SQMap::new([SQMap::new([None; SQ::COUNT]); SQ::COUNT]),
+            history_scores: ColorMap::default(),
+            counter_moves: SQMap::default(),
         }
     }
 
@@ -117,7 +116,7 @@ impl MoveScorer {
             .piece_type_at(from_sq)
             .expect("No attacker in MVVLVA.");
 
-        Self::MVV_LVA_SCORES[captured_pt.index() * PieceType::COUNT + attacking_pt.index()]
+        Self::MVV_LVA_SCORES[captured_pt][attacking_pt]
     }
 
     pub fn add_killer(&mut self, m: Move, ply: usize) {
@@ -252,13 +251,14 @@ impl MoveScorer {
 
     const SEE_PIECE_TYPE: PieceTypeMap<i32> = PieceTypeMap::new([100, 375, 375, 500, 1025, 10000]);
 
+    // Indexed by [captured][attacker].
     #[rustfmt::skip]
-    const MVV_LVA_SCORES: [i32; PieceType::COUNT * PieceType::COUNT] = [
-        105, 104, 103, 102, 101, 100,
-        205, 204, 203, 202, 201, 200,
-        305, 304, 303, 302, 301, 300,
-        405, 404, 403, 402, 401, 400,
-        505, 504, 503, 502, 501, 500,
-        605, 604, 603, 602, 601, 600
-    ];
+    const MVV_LVA_SCORES: PieceTypeMap<PieceTypeMap<i32>> = PieceTypeMap::new([
+        PieceTypeMap::new([105, 104, 103, 102, 101, 100]),
+        PieceTypeMap::new([205, 204, 203, 202, 201, 200]),
+        PieceTypeMap::new([305, 304, 303, 302, 301, 300]),
+        PieceTypeMap::new([405, 404, 403, 402, 401, 400]),
+        PieceTypeMap::new([505, 504, 503, 502, 501, 500]),
+        PieceTypeMap::new([605, 604, 603, 602, 601, 600]),
+    ]);
 }

@@ -39,6 +39,7 @@ impl Enumerable for Piece {
     // Discriminants skip 6 and 7 to keep the color bit aligned, so the dense
     // index and the discriminant differ for black pieces.
     fn from_repr(n: u8) -> Self {
+        debug_assert!((n as usize) < Self::COUNT);
         Self::from(n + 2 * (n / 6))
     }
 
@@ -101,10 +102,6 @@ pub enum PieceType {
 
 impl Enumerable for PieceType {
     const COUNT: usize = 6;
-
-    fn index(&self) -> usize {
-        *self as usize
-    }
 }
 
 impl fmt::Display for PieceType {
@@ -142,10 +139,6 @@ impl Color {
 
 impl Enumerable for Color {
     const COUNT: usize = 2;
-
-    fn index(&self) -> usize {
-        *self as usize
-    }
 }
 
 impl Not for Color {
