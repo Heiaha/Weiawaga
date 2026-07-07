@@ -34,7 +34,7 @@ impl Iterator for MoveSorter<'_> {
 }
 
 pub struct MoveScorer {
-    killer_moves: [Option<Move>; MAX_MOVES],
+    killer_moves: [Option<Move>; MAX_PLY],
     history_scores: ColorMap<SQMap<SQMap<i32>>>,
     counter_moves: SQMap<SQMap<Option<Move>>>,
 }
@@ -42,7 +42,7 @@ pub struct MoveScorer {
 impl MoveScorer {
     pub fn new() -> Self {
         Self {
-            killer_moves: [None; MAX_MOVES],
+            killer_moves: [None; MAX_PLY],
             history_scores: ColorMap::default(),
             counter_moves: SQMap::default(),
         }
