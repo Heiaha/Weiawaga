@@ -18,8 +18,8 @@ pub struct Search<'a> {
     timer: Timer,
     tt: &'a TT,
     scorer: MoveScorer,
-    excluded_moves: [Option<Move>; MAX_MOVES],
-    eval_stack: [i32; MAX_MOVES],
+    excluded_moves: [Option<Move>; MAX_PLY],
+    eval_stack: [i32; MAX_PLY],
     pv_table: Vec<Vec<Move>>,
 }
 
@@ -32,9 +32,9 @@ impl<'a> Search<'a> {
             show_wdl,
             sel_depth: 0,
             scorer: MoveScorer::new(),
-            excluded_moves: [None; MAX_MOVES],
-            eval_stack: [0; MAX_MOVES],
-            pv_table: vec![Vec::new(); MAX_MOVES],
+            excluded_moves: [None; MAX_PLY],
+            eval_stack: [0; MAX_PLY],
+            pv_table: vec![Vec::new(); MAX_PLY],
         }
     }
 
@@ -253,18 +253,20 @@ impl<'a> Search<'a> {
         // If appropriate, produce a cutoff.
         ///////////////////////////////////////////////////////////////////
         let tt_entry = self.tt.get(board, ply);
-        if let Some(tt_entry) = tt_entry {
-            if tt_entry.depth() >= depth && !is_pv && excluded_move.is_none() {
-                let tt_value = tt_entry.value();
+        if let Some(tt_entry) = tt_entry
+            && tt_entry.depth() >= depth
+            && !is_pv
+            && excluded_move.is_none()
+        {
+            let tt_value = tt_entry.value();
 
-                match tt_entry.bound() {
-                    Bound::Exact => return tt_value,
-                    Bound::Lower => alpha = alpha.max(tt_value),
-                    Bound::Upper => beta = beta.min(tt_value),
-                }
-                if alpha >= beta {
-                    return tt_value;
-                }
+            match tt_entry.bound() {
+                Bound::Exact => return tt_value,
+                Bound::Lower => alpha = alpha.max(tt_value),
+                Bound::Upper => beta = beta.min(tt_value),
+            }
+            if alpha >= beta {
+                return tt_value;
             }
         }
         ///////////////////////////////////////////////////////////////////
@@ -730,9 +732,9 @@ pub enum Bound {
 
 static LMR_TABLE: LazyLock<[[i8; 64]; 64]> = LazyLock::new(|| {
     let mut lmr_table = [[0; 64]; 64];
-    for depth in 1..64 {
-        for move_number in 1..64 {
-            lmr_table[depth][move_number] = (Search::LMR_BASE_REDUCTION
+    for (depth, row) in lmr_table.iter_mut().enumerate().skip(1) {
+        for (move_number, reduction) in row.iter_mut().enumerate().skip(1) {
+            *reduction = (Search::LMR_BASE_REDUCTION
                 + (depth as f32).ln() * (move_number as f32).ln() / Search::LMR_MOVE_DIVIDER)
                 as i8;
         }

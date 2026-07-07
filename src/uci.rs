@@ -13,6 +13,7 @@ use std::time::Duration;
 use std::{io, thread};
 // Asymptote inspired a lot of this nice uci implementation.
 
+#[allow(clippy::upper_case_acronyms)]
 pub struct UCI {
     _main_thread: thread::JoinHandle<()>,
     main_tx: mpsc::Sender<UCICommand>,
@@ -159,6 +160,7 @@ impl TryFrom<&str> for EngineOption {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 pub enum UCICommand {
     UCINewGame,
     UCI,

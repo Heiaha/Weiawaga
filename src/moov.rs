@@ -15,39 +15,41 @@ impl Move {
         )
     }
 
-    pub fn to_sq(&self) -> SQ {
+    pub fn to_sq(self) -> SQ {
         SQ::from_repr((self.0.get() & 0x3f) as u8)
     }
 
-    pub fn from_sq(&self) -> SQ {
+    // The from-square of the move, not a conversion.
+    #[allow(clippy::wrong_self_convention)]
+    pub fn from_sq(self) -> SQ {
         SQ::from_repr(((self.0.get() >> 6) & 0x3f) as u8)
     }
 
-    pub fn squares(&self) -> (SQ, SQ) {
+    pub fn squares(self) -> (SQ, SQ) {
         (self.from_sq(), self.to_sq())
     }
 
-    pub fn flags(&self) -> MoveFlags {
+    pub fn flags(self) -> MoveFlags {
         MoveFlags::from(((self.0.get() >> 12) & 0xf) as u8)
     }
 
-    pub fn move_int(&self) -> u16 {
+    pub fn move_int(self) -> u16 {
         self.0.get()
     }
 
-    pub fn is_quiet(&self) -> bool {
+    pub fn is_quiet(self) -> bool {
         (self.0.get() >> 12) & 0b1100 == 0
     }
 
-    pub fn is_capture(&self) -> bool {
+    pub fn is_capture(self) -> bool {
         (self.0.get() >> 12) & 0b0100 != 0
     }
 
-    pub fn is_ep(&self) -> bool {
+    pub fn is_ep(self) -> bool {
         self.flags() == MoveFlags::EnPassant
     }
 
-    pub fn promotion(&self) -> Option<PieceType> {
+    pub fn promotion(self) -> Option<PieceType> {
         match self.flags() {
             MoveFlags::PrKnight | MoveFlags::PcKnight => Some(PieceType::Knight),
             MoveFlags::PrBishop | MoveFlags::PcBishop => Some(PieceType::Bishop),
@@ -57,7 +59,7 @@ impl Move {
         }
     }
 
-    pub fn is_castling(&self) -> bool {
+    pub fn is_castling(self) -> bool {
         matches!(self.flags(), MoveFlags::OO | MoveFlags::OOO)
     }
 }
@@ -82,6 +84,7 @@ impl fmt::Display for Move {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u8)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum MoveFlags {
     Quiet = 0b0000,
     DoublePush = 0b0001,
