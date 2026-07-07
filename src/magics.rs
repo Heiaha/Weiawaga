@@ -1,6 +1,7 @@
 use super::attacks::*;
 use super::bitboard::*;
 use super::square::*;
+use super::traits::*;
 use super::types::*;
 use std::sync::LazyLock;
 
@@ -75,9 +76,9 @@ fn init_magics_type(
     shift: u8,
 ) -> Magics {
     let mut magics = Magics {
-        masks: SQMap::new([Bitboard::ZERO; SQ::N_SQUARES]),
-        magics: SQMap::new([Bitboard::ZERO; SQ::N_SQUARES]),
-        attacks: SQMap::new([const { Vec::new() }; SQ::N_SQUARES]),
+        masks: SQMap::new([Bitboard::ZERO; SQ::COUNT]),
+        magics: SQMap::new([Bitboard::ZERO; SQ::COUNT]),
+        attacks: SQMap::new([const { Vec::new() }; SQ::COUNT]),
         shift,
     };
 

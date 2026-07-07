@@ -38,9 +38,9 @@ impl Board {
         self.ctm = Color::White;
         self.history = [HistoryEntry::default(); Self::N_HISTORIES];
 
-        self.color_bb = ColorMap::new([Bitboard::ZERO; Color::N_COLORS]);
-        self.piece_type_bb = PieceTypeMap::new([Bitboard::ZERO; PieceType::N_PIECE_TYPES]);
-        self.board = SQMap::new([None; SQ::N_SQUARES]);
+        self.color_bb = ColorMap::new([Bitboard::ZERO; Color::COUNT]);
+        self.piece_type_bb = PieceTypeMap::new([Bitboard::ZERO; PieceType::COUNT]);
+        self.board = SQMap::new([None; SQ::COUNT]);
 
         self.material_hash = 0;
 
@@ -137,8 +137,8 @@ impl Board {
 
         let ksq_rel = king_bb.lsb().relative(color);
         if self.network.needs_refresh(color, ksq_rel) {
-            let mut pieces = PieceMap::new([Bitboard::ZERO; Piece::N_PIECES]);
-            for pc in Piece::iter(Piece::WhitePawn, Piece::BlackKing) {
+            let mut pieces = PieceMap::new([Bitboard::ZERO; Piece::COUNT]);
+            for pc in Piece::iter() {
                 pieces[pc] = self.bitboard_of_pc(pc);
             }
             self.network.refresh(color, ksq_rel, &pieces);
@@ -958,7 +958,7 @@ impl Board {
         let halfmove_clock = re_captures.name("halfmove").map_or("0", |m| m.as_str());
         let fullmove_counter = re_captures.name("fullmove").map_or("1", |m| m.as_str());
 
-        if piece_placement.split('/').count() != Rank::N_RANKS {
+        if piece_placement.split('/').count() != Rank::COUNT {
             return Err("Pieces Placement FEN should have 8 ranks.");
         }
 
@@ -987,7 +987,7 @@ impl Board {
                     if idx > 63 {
                         return Err("Invalid square index in FEN.");
                     }
-                    let sq = SQ::from(idx as u8);
+                    let sq = SQ::from_repr(idx as u8);
                     let pc = Piece::try_from(ch)?;
                     self.set_piece_at(pc, sq);
                     idx += 1;
@@ -1067,9 +1067,9 @@ impl Board {
 impl Default for Board {
     fn default() -> Self {
         Self {
-            piece_type_bb: PieceTypeMap::new([Bitboard::ZERO; PieceType::N_PIECE_TYPES]),
-            color_bb: ColorMap::new([Bitboard::ZERO; Color::N_COLORS]),
-            board: SQMap::new([None; SQ::N_SQUARES]),
+            piece_type_bb: PieceTypeMap::new([Bitboard::ZERO; PieceType::COUNT]),
+            color_bb: ColorMap::new([Bitboard::ZERO; Color::COUNT]),
+            board: SQMap::new([None; SQ::COUNT]),
             ctm: Color::White,
             ply: 0,
             material_hash: 0,
@@ -1093,10 +1093,10 @@ impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut board_str = String::new();
         for rank_idx in (0..=7).rev() {
-            let rank = Rank::from(rank_idx);
+            let rank = Rank::from_repr(rank_idx);
             let mut empty_squares = 0;
             for file_idx in 0..=7 {
-                let file = File::from(file_idx);
+                let file = File::from_repr(file_idx);
                 let sq = SQ::encode(rank, file);
                 match self.board[sq] {
                     Some(pc) => {
@@ -1154,11 +1154,11 @@ impl fmt::Display for Board {
 
 impl fmt::Debug for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut s = String::with_capacity(SQ::N_SQUARES * 2 + 8);
+        let mut s = String::with_capacity(SQ::COUNT * 2 + 8);
         for rank_idx in (0..=7).rev() {
-            let rank = Rank::from(rank_idx);
+            let rank = Rank::from_repr(rank_idx);
             for file_idx in 0..=7 {
-                let file = File::from(file_idx);
+                let file = File::from_repr(file_idx);
                 let sq = SQ::encode(rank, file);
                 let pc_str = self
                     .piece_at(sq)

@@ -1,15 +1,14 @@
 use super::piece::*;
 use super::square::*;
+use super::traits::*;
 use std::ops::{Index, IndexMut};
 use std::slice::{Iter, IterMut};
 
-pub type ColorMap<T> = EnumMap<T, { Color::N_COLORS }>;
-pub type PieceMap<T> = EnumMap<T, { Piece::N_PIECES }>;
-pub type PieceTypeMap<T> = EnumMap<T, { PieceType::N_PIECE_TYPES }>;
-pub type SQMap<T> = EnumMap<T, { SQ::N_SQUARES }>;
-pub type FileMap<T> = EnumMap<T, { File::N_FILES }>;
-pub type RankMap<T> = EnumMap<T, { Rank::N_RANKS }>;
-pub type DiagonalMap<T> = EnumMap<T, { Diagonal::N_DIAGONALS }>;
+pub type ColorMap<T> = EnumMap<T, { Color::COUNT }>;
+pub type PieceMap<T> = EnumMap<T, { Piece::COUNT }>;
+pub type PieceTypeMap<T> = EnumMap<T, { PieceType::COUNT }>;
+pub type SQMap<T> = EnumMap<T, { SQ::COUNT }>;
+pub type FileMap<T> = EnumMap<T, { File::COUNT }>;
 
 #[derive(Copy, Clone)]
 pub struct EnumMap<T, const N: usize>([T; N]);
@@ -44,12 +43,12 @@ impl<'a, T, const N: usize> IntoIterator for &'a EnumMap<T, N> {
 
 impl<T, E, const N: usize> Index<E> for EnumMap<T, N>
 where
-    E: Into<usize>,
+    E: Enumerable,
 {
     type Output = T;
 
     fn index(&self, key: E) -> &Self::Output {
-        let idx = key.into();
+        let idx = key.index();
         debug_assert!(idx < N);
         &self.0[idx]
     }
@@ -57,10 +56,10 @@ where
 
 impl<T, E, const N: usize> IndexMut<E> for EnumMap<T, N>
 where
-    E: Into<usize>,
+    E: Enumerable,
 {
     fn index_mut(&mut self, key: E) -> &mut Self::Output {
-        let idx = key.into();
+        let idx = key.index();
         debug_assert!(idx < N);
         &mut self.0[idx]
     }
