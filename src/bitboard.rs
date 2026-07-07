@@ -319,7 +319,7 @@ impl Bitboard {
 }
 
 static BETWEEN_BB: LazyLock<SQMap<SQMap<Bitboard>>> = LazyLock::new(|| {
-    let mut between_bb = SQMap::new([SQMap::new([B!(0); SQ::COUNT]); SQ::COUNT]);
+    let mut between_bb = SQMap::<SQMap<Bitboard>>::default();
     for sq1 in Bitboard::ALL {
         for sq2 in Bitboard::ALL {
             let sqs = sq1.bb() | sq2.bb();
@@ -335,7 +335,7 @@ static BETWEEN_BB: LazyLock<SQMap<SQMap<Bitboard>>> = LazyLock::new(|| {
     between_bb
 });
 static LINES_BB: LazyLock<SQMap<SQMap<Bitboard>>> = LazyLock::new(|| {
-    let mut lines_bb = SQMap::new([SQMap::new([B!(0); SQ::COUNT]); SQ::COUNT]);
+    let mut lines_bb = SQMap::<SQMap<Bitboard>>::default();
     for sq1 in Bitboard::ALL {
         for sq2 in Bitboard::ALL {
             if sq1.file() == sq2.file() || sq1.rank() == sq2.rank() {

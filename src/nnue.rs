@@ -186,7 +186,7 @@ impl Network {
 
         let cold_entry = CacheEntry {
             acc: *input_bias,
-            pieces: PieceMap::new([Bitboard::ZERO; Piece::COUNT]),
+            pieces: PieceMap::default(),
         };
 
         Self {
@@ -197,7 +197,7 @@ impl Network {
                 Accumulator {
                     acc: ColorMap::new([*input_bias; Color::COUNT]),
                     pop_count: 0,
-                    ctx: ColorMap::new([FeatureCtx::default(); Color::COUNT]),
+                    ctx: ColorMap::default(),
                 };
                 Self::N_ACCUMULATORS
             ],

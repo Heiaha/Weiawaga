@@ -1,6 +1,5 @@
 use super::piece::*;
 use super::square::*;
-use super::traits::*;
 use super::types::*;
 use std::sync::LazyLock;
 
@@ -18,8 +17,8 @@ pub struct Hasher {
 
 impl Hasher {
     pub fn new() -> Self {
-        let mut zobrist_table = PieceMap::new([SQMap::new([0; SQ::COUNT]); Piece::COUNT]);
-        let mut zobrist_ep = FileMap::new([0; File::COUNT]);
+        let mut zobrist_table = PieceMap::<SQMap<u64>>::default();
+        let mut zobrist_ep = FileMap::<u64>::default();
 
         let mut rng = StdRng::seed_from_u64(1070372);
 

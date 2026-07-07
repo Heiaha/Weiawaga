@@ -38,9 +38,9 @@ impl Board {
         self.ctm = Color::White;
         self.history = [HistoryEntry::default(); Self::N_HISTORIES];
 
-        self.color_bb = ColorMap::new([Bitboard::ZERO; Color::COUNT]);
-        self.piece_type_bb = PieceTypeMap::new([Bitboard::ZERO; PieceType::COUNT]);
-        self.board = SQMap::new([None; SQ::COUNT]);
+        self.color_bb = ColorMap::default();
+        self.piece_type_bb = PieceTypeMap::default();
+        self.board = SQMap::default();
 
         self.material_hash = 0;
 
@@ -137,7 +137,7 @@ impl Board {
 
         let ksq_rel = king_bb.lsb().relative(color);
         if self.network.needs_refresh(color, ksq_rel) {
-            let mut pieces = PieceMap::new([Bitboard::ZERO; Piece::COUNT]);
+            let mut pieces = PieceMap::default();
             for pc in Piece::iter() {
                 pieces[pc] = self.bitboard_of_pc(pc);
             }
@@ -1067,9 +1067,9 @@ impl Board {
 impl Default for Board {
     fn default() -> Self {
         Self {
-            piece_type_bb: PieceTypeMap::new([Bitboard::ZERO; PieceType::COUNT]),
-            color_bb: ColorMap::new([Bitboard::ZERO; Color::COUNT]),
-            board: SQMap::new([None; SQ::COUNT]),
+            piece_type_bb: PieceTypeMap::default(),
+            color_bb: ColorMap::default(),
+            board: SQMap::default(),
             ctm: Color::White,
             ply: 0,
             material_hash: 0,

@@ -19,10 +19,16 @@ pub trait Enumerable: Copy + Sized {
         const {
             assert!(std::mem::size_of::<Self>() == 1);
         }
+        debug_assert!((n as usize) < Self::COUNT);
         unsafe { std::mem::transmute_copy(&n) }
     }
 
-    fn index(&self) -> usize;
+    fn index(&self) -> usize {
+        const {
+            assert!(std::mem::size_of::<Self>() == 1);
+        }
+        unsafe { std::mem::transmute_copy::<Self, u8>(self) as usize }
+    }
 
     fn iter() -> impl Iterator<Item = Self> {
         (0..Self::COUNT as u8).map(Self::from_repr)

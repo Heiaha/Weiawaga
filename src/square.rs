@@ -51,10 +51,6 @@ impl SQ {
 
 impl Enumerable for SQ {
     const COUNT: usize = 64;
-
-    fn index(&self) -> usize {
-        *self as usize
-    }
 }
 
 impl Relative for SQ {
@@ -149,10 +145,6 @@ pub enum Rank {
 
 impl Enumerable for Rank {
     const COUNT: usize = 8;
-
-    fn index(&self) -> usize {
-        *self as usize
-    }
 }
 
 impl BitboardMask for Rank {
@@ -207,10 +199,6 @@ pub enum File {
 
 impl Enumerable for File {
     const COUNT: usize = 8;
-
-    fn index(&self) -> usize {
-        *self as usize
-    }
 }
 
 impl BitboardMask for File {
@@ -267,10 +255,6 @@ pub enum Diagonal {
 
 impl Enumerable for Diagonal {
     const COUNT: usize = 15;
-
-    fn index(&self) -> usize {
-        *self as usize
-    }
 }
 
 impl BitboardMask for Diagonal {
@@ -315,10 +299,6 @@ pub enum AntiDiagonal {
 
 impl Enumerable for AntiDiagonal {
     const COUNT: usize = 15;
-
-    fn index(&self) -> usize {
-        *self as usize
-    }
 }
 
 impl BitboardMask for AntiDiagonal {

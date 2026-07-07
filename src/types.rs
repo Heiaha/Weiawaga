@@ -65,6 +65,12 @@ where
     }
 }
 
+impl<T: Copy + Default, const N: usize> Default for EnumMap<T, N> {
+    fn default() -> Self {
+        Self([T::default(); N])
+    }
+}
+
 pub trait Score {
     fn is_checkmate(&self) -> bool;
 
