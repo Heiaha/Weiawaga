@@ -177,7 +177,7 @@ impl SearchMaster {
                 if !(EngineOption::MOVE_OVERHEAD_MIN..=EngineOption::MOVE_OVERHEAD_MAX)
                     .contains(&overhead)
                 {
-                    return Err("Hash size out of range.");
+                    return Err("Move overhead out of range.");
                 }
                 self.overhead = overhead;
             }
