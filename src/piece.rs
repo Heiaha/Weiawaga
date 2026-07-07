@@ -20,34 +20,35 @@ pub enum Piece {
 }
 
 impl Piece {
-    pub fn index(self) -> usize {
-        self as usize - 2 * self.color_of().index()
-    }
-
     pub fn type_of(self) -> PieceType {
-        PieceType::from(self as u8 & 0b111)
+        PieceType::from_repr(self as u8 & 0b111)
     }
 
     pub fn color_of(self) -> Color {
-        Color::from((self as u8 & 0b1000) >> 3)
+        Color::from_repr((self as u8 & 0b1000) >> 3)
     }
 
     pub fn make_piece(color: Color, pt: PieceType) -> Self {
         Self::from(((color as u8) << 3) + pt as u8)
     }
+}
 
-    // Use this iterator pattern for Piece, PieceType, and Bitboard iterator for SQ
-    // until we can return to Step implementation once it's stabilized.
-    // https://github.com/rust-lang/rust/issues/42168
-    pub fn iter(start: Self, end: Self) -> impl Iterator<Item = Self> {
-        (start as u8..=end as u8)
-            .filter(|n| !matches!(n, 0b0110 | 0b0111)) // Skip over 6 and 7, as they're not assigned to a piece so as to align color bits
-            .map(Self::from)
+impl Enumerable for Piece {
+    const COUNT: usize = 12;
+
+    // Discriminants skip 6 and 7 to keep the color bit aligned, so the dense
+    // index and the discriminant differ for black pieces.
+    fn from_repr(n: u8) -> Self {
+        Self::from(n + 2 * (n / 6))
+    }
+
+    fn index(&self) -> usize {
+        *self as usize - 2 * self.color_of().index()
     }
 }
 
-impl Mirror for Piece {
-    fn mirror(&self) -> Self {
+impl Relative for Piece {
+    fn vmirror(&self) -> Self {
         Self::from(*self as u8 ^ 0b1000)
     }
 }
@@ -70,12 +71,6 @@ impl TryFrom<char> for Piece {
     }
 }
 
-impl Into<usize> for Piece {
-    fn into(self) -> usize {
-        self.index()
-    }
-}
-
 impl fmt::Display for Piece {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -90,11 +85,11 @@ impl fmt::Display for Piece {
 }
 
 impl Piece {
-    pub const N_PIECES: usize = 12;
     const PIECE_STR: &'static str = "PNBRQK  pnbrqk";
 }
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Debug)]
+#[repr(u8)]
 pub enum PieceType {
     Pawn,
     Knight,
@@ -104,25 +99,11 @@ pub enum PieceType {
     King,
 }
 
-impl PieceType {
-    pub fn index(self) -> usize {
-        self as usize
-    }
+impl Enumerable for PieceType {
+    const COUNT: usize = 6;
 
-    pub fn iter(start: Self, end: Self) -> impl Iterator<Item = Self> {
-        (start as u8..=end as u8).map(Self::from)
-    }
-}
-
-impl From<u8> for PieceType {
-    fn from(n: u8) -> Self {
-        unsafe { std::mem::transmute::<u8, Self>(n) }
-    }
-}
-
-impl Into<usize> for PieceType {
-    fn into(self) -> usize {
-        self.index()
+    fn index(&self) -> usize {
+        *self as usize
     }
 }
 
@@ -140,7 +121,6 @@ impl fmt::Display for PieceType {
 }
 
 impl PieceType {
-    pub const N_PIECE_TYPES: usize = 6;
     pub const PIECE_TYPE_STR: &'static str = "pnbrqk";
 }
 
@@ -152,10 +132,6 @@ pub enum Color {
 }
 
 impl Color {
-    pub fn index(self) -> usize {
-        self as usize
-    }
-
     pub fn factor(&self) -> i32 {
         match *self {
             Self::White => 1,
@@ -164,15 +140,11 @@ impl Color {
     }
 }
 
-impl From<u8> for Color {
-    fn from(n: u8) -> Self {
-        unsafe { std::mem::transmute::<u8, Self>(n) }
-    }
-}
+impl Enumerable for Color {
+    const COUNT: usize = 2;
 
-impl Into<usize> for Color {
-    fn into(self) -> usize {
-        self.index()
+    fn index(&self) -> usize {
+        *self as usize
     }
 }
 
@@ -180,7 +152,7 @@ impl Not for Color {
     type Output = Color;
 
     fn not(self) -> Self {
-        Color::from((self as u8) ^ 1)
+        Color::from_repr((self as u8) ^ 1)
     }
 }
 
@@ -207,8 +179,4 @@ impl TryFrom<char> for Color {
             _ => Err("Color must be either 'w' or 'b'."),
         }
     }
-}
-
-impl Color {
-    pub const N_COLORS: usize = 2;
 }

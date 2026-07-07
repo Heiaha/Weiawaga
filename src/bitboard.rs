@@ -1,6 +1,7 @@
 use super::attacks;
 use super::piece::*;
 use super::square::*;
+use super::traits::*;
 use super::types::*;
 use std::fmt;
 use std::ops::{
@@ -21,11 +22,11 @@ macro_rules! B {
 
 impl Bitboard {
     pub fn lsb(&self) -> SQ {
-        SQ::from(self.0.trailing_zeros() as u8)
+        SQ::from_repr(self.0.trailing_zeros() as u8)
     }
 
     pub fn msb(&self) -> SQ {
-        SQ::from((63 - self.0.leading_zeros()) as u8)
+        SQ::from_repr((63 - self.0.leading_zeros()) as u8)
     }
 
     pub fn pop_lsb(&mut self) -> SQ {
@@ -318,7 +319,7 @@ impl Bitboard {
 }
 
 static BETWEEN_BB: LazyLock<SQMap<SQMap<Bitboard>>> = LazyLock::new(|| {
-    let mut between_bb = SQMap::new([SQMap::new([B!(0); SQ::N_SQUARES]); SQ::N_SQUARES]);
+    let mut between_bb = SQMap::new([SQMap::new([B!(0); SQ::COUNT]); SQ::COUNT]);
     for sq1 in Bitboard::ALL {
         for sq2 in Bitboard::ALL {
             let sqs = sq1.bb() | sq2.bb();
@@ -334,7 +335,7 @@ static BETWEEN_BB: LazyLock<SQMap<SQMap<Bitboard>>> = LazyLock::new(|| {
     between_bb
 });
 static LINES_BB: LazyLock<SQMap<SQMap<Bitboard>>> = LazyLock::new(|| {
-    let mut lines_bb = SQMap::new([SQMap::new([B!(0); SQ::N_SQUARES]); SQ::N_SQUARES]);
+    let mut lines_bb = SQMap::new([SQMap::new([B!(0); SQ::COUNT]); SQ::COUNT]);
     for sq1 in Bitboard::ALL {
         for sq2 in Bitboard::ALL {
             if sq1.file() == sq2.file() || sq1.rank() == sq2.rank() {

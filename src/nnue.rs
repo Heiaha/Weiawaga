@@ -142,7 +142,7 @@ impl FeatureCtx {
         } else {
             sq_rel
         };
-        pc.relative(color).index() * SQ::N_SQUARES + sq_rel.index()
+        pc.relative(color).index() * SQ::COUNT + sq_rel.index()
     }
 }
 
@@ -190,7 +190,7 @@ impl Network {
 
         let cold_entry = CacheEntry {
             acc: *input_bias,
-            pieces: PieceMap::new([Bitboard::ZERO; Piece::N_PIECES]),
+            pieces: PieceMap::new([Bitboard::ZERO; Piece::COUNT]),
         };
 
         Self {
@@ -199,14 +199,14 @@ impl Network {
             wdl_layer,
             stack: vec![
                 Accumulator {
-                    acc: ColorMap::new([*input_bias; Color::N_COLORS]),
+                    acc: ColorMap::new([*input_bias; Color::COUNT]),
                     pop_count: 0,
-                    ctx: ColorMap::new([FeatureCtx::default(); Color::N_COLORS]),
+                    ctx: ColorMap::new([FeatureCtx::default(); Color::COUNT]),
                 };
                 Self::N_ACCUMULATORS
             ],
             idx: 0,
-            cache: ColorMap::new([[[cold_entry; 2]; Self::N_KING_BUCKETS]; Color::N_COLORS]),
+            cache: ColorMap::new([[[cold_entry; 2]; Self::N_KING_BUCKETS]; Color::COUNT]),
         }
     }
 
@@ -264,7 +264,7 @@ impl Network {
         let layer = &self.input_layers[ctx.bucket];
         let entry = &mut self.cache[color][ctx.bucket][ctx.mirrored as usize];
 
-        for pc in Piece::iter(Piece::WhitePawn, Piece::BlackKing) {
+        for pc in Piece::iter() {
             for sq in pieces[pc] & !entry.pieces[pc] {
                 layer.update::<1>(ctx.feature_idx(pc, sq, color), &mut entry.acc);
             }
@@ -313,7 +313,7 @@ impl Network {
 }
 
 impl Network {
-    const N_INPUTS: usize = Piece::N_PIECES * SQ::N_SQUARES;
+    const N_INPUTS: usize = Piece::COUNT * SQ::COUNT;
     const N_KING_BUCKETS: usize = 4;
     const N_ACCUMULATORS: usize = 1024;
     const L1: usize = 512;

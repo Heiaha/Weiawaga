@@ -1,5 +1,6 @@
 use super::piece::*;
 use super::square::*;
+use super::traits::*;
 use std::fmt;
 use std::num::NonZeroU16;
 
@@ -15,11 +16,11 @@ impl Move {
     }
 
     pub fn to_sq(&self) -> SQ {
-        SQ::from((self.0.get() & 0x3f) as u8)
+        SQ::from_repr((self.0.get() & 0x3f) as u8)
     }
 
     pub fn from_sq(&self) -> SQ {
-        SQ::from(((self.0.get() >> 6) & 0x3f) as u8)
+        SQ::from_repr(((self.0.get() >> 6) & 0x3f) as u8)
     }
 
     pub fn squares(&self) -> (SQ, SQ) {

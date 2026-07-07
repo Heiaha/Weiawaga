@@ -5,6 +5,7 @@ use super::moov::*;
 use super::move_list::*;
 use super::piece::*;
 use super::square::*;
+use super::traits::*;
 use super::types::*;
 
 use arrayvec::ArrayVec;
@@ -43,10 +44,8 @@ impl MoveScorer {
     pub fn new() -> Self {
         Self {
             killer_moves: [None; MAX_MOVES],
-            history_scores: ColorMap::new(
-                [SQMap::new([SQMap::new([0; SQ::N_SQUARES]); SQ::N_SQUARES]); 2],
-            ),
-            counter_moves: SQMap::new([SQMap::new([None; SQ::N_SQUARES]); SQ::N_SQUARES]),
+            history_scores: ColorMap::new([SQMap::new([SQMap::new([0; SQ::COUNT]); SQ::COUNT]); 2]),
+            counter_moves: SQMap::new([SQMap::new([None; SQ::COUNT]); SQ::COUNT]),
         }
     }
 
@@ -118,7 +117,7 @@ impl MoveScorer {
             .piece_type_at(from_sq)
             .expect("No attacker in MVVLVA.");
 
-        Self::MVV_LVA_SCORES[captured_pt.index() * PieceType::N_PIECE_TYPES + attacking_pt.index()]
+        Self::MVV_LVA_SCORES[captured_pt.index() * PieceType::COUNT + attacking_pt.index()]
     }
 
     pub fn add_killer(&mut self, m: Move, ply: usize) {
@@ -202,7 +201,7 @@ impl MoveScorer {
             }
 
             // We know at this point that there must be a piece, so find the least valuable attacker.
-            attacking_pt = PieceType::iter(PieceType::Pawn, PieceType::King)
+            attacking_pt = PieceType::iter()
                 .find(|&pt| stm_attackers & board.bitboard_of_pt(pt) != Bitboard::ZERO)
                 .expect("No attacking pt found.");
 
@@ -254,7 +253,7 @@ impl MoveScorer {
     const SEE_PIECE_TYPE: PieceTypeMap<i32> = PieceTypeMap::new([100, 375, 375, 500, 1025, 10000]);
 
     #[rustfmt::skip]
-    const MVV_LVA_SCORES: [i32; PieceType::N_PIECE_TYPES * PieceType::N_PIECE_TYPES] = [
+    const MVV_LVA_SCORES: [i32; PieceType::COUNT * PieceType::COUNT] = [
         105, 104, 103, 102, 101, 100,
         205, 204, 203, 202, 201, 200,
         305, 304, 303, 302, 301, 300,

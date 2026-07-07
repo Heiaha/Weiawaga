@@ -1,7 +1,7 @@
 use super::board::*;
 use super::moov::*;
 use super::search::*;
-use crate::types::Score;
+use super::types::*;
 #[cfg(target_arch = "x86_64")]
 use core::arch::x86_64;
 use std::sync::atomic::{AtomicU64, Ordering};

@@ -2,6 +2,7 @@ use super::board::*;
 use super::moov::*;
 use super::piece::*;
 use super::square::*;
+use super::traits::*;
 use super::types::*;
 use regex::{Captures, Regex};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -163,7 +164,7 @@ impl Timer {
             time_target,
             time_maximum,
             current_nodes: 0,
-            nodes_table: SQMap::new([SQMap::new([0; SQ::N_SQUARES]); SQ::N_SQUARES]),
+            nodes_table: SQMap::new([SQMap::new([0; SQ::COUNT]); SQ::COUNT]),
         }
     }
 

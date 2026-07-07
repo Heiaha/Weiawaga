@@ -1,6 +1,5 @@
 use super::bitboard::*;
 use super::traits::*;
-use super::types::*;
 use std::fmt;
 use std::ops::{Add, Sub};
 
@@ -20,49 +19,49 @@ pub enum SQ {
 
 impl SQ {
     pub fn encode(rank: Rank, file: File) -> Self {
-        Self::from(((rank as u8) << 3) + (file as u8))
+        Self::from_repr(((rank as u8) << 3) + (file as u8))
     }
 
     pub fn bb(self) -> Bitboard {
         B!(1 << self as usize)
     }
 
-    pub fn index(self) -> usize {
-        self as usize
-    }
-
     pub fn rank(self) -> Rank {
-        Rank::from(self as u8 >> 3)
+        Rank::from_repr(self as u8 >> 3)
     }
 
     pub fn file(self) -> File {
-        File::from(self as u8 & 7)
+        File::from_repr(self as u8 & 7)
     }
 
-    // Horizontal reflection (a-file <-> h-file); the Mirror trait's flip is
+    // Horizontal reflection (a-file <-> h-file); the Relative trait's flip is
     // the vertical, color-relative one.
     pub fn hmirror(self) -> Self {
-        Self::from(self as u8 ^ 7)
+        Self::from_repr(self as u8 ^ 7)
     }
 
     pub fn diagonal(self) -> Diagonal {
         let value = self as u8;
-        Diagonal::from(7 + (value >> 3) - (value & 7))
+        Diagonal::from_repr(7 + (value >> 3) - (value & 7))
     }
 
     pub fn antidiagonal(self) -> AntiDiagonal {
         let value = self as u8;
-        AntiDiagonal::from((value >> 3) + (value & 7))
-    }
-
-    pub fn iter(start: Self, end: Self) -> impl Iterator<Item = Self> {
-        (start as u8..=end as u8).map(Self::from)
+        AntiDiagonal::from_repr((value >> 3) + (value & 7))
     }
 }
 
-impl Mirror for SQ {
-    fn mirror(&self) -> Self {
-        Self::from(*self as u8 ^ 0x38)
+impl Enumerable for SQ {
+    const COUNT: usize = 64;
+
+    fn index(&self) -> usize {
+        *self as usize
+    }
+}
+
+impl Relative for SQ {
+    fn vmirror(&self) -> Self {
+        Self::from_repr(*self as u8 ^ 0x38)
     }
 }
 
@@ -70,7 +69,7 @@ impl Add<Direction> for SQ {
     type Output = Self;
 
     fn add(self, dir: Direction) -> Self {
-        Self::from((self as u8).wrapping_add(dir as u8))
+        Self::from_repr((self as u8).wrapping_add(dir as u8))
     }
 }
 
@@ -78,13 +77,7 @@ impl Sub<Direction> for SQ {
     type Output = Self;
 
     fn sub(self, dir: Direction) -> Self {
-        Self::from((self as u8).wrapping_sub(dir as u8))
-    }
-}
-
-impl From<u8> for SQ {
-    fn from(n: u8) -> Self {
-        unsafe { std::mem::transmute::<u8, Self>(n) }
+        Self::from_repr((self as u8).wrapping_sub(dir as u8))
     }
 }
 
@@ -116,16 +109,6 @@ impl TryFrom<&str> for SQ {
     }
 }
 
-impl Into<usize> for SQ {
-    fn into(self) -> usize {
-        self.index()
-    }
-}
-
-impl SQ {
-    pub const N_SQUARES: usize = 64;
-}
-
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
 #[repr(i8)]
 pub enum Direction {
@@ -141,8 +124,8 @@ pub enum Direction {
     SouthWest = -9,
 }
 
-impl Mirror for Direction {
-    fn mirror(&self) -> Self {
+impl Relative for Direction {
+    fn vmirror(&self) -> Self {
         Direction::from(-(*self as i8))
     }
 }
@@ -166,31 +149,30 @@ pub enum Rank {
     Eight,
 }
 
-impl Rank {
-    pub fn bb(self) -> Bitboard {
-        Self::RANK_BB[self as usize]
-    }
+impl Enumerable for Rank {
+    const COUNT: usize = 8;
 
-    pub fn index(self) -> usize {
-        self as usize
+    fn index(&self) -> usize {
+        *self as usize
     }
 }
 
-impl Mirror for Rank {
-    fn mirror(&self) -> Self {
-        Self::from((*self as u8) ^ 7)
-    }
+impl BitboardMask for Rank {
+    const MASKS: &'static [Bitboard] = &[
+        B!(0x0000_0000_0000_00FF),
+        B!(0x0000_0000_0000_FF00),
+        B!(0x0000_0000_00FF_0000),
+        B!(0x0000_0000_FF00_0000),
+        B!(0x0000_00FF_0000_0000),
+        B!(0x0000_FF00_0000_0000),
+        B!(0x00FF_0000_0000_0000),
+        B!(0xFF00_0000_0000_0000),
+    ];
 }
 
-impl From<u8> for Rank {
-    fn from(n: u8) -> Self {
-        unsafe { std::mem::transmute::<u8, Self>(n) }
-    }
-}
-
-impl Into<usize> for Rank {
-    fn into(self) -> usize {
-        self.index()
+impl Relative for Rank {
+    fn vmirror(&self) -> Self {
+        Self::from_repr((*self as u8) ^ 7)
     }
 }
 
@@ -206,24 +188,10 @@ impl TryFrom<char> for Rank {
     fn try_from(value: char) -> Result<Self, Self::Error> {
         let n = value.to_digit(10).ok_or("Invalid rank.")? as u8;
         match n {
-            1..=8 => Ok(Self::from(n - 1)),
+            1..=8 => Ok(Self::from_repr(n - 1)),
             _ => Err("Invalid rank."),
         }
     }
-}
-
-impl Rank {
-    pub const N_RANKS: usize = 8;
-    const RANK_BB: RankMap<Bitboard> = RankMap::new([
-        B!(0x0000_0000_0000_00FF),
-        B!(0x0000_0000_0000_FF00),
-        B!(0x0000_0000_00FF_0000),
-        B!(0x0000_0000_FF00_0000),
-        B!(0x0000_00FF_0000_0000),
-        B!(0x0000_FF00_0000_0000),
-        B!(0x00FF_0000_0000_0000),
-        B!(0xFF00_0000_0000_0000),
-    ]);
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
@@ -239,26 +207,25 @@ pub enum File {
     H,
 }
 
-impl File {
-    pub fn bb(self) -> Bitboard {
-        Self::FILE_BB[self as usize]
-    }
+impl Enumerable for File {
+    const COUNT: usize = 8;
 
-    pub fn index(self) -> usize {
-        self as usize
+    fn index(&self) -> usize {
+        *self as usize
     }
 }
 
-impl From<u8> for File {
-    fn from(n: u8) -> Self {
-        unsafe { std::mem::transmute::<u8, Self>(n) }
-    }
-}
-
-impl Into<usize> for File {
-    fn into(self) -> usize {
-        self.index()
-    }
+impl BitboardMask for File {
+    const MASKS: &'static [Bitboard] = &[
+        B!(0x0101_0101_0101_0101),
+        B!(0x0202_0202_0202_0202),
+        B!(0x0404_0404_0404_0404),
+        B!(0x0808_0808_0808_0808),
+        B!(0x1010_1010_1010_1010),
+        B!(0x2020_2020_2020_2020),
+        B!(0x4040_4040_4040_4040),
+        B!(0x8080_8080_8080_8080),
+    ];
 }
 
 impl TryFrom<char> for File {
@@ -267,7 +234,7 @@ impl TryFrom<char> for File {
     fn try_from(value: char) -> Result<Self, Self::Error> {
         let byte = value as u8;
         match byte {
-            b'a'..=b'h' => Ok(Self::from(byte - b'a')),
+            b'a'..=b'h' => Ok(Self::from_repr(byte - b'a')),
             _ => Err("Invalid file."),
         }
     }
@@ -278,20 +245,6 @@ impl fmt::Display for File {
         let file_char = b'a' + *self as u8;
         write!(f, "{}", file_char as char)
     }
-}
-
-impl File {
-    pub const N_FILES: usize = 8;
-    const FILE_BB: FileMap<Bitboard> = FileMap::new([
-        B!(0x0101_0101_0101_0101),
-        B!(0x0202_0202_0202_0202),
-        B!(0x0404_0404_0404_0404),
-        B!(0x0808_0808_0808_0808),
-        B!(0x1010_1010_1010_1010),
-        B!(0x2020_2020_2020_2020),
-        B!(0x4040_4040_4040_4040),
-        B!(0x8080_8080_8080_8080),
-    ]);
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -314,21 +267,16 @@ pub enum Diagonal {
     A8A8,
 }
 
-impl Diagonal {
-    pub fn bb(self) -> Bitboard {
-        Self::DIAGONAL_BB[self as usize]
+impl Enumerable for Diagonal {
+    const COUNT: usize = 15;
+
+    fn index(&self) -> usize {
+        *self as usize
     }
 }
 
-impl From<u8> for Diagonal {
-    fn from(n: u8) -> Self {
-        unsafe { std::mem::transmute::<u8, Self>(n) }
-    }
-}
-
-impl Diagonal {
-    pub const N_DIAGONALS: usize = 15;
-    const DIAGONAL_BB: DiagonalMap<Bitboard> = DiagonalMap::new([
+impl BitboardMask for Diagonal {
+    const MASKS: &'static [Bitboard] = &[
         B!(0x0000_0000_0000_0080),
         B!(0x0000_0000_0000_8040),
         B!(0x0000_0000_0080_4020),
@@ -344,7 +292,7 @@ impl Diagonal {
         B!(0x0402_0100_0000_0000),
         B!(0x0201_0000_0000_0000),
         B!(0x0100_0000_0000_0000),
-    ]);
+    ];
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -367,21 +315,16 @@ pub enum AntiDiagonal {
     H8H8,
 }
 
-impl AntiDiagonal {
-    pub fn bb(self) -> Bitboard {
-        Self::ANTIDIAGONAL_BB[self as usize]
+impl Enumerable for AntiDiagonal {
+    const COUNT: usize = 15;
+
+    fn index(&self) -> usize {
+        *self as usize
     }
 }
 
-impl From<u8> for AntiDiagonal {
-    fn from(n: u8) -> Self {
-        unsafe { std::mem::transmute::<u8, Self>(n) }
-    }
-}
-
-impl AntiDiagonal {
-    pub const N_ANTIDIAGONALS: usize = 15;
-    const ANTIDIAGONAL_BB: DiagonalMap<Bitboard> = DiagonalMap::new([
+impl BitboardMask for AntiDiagonal {
+    const MASKS: &'static [Bitboard] = &[
         B!(0x0000_0000_0000_0001),
         B!(0x0000_0000_0000_0102),
         B!(0x0000_0000_0001_0204),
@@ -397,5 +340,5 @@ impl AntiDiagonal {
         B!(0x2040_8000_0000_0000),
         B!(0x4080_0000_0000_0000),
         B!(0x8000_0000_0000_0000),
-    ]);
+    ];
 }
