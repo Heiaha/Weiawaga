@@ -25,10 +25,6 @@ impl Bitboard {
         SQ::from_repr(self.0.trailing_zeros() as u8)
     }
 
-    pub fn msb(&self) -> SQ {
-        SQ::from_repr((63 - self.0.leading_zeros()) as u8)
-    }
-
     pub fn pop_lsb(&mut self) -> SQ {
         let sq = self.lsb();
         self.0 &= self.0 - 1;
@@ -64,16 +60,6 @@ impl Bitboard {
 
     pub fn reverse(self) -> Self {
         Self(self.0.reverse_bits())
-    }
-
-    pub fn fill(self, dir: Direction) -> Self {
-        match dir {
-            Direction::North => self | (self << 8) | (self << 16) | (self << 32),
-            Direction::South => self | (self >> 8) | (self >> 16) | (self >> 32),
-            _ => {
-                panic!("Filling a file by something other than North or South.")
-            }
-        }
     }
 }
 
@@ -123,12 +109,6 @@ impl Bitboard {
             Color::White => Self::WHITE_OOO_DANGER,
             Color::Black => Self::BLACK_OOO_DANGER,
         }
-    }
-}
-
-impl From<u64> for Bitboard {
-    fn from(value: u64) -> Self {
-        Self(value)
     }
 }
 
