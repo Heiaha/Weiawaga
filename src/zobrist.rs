@@ -8,7 +8,6 @@ use rand::{RngCore, SeedableRng};
 
 pub static ZOBRIST: LazyLock<Hasher> = LazyLock::new(Hasher::new);
 
-#[derive(Clone)]
 pub struct Hasher {
     zobrist_table: PieceMap<SQMap<u64>>,
     zobrist_ep: FileMap<u64>,

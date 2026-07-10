@@ -530,12 +530,7 @@ impl Board {
                             if self.piece_type_at(sq) == Some(PieceType::Pawn)
                                 && sq.rank().relative(us) == Rank::Seven
                             {
-                                moves.push(Move::new(sq, checker_square, MoveFlags::PcQueen));
-                                if !QUIESCENCE {
-                                    moves.push(Move::new(sq, checker_square, MoveFlags::PcRook));
-                                    moves.push(Move::new(sq, checker_square, MoveFlags::PcKnight));
-                                    moves.push(Move::new(sq, checker_square, MoveFlags::PcBishop));
-                                }
+                                moves.make_promotions::<QUIESCENCE>(sq, checker_square, true);
                             } else {
                                 moves.push(Move::new(sq, checker_square, MoveFlags::Capture));
                             }
@@ -750,23 +745,11 @@ impl Board {
             }
         }
 
-        let northwest_captures = back_pawns.shift(Direction::NorthWest.relative(us)) & capture_mask;
-        let northeast_captures = back_pawns.shift(Direction::NorthEast.relative(us)) & capture_mask;
-
-        for sq in northwest_captures {
-            moves.push(Move::new(
-                sq - Direction::NorthWest.relative(us),
-                sq,
-                MoveFlags::Capture,
-            ));
-        }
-
-        for sq in northeast_captures {
-            moves.push(Move::new(
-                sq - Direction::NorthEast.relative(us),
-                sq,
-                MoveFlags::Capture,
-            ));
+        for dir in [Direction::NorthWest, Direction::NorthEast] {
+            let captures = back_pawns.shift(dir.relative(us)) & capture_mask;
+            for sq in captures {
+                moves.push(Move::new(sq - dir.relative(us), sq, MoveFlags::Capture));
+            }
         }
 
         let seventh_rank_pawns =
@@ -776,81 +759,13 @@ impl Board {
             let quiet_promotions =
                 seventh_rank_pawns.shift(Direction::North.relative(us)) & quiet_mask;
             for sq in quiet_promotions {
-                moves.push(Move::new(
-                    sq - Direction::North.relative(us),
-                    sq,
-                    MoveFlags::PrQueen,
-                ));
-                if !QUIESCENCE {
-                    moves.push(Move::new(
-                        sq - Direction::North.relative(us),
-                        sq,
-                        MoveFlags::PrRook,
-                    ));
-                    moves.push(Move::new(
-                        sq - Direction::North.relative(us),
-                        sq,
-                        MoveFlags::PrKnight,
-                    ));
-                    moves.push(Move::new(
-                        sq - Direction::North.relative(us),
-                        sq,
-                        MoveFlags::PrBishop,
-                    ));
-                }
+                moves.make_promotions::<QUIESCENCE>(sq - Direction::North.relative(us), sq, false);
             }
 
-            let northwest_promotions =
-                seventh_rank_pawns.shift(Direction::NorthWest.relative(us)) & capture_mask;
-            let northeast_promotions =
-                seventh_rank_pawns.shift(Direction::NorthEast.relative(us)) & capture_mask;
-            for sq in northwest_promotions {
-                moves.push(Move::new(
-                    sq - Direction::NorthWest.relative(us),
-                    sq,
-                    MoveFlags::PcQueen,
-                ));
-                if !QUIESCENCE {
-                    moves.push(Move::new(
-                        sq - Direction::NorthWest.relative(us),
-                        sq,
-                        MoveFlags::PcRook,
-                    ));
-                    moves.push(Move::new(
-                        sq - Direction::NorthWest.relative(us),
-                        sq,
-                        MoveFlags::PcKnight,
-                    ));
-                    moves.push(Move::new(
-                        sq - Direction::NorthWest.relative(us),
-                        sq,
-                        MoveFlags::PcBishop,
-                    ));
-                }
-            }
-
-            for sq in northeast_promotions {
-                moves.push(Move::new(
-                    sq - Direction::NorthEast.relative(us),
-                    sq,
-                    MoveFlags::PcQueen,
-                ));
-                if !QUIESCENCE {
-                    moves.push(Move::new(
-                        sq - Direction::NorthEast.relative(us),
-                        sq,
-                        MoveFlags::PcRook,
-                    ));
-                    moves.push(Move::new(
-                        sq - Direction::NorthEast.relative(us),
-                        sq,
-                        MoveFlags::PcKnight,
-                    ));
-                    moves.push(Move::new(
-                        sq - Direction::NorthEast.relative(us),
-                        sq,
-                        MoveFlags::PcBishop,
-                    ));
+            for dir in [Direction::NorthWest, Direction::NorthEast] {
+                let promotion_captures = seventh_rank_pawns.shift(dir.relative(us)) & capture_mask;
+                for sq in promotion_captures {
+                    moves.make_promotions::<QUIESCENCE>(sq - dir.relative(us), sq, true);
                 }
             }
         }

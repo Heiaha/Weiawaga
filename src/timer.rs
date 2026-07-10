@@ -90,7 +90,7 @@ impl TryFrom<&str> for TimeControl {
 
         let caps = GO_RE.captures(line).ok_or("Invalid go format.")?;
 
-        if caps.name("searchmoves").is_some() || caps.name("mate").is_some() {
+        if caps.name("mate").is_some() {
             return Err("Feature is not implemented.");
         }
 

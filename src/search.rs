@@ -675,6 +675,9 @@ impl<'a> Search<'a> {
         let elapsed = self.timer.elapsed();
         let nodes = self.timer.nodes();
         let hashfull = self.tt.hashfull();
+        let sel_depth = self.sel_depth;
+        let time = elapsed.as_millis();
+        let nps = (nodes as f64 / elapsed.as_secs_f64()) as u64;
         let pv_str = pv
             .iter()
             .map(|m| m.to_string())
@@ -682,25 +685,12 @@ impl<'a> Search<'a> {
             .join(" ");
 
         println!(
-            "info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str}{wdl_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv_str}",
-            m = m,
-            depth = depth,
-            sel_depth = self.sel_depth,
-            time = elapsed.as_millis(),
-            score_str = score_str,
-            nodes = nodes,
-            nps = (nodes as f64 / elapsed.as_secs_f64()) as u64,
-            pv_str = pv_str
+            "info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str}{wdl_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv_str}"
         );
     }
 
     fn print_currmovenumber(depth: i8, m: Move, idx: usize) {
-        println!(
-            "info depth {depth} currmove {currmove} currmovenumber {currmovenumber}",
-            depth = depth,
-            currmove = m,
-            currmovenumber = idx + 1,
-        )
+        println!("info depth {depth} currmove {m} currmovenumber {}", idx + 1)
     }
 }
 

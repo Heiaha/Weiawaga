@@ -128,15 +128,6 @@ pub enum Color {
     Black,
 }
 
-impl Color {
-    pub fn factor(&self) -> i32 {
-        match *self {
-            Self::White => 1,
-            Self::Black => -1,
-        }
-    }
-}
-
 impl Enumerable for Color {
     const COUNT: usize = 2;
 }

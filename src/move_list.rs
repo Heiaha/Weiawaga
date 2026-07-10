@@ -7,7 +7,6 @@ use arrayvec::ArrayVec;
 
 pub const MAX_MOVES: usize = 252;
 
-#[derive(Default)]
 pub struct MoveList(ArrayVec<Move, MAX_MOVES>);
 
 impl MoveList {
@@ -69,6 +68,37 @@ impl MoveList {
             .into_iter()
             .map(move |flag| Move::new(from_sq, to_sq, flag))
         }));
+    }
+
+    // Queen promotion first; underpromotions only in the full search.
+    pub fn make_promotions<const QUIESCENCE: bool>(
+        &mut self,
+        from_sq: SQ,
+        to_sq: SQ,
+        capture: bool,
+    ) {
+        let flags = if capture {
+            [
+                MoveFlags::PcQueen,
+                MoveFlags::PcRook,
+                MoveFlags::PcKnight,
+                MoveFlags::PcBishop,
+            ]
+        } else {
+            [
+                MoveFlags::PrQueen,
+                MoveFlags::PrRook,
+                MoveFlags::PrKnight,
+                MoveFlags::PrBishop,
+            ]
+        };
+
+        let n_flags = if QUIESCENCE { 1 } else { flags.len() };
+        self.0.extend(
+            flags[..n_flags]
+                .iter()
+                .map(|&flag| Move::new(from_sq, to_sq, flag)),
+        );
     }
 
     pub fn swap(&mut self, i: usize, j: usize) {
