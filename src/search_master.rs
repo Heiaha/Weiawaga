@@ -149,6 +149,12 @@ impl SearchMaster {
             main_search_thread.go(board.clone())
         });
 
+        // UCI forbids sending bestmove while in ponder mode; if the search
+        // ended on its own, hold the reply until ponderhit or stop arrives.
+        while self.pondering.load(Ordering::Acquire) {
+            thread::sleep(Duration::from_millis(1));
+        }
+
         match (best_move, ponder_move) {
             (Some(best), Some(ponder)) if self.ponder_enabled => {
                 println!("bestmove {best} ponder {ponder}")
