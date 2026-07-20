@@ -11,10 +11,18 @@ use super::timer::*;
 use super::tt::*;
 use super::types::*;
 
+struct RootMove {
+    m: Move,
+    value: i32,
+    pv: Vec<Move>,
+    sel_depth: usize,
+}
+
 pub struct Search<'a> {
     id: u16,
     sel_depth: usize,
     show_wdl: bool,
+    multi_pv: usize,
     timer: Timer,
     tt: &'a TT,
     scorer: MoveScorer,
@@ -24,12 +32,13 @@ pub struct Search<'a> {
 }
 
 impl<'a> Search<'a> {
-    pub fn new(timer: Timer, tt: &'a TT, id: u16, show_wdl: bool) -> Self {
+    pub fn new(timer: Timer, tt: &'a TT, id: u16, show_wdl: bool, multi_pv: usize) -> Self {
         Self {
             id,
             timer,
             tt,
             show_wdl,
+            multi_pv,
             sel_depth: 0,
             scorer: MoveScorer::new(),
             excluded_moves: [None; MAX_PLY],
@@ -39,30 +48,81 @@ impl<'a> Search<'a> {
     }
 
     pub fn go(&mut self, mut board: Board) -> (Option<Move>, Option<Move>) {
-        let moves = MoveList::from::<false>(&board);
+        let mut moves = MoveList::from::<false>(&board);
         if moves.len() == 0 {
             return (None, None);
         }
 
-        let (mut best_move, mut value) = self.search_root(&mut board, 1, -i32::MATE, i32::MATE);
-        let mut pv = Vec::new();
+        ///////////////////////////////////////////////////////////////////
+        // Build the root move list in move-ordering order. The list carries
+        // each move's standing across depths: the first multi_pv entries are
+        // the reported lines, and each line searches the tail slice from its
+        // own slot down.
+        ///////////////////////////////////////////////////////////////////
+        let hash_move = self.tt.get(&board, 0).and_then(|entry| entry.best_move());
+        let mut root_moves = self
+            .scorer
+            .create_sorter::<false>(&mut moves, &board, 0, hash_move)
+            .map(|m| RootMove {
+                m,
+                value: -i32::MATE,
+                pv: Vec::new(),
+                sel_depth: 0,
+            })
+            .collect::<Vec<_>>();
 
-        for depth in 2..i8::MAX {
-            if !self.timer.start_check(best_move, depth) {
-                break;
-            }
+        let multi_pv = self.multi_pv.min(root_moves.len());
 
-            (best_move, value) = self.aspiration(&mut board, depth, value);
-
-            if !self.pv_table[0].is_empty() {
-                pv = self.pv_table[0].clone();
-            }
-
-            if self.id == 0 && !self.timer.is_stopped() {
-                best_move.inspect(|&m| self.print_info(&mut board, depth, m, value, &pv));
+        for pv_idx in 0..multi_pv {
+            let (value, bound) = self.search_root(
+                &mut board,
+                1,
+                -i32::MATE,
+                i32::MATE,
+                &mut root_moves[pv_idx..],
+            );
+            if pv_idx == 0 && !self.timer.is_stopped() {
+                self.tt
+                    .insert(&board, 1, value, Some(root_moves[0].m), bound, 0);
             }
             self.sel_depth = 0;
         }
+        root_moves[..multi_pv].sort_by_key(|line| std::cmp::Reverse(line.value));
+
+        'deepening: for depth in 2..i8::MAX {
+            if !self.timer.start_check(Some(root_moves[0].m), depth) {
+                break;
+            }
+
+            for pv_idx in 0..multi_pv {
+                let (value, bound) = self.aspiration(&mut board, depth, &mut root_moves[pv_idx..]);
+                if self.timer.is_stopped() {
+                    break 'deepening;
+                }
+                // A tail search covers only part of the root moves; only the
+                // full-width line may write the root position's entry.
+                if pv_idx == 0 {
+                    self.tt
+                        .insert(&board, depth, value, Some(root_moves[0].m), bound, 0);
+                }
+                self.sel_depth = 0;
+            }
+
+            root_moves[..multi_pv].sort_by_key(|line| std::cmp::Reverse(line.value));
+
+            if self.id == 0 && !self.timer.is_stopped() {
+                for (pv_idx, line) in root_moves[..multi_pv].iter().enumerate() {
+                    self.print_info(
+                        &mut board,
+                        depth,
+                        line,
+                        (multi_pv > 1).then_some(pv_idx + 1),
+                    );
+                }
+            }
+        }
+
+        let best_move = root_moves[0].m;
 
         if self.id == 0 {
             self.timer.set_stop();
@@ -70,32 +130,31 @@ impl<'a> Search<'a> {
 
         // Ensure the ponder move from the last pv is still legal.
         // It could be illegal if the last search was only partially completed and the best_move had changed.
-        let ponder_move = best_move
-            .zip(pv.get(1).cloned())
-            .and_then(|(best_move, ponder_move)| {
-                board.push(best_move);
-                let m = MoveList::from::<false>(&board)
-                    .contains(ponder_move)
-                    .then_some(ponder_move);
-                board.pop();
-                m
-            });
+        let ponder_move = root_moves[0].pv.get(1).copied().and_then(|ponder_move| {
+            board.push(best_move);
+            let m = MoveList::from::<false>(&board)
+                .contains(ponder_move)
+                .then_some(ponder_move);
+            board.pop();
+            m
+        });
 
-        (best_move, ponder_move)
+        (Some(best_move), ponder_move)
     }
 
-    fn aspiration(&mut self, board: &mut Board, depth: i8, pred: i32) -> (Option<Move>, i32) {
+    fn aspiration(&mut self, board: &mut Board, depth: i8, lines: &mut [RootMove]) -> (i32, Bound) {
+        let pred = lines[0].value;
         let alpha = (pred - Self::ASPIRATION_WINDOW).max(-i32::MATE);
         let beta = (pred + Self::ASPIRATION_WINDOW).min(i32::MATE);
 
-        let (best_move, value) = self.search_root(board, depth, alpha, beta);
+        let (value, bound) = self.search_root(board, depth, alpha, beta, lines);
 
         if value <= alpha {
-            self.search_root(board, depth, -i32::MATE, beta)
+            self.search_root(board, depth, -i32::MATE, beta, lines)
         } else if value >= beta {
-            self.search_root(board, depth, alpha, i32::MATE)
+            self.search_root(board, depth, alpha, i32::MATE, lines)
         } else {
-            (best_move, value)
+            (value, bound)
         }
     }
 
@@ -105,7 +164,8 @@ impl<'a> Search<'a> {
         mut depth: i8,
         mut alpha: i32,
         beta: i32,
-    ) -> (Option<Move>, i32) {
+        lines: &mut [RootMove],
+    ) -> (i32, Bound) {
         ///////////////////////////////////////////////////////////////////
         // Clear the pv line and excluded moves.
         ///////////////////////////////////////////////////////////////////
@@ -119,12 +179,6 @@ impl<'a> Search<'a> {
             depth += 1;
         }
 
-        ///////////////////////////////////////////////////////////////////
-        // Check the hash table for the current
-        // position, primarily for move ordering.
-        ///////////////////////////////////////////////////////////////////
-        let hash_move = self.tt.get(board, 0).and_then(|entry| entry.best_move());
-
         // Seed the eval stack so nodes at ply 2 have a valid improving check.
         self.eval_stack[0] = if board.in_check() {
             -i32::MATE
@@ -132,20 +186,14 @@ impl<'a> Search<'a> {
             board.eval()
         };
 
-        ///////////////////////////////////////////////////////////////////
-        // Score moves and begin searching recursively.
-        ///////////////////////////////////////////////////////////////////
-        let mut best_move = None;
+        let mut best_idx = 0;
         let mut best_value = -i32::MATE;
         let mut tt_flag = Bound::Upper;
         let mut value = 0;
 
-        let mut moves = MoveList::from::<false>(board);
-        let moves_sorter = self
-            .scorer
-            .create_sorter::<false>(&mut moves, board, 0, hash_move);
+        for idx in 0..lines.len() {
+            let m = lines[idx].m;
 
-        for (idx, m) in moves_sorter.enumerate() {
             if self.id == 0
                 && self.timer.elapsed() >= Self::PRINT_CURRMOVENUMBER_TIME
                 && !self.timer.is_stopped()
@@ -167,7 +215,7 @@ impl<'a> Search<'a> {
 
             if value > best_value {
                 best_value = value;
-                best_move = Some(m);
+                best_idx = idx;
 
                 if value > alpha {
                     self.update_pv(m, 0);
@@ -181,15 +229,25 @@ impl<'a> Search<'a> {
             }
         }
 
-        best_move = best_move
-            .or_else(|| self.tt.get(board, 0).and_then(|entry| entry.best_move()))
-            .or_else(|| moves.into_iter().next().cloned());
+        ///////////////////////////////////////////////////////////////////
+        // Promote the winner to the front of the slice (the rest keep
+        // their order) with its rebuilt standing. A stopped or fail-low
+        // search produces no pv, and the winner keeps its old line then.
+        ///////////////////////////////////////////////////////////////////
+        let winner = RootMove {
+            m: lines[best_idx].m,
+            value: best_value,
+            sel_depth: self.sel_depth,
+            pv: if self.pv_table[0].is_empty() {
+                lines[best_idx].pv.clone()
+            } else {
+                self.pv_table[0].clone()
+            },
+        };
+        lines[..=best_idx].rotate_right(1);
+        lines[0] = winner;
 
-        if !self.timer.is_stopped() {
-            self.tt
-                .insert(board, depth, best_value, best_move, tt_flag, 0);
-        }
-        (best_move, best_value)
+        (best_value, tt_flag)
     }
 
     fn search(
@@ -625,7 +683,11 @@ impl<'a> Search<'a> {
         after.iter_mut().for_each(|line| line.clear());
     }
 
-    fn print_info(&self, board: &mut Board, depth: i8, m: Move, value: i32, pv: &[Move]) {
+    fn print_info(&self, board: &mut Board, depth: i8, line: &RootMove, multipv: Option<usize>) {
+        let m = line.m;
+        let value = line.value;
+        let pv = &line.pv;
+
         let score_str = if value.is_checkmate() {
             let mate_value = (i32::MATE - value.abs() + 1) * value.signum() / 2;
             format!("mate {mate_value}")
@@ -675,9 +737,10 @@ impl<'a> Search<'a> {
         let elapsed = self.timer.elapsed();
         let nodes = self.timer.nodes();
         let hashfull = self.tt.hashfull();
-        let sel_depth = self.sel_depth;
+        let sel_depth = line.sel_depth;
         let time = elapsed.as_millis();
         let nps = (nodes as f64 / elapsed.as_secs_f64()) as u64;
+        let multipv_str = multipv.map_or(String::new(), |n| format!(" multipv {n}"));
         let pv_str = pv
             .iter()
             .map(|m| m.to_string())
@@ -685,7 +748,7 @@ impl<'a> Search<'a> {
             .join(" ");
 
         println!(
-            "info currmove {m} depth {depth} seldepth {sel_depth} time {time} score {score_str}{wdl_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv_str}"
+            "info currmove {m} depth {depth} seldepth {sel_depth}{multipv_str} time {time} score {score_str}{wdl_str} nodes {nodes} nps {nps} hashfull {hashfull} pv {pv_str}"
         );
     }
 
