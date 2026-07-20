@@ -72,6 +72,7 @@ pub enum EngineOption {
     MoveOverhead(Duration),
     Ponder(bool),
     ShowWDL(bool),
+    MultiPV(usize),
     ClearHash,
 }
 
@@ -96,6 +97,11 @@ impl EngineOption {
 
     // Constants for UCI_ShowWDL
     pub const SHOW_WDL_DEFAULT: bool = false;
+
+    // Constants for MultiPV
+    pub const MULTIPV_MIN: usize = 1;
+    pub const MULTIPV_MAX: usize = 255;
+    pub const MULTIPV_DEFAULT: usize = 1;
 
     fn parse_bool(value: String) -> Result<bool, &'static str> {
         match value.trim().to_ascii_lowercase().as_str() {
@@ -149,6 +155,13 @@ impl TryFrom<&str> for EngineOption {
             "UCI_ShowWDL" => {
                 let enabled = Self::parse_bool(value.ok_or("No wdl value specified.")?)?;
                 Self::ShowWDL(enabled)
+            }
+            "MultiPV" => {
+                let n = value
+                    .ok_or("No multipv value specified.")?
+                    .parse::<usize>()
+                    .map_err(|_| "Unable to parse multipv count.")?;
+                Self::MultiPV(n)
             }
             "Clear Hash" => Self::ClearHash,
             _ => {

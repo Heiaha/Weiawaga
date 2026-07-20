@@ -16,6 +16,7 @@ pub struct SearchMaster {
     pondering: Arc<AtomicBool>,
     ponder_enabled: bool,
     show_wdl: bool,
+    multi_pv: usize,
     board: Board,
     n_threads: u16,
     tt: TT,
@@ -29,6 +30,7 @@ impl SearchMaster {
             pondering,
             ponder_enabled: false,
             show_wdl: false,
+            multi_pv: EngineOption::MULTIPV_DEFAULT,
             board: Board::new(),
             n_threads: 1,
             tt: TT::new(16),
@@ -74,6 +76,12 @@ impl SearchMaster {
                     println!(
                         "option name UCI_ShowWDL type check default {}",
                         EngineOption::SHOW_WDL_DEFAULT,
+                    );
+                    println!(
+                        "option name MultiPV type spin default {} min {} max {}",
+                        EngineOption::MULTIPV_DEFAULT,
+                        EngineOption::MULTIPV_MIN,
+                        EngineOption::MULTIPV_MAX,
                     );
                     println!("option name Clear Hash type button");
                     println!("uciok");
@@ -126,6 +134,7 @@ impl SearchMaster {
                 &self.tt,
                 0,
                 self.show_wdl,
+                self.multi_pv,
             );
 
             // Create helper search threads which will stop when self.stop resolves to true.
@@ -143,6 +152,8 @@ impl SearchMaster {
                     &self.tt,
                     id,
                     self.show_wdl,
+                    // Helpers stay single-pv; they only feed the tt.
+                    EngineOption::MULTIPV_DEFAULT,
                 );
                 s.spawn(move || helper_search_thread.go(thread_board));
             }
@@ -192,6 +203,12 @@ impl SearchMaster {
             }
             EngineOption::ShowWDL(show_wdl) => {
                 self.show_wdl = show_wdl;
+            }
+            EngineOption::MultiPV(multi_pv) => {
+                if !(EngineOption::MULTIPV_MIN..=EngineOption::MULTIPV_MAX).contains(&multi_pv) {
+                    return Err("MultiPV out of range.");
+                }
+                self.multi_pv = multi_pv;
             }
             EngineOption::ClearHash => {
                 self.tt.clear();
