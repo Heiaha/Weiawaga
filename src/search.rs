@@ -11,11 +11,11 @@ use super::timer::*;
 use super::tt::*;
 use super::types::*;
 
-struct RootMove {
-    m: Move,
-    value: i32,
-    pv: Vec<Move>,
-    sel_depth: usize,
+pub struct RootMove {
+    pub m: Move,
+    pub value: i32,
+    pub pv: Vec<Move>,
+    pub sel_depth: usize,
 }
 
 pub struct Search<'a> {
@@ -683,6 +683,30 @@ impl<'a> Search<'a> {
         after.iter_mut().for_each(|line| line.clear());
     }
 
+    pub fn pv_wdl(board: &mut Board, pv: &[Move]) -> Option<[f32; 3]> {
+        for &pv_move in pv {
+            board.push(pv_move);
+        }
+        let mut leaf_ply = pv.len();
+        while leaf_ply > 0 && (!pv[leaf_ply - 1].is_quiet() || board.in_check()) {
+            board.pop();
+            leaf_ply -= 1;
+        }
+        if leaf_ply == 0 {
+            return None;
+        }
+        let mut wdl = board.wdl();
+        for _ in 0..leaf_ply {
+            board.pop();
+        }
+        // The head reports for the side to move at the leaf; flip back to
+        // the root's perspective after an odd number of plies.
+        if leaf_ply % 2 == 1 {
+            wdl.reverse();
+        }
+        Some(wdl)
+    }
+
     fn print_info(&self, board: &mut Board, depth: i8, line: &RootMove, multipv: Option<usize>) {
         let m = line.m;
         let value = line.value;
@@ -704,24 +728,8 @@ impl<'a> Search<'a> {
                     [1.0, 0.0, 0.0]
                 }
             } else {
-                for &pv_move in pv {
-                    board.push(pv_move);
-                }
-                let mut leaf_ply = pv.len();
-                while leaf_ply > 0 && (!pv[leaf_ply - 1].is_quiet() || board.in_check()) {
-                    board.pop();
-                    leaf_ply -= 1;
-                }
-                let mut wdl = board.wdl();
-                for _ in 0..leaf_ply {
-                    board.pop();
-                }
-                // The head reports for the side to move at the leaf; flip
-                // back to the root's perspective after an odd number of plies.
-                if leaf_ply % 2 == 1 {
-                    wdl.reverse();
-                }
-                wdl
+                // The root read is fine as display cosmetics.
+                Self::pv_wdl(board, pv).unwrap_or_else(|| board.wdl())
             };
             let per_mille = |p: f32| (p * 1000.0).round() as i32;
             format!(
