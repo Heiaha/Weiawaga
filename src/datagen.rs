@@ -15,7 +15,9 @@ use rand::Rng;
 use regex::{Captures, Regex};
 
 use super::board::*;
+use super::moov::*;
 use super::move_list::*;
+use super::move_sorting::*;
 use super::piece::*;
 use super::search::*;
 use super::timer::*;
@@ -135,6 +137,7 @@ impl DataGen {
 
     fn play_game(&self, tt: &TT, rng: &mut impl Rng) -> Option<Game> {
         let mut board = self.start_position(rng)?;
+        let nudge_plies = self.pick_nudge_plies(board.ply(), rng);
 
         let mut samples = Vec::new();
         let outcome = loop {
@@ -173,8 +176,17 @@ impl DataGen {
                 break white_value.signum() as i8;
             }
 
-            let sample = (!board.in_check() && m.is_quiet())
-                .then(|| (board.to_string(), white_value.clamp(-16000, 16000) as i16));
+            let quiet_spot = !board.in_check() && m.is_quiet();
+            let sample =
+                quiet_spot.then(|| (board.to_string(), white_value.clamp(-16000, 16000) as i16));
+
+            // The sample keeps the searched eval, so a nudge below doesn't
+            // touch the label; only the move played changes.
+            let m = if quiet_spot && nudge_plies.contains(&board.ply()) {
+                self.pick_nudge(&mut board, rng).unwrap_or(m)
+            } else {
+                m
+            };
 
             board.push(m);
 
@@ -190,6 +202,50 @@ impl DataGen {
             outcome,
             id: rng.random(),
         })
+    }
+
+    fn pick_nudge_plies(&self, first_ply: usize, rng: &mut impl Rng) -> Vec<usize> {
+        let window = self.cfg.nudge_max_ply.saturating_sub(first_ply);
+        rand::seq::index::sample(rng, window, self.cfg.nudges.min(window))
+            .iter()
+            .map(|offset| first_ply + offset)
+            .collect()
+    }
+
+    fn pick_nudge(&self, board: &mut Board, rng: &mut impl Rng) -> Option<Move> {
+        let mut scored = Vec::new();
+        let moves = MoveList::from::<false>(board);
+        for &m in &moves {
+            if !m.is_quiet() {
+                continue;
+            }
+            board.push(m);
+            if !board.in_check() && !Self::is_loud(board) {
+                // The head answers for the side to move — here the opponent —
+                // so its loss slot is the mover's win.
+                let [win, draw, _] = board.wdl();
+                scored.push((m, win + draw / 2.0));
+            }
+            board.pop();
+        }
+
+        let best = scored.iter().fold(f32::MIN, |acc, &(_, e)| acc.max(e));
+        let candidates: Vec<Move> = scored
+            .into_iter()
+            .filter_map(|(m, e)| (best - e <= self.cfg.nudge_margin).then_some(m))
+            .collect();
+
+        (!candidates.is_empty()).then(|| candidates[rng.random_range(0..candidates.len())])
+    }
+
+    // The wdl head only ever trains on positions with no tactic pending (the
+    // sample guard requires the searched best move to be quiet), so it must
+    // not be consulted where the mover has a material-winning capture.
+    fn is_loud(board: &Board) -> bool {
+        let captures = MoveList::from::<true>(board);
+        (&captures)
+            .into_iter()
+            .any(|&c| MoveScorer::see(board, c, 1))
     }
 
     fn start_position(&self, rng: &mut impl Rng) -> Option<Board> {
@@ -334,6 +390,9 @@ struct Config {
     positions: u64,
     book: Option<PathBuf>,
     opening_plies: usize,
+    nudges: usize,
+    nudge_max_ply: usize,
+    nudge_margin: f32,
     rows_per_file: usize,
     hash_mb: usize,
 }
@@ -370,6 +429,10 @@ impl Config {
             book: Self::opt_path(&caps, "book"),
             opening_plies: Self::opt_number(&caps, "opening_plies")?
                 .unwrap_or(defaults.opening_plies),
+            nudges: Self::opt_number(&caps, "nudges")?.unwrap_or(defaults.nudges),
+            nudge_max_ply: Self::opt_number(&caps, "nudge_max_ply")?
+                .unwrap_or(defaults.nudge_max_ply),
+            nudge_margin: Self::opt_number(&caps, "nudge_margin")?.unwrap_or(defaults.nudge_margin),
             rows_per_file: Self::opt_number(&caps, "rows_per_file")?
                 .unwrap_or(defaults.rows_per_file)
                 .max(1),
@@ -387,6 +450,9 @@ impl Default for Config {
             positions: u64::MAX,
             book: None,
             opening_plies: 8,
+            nudges: 5,
+            nudge_max_ply: 24,
+            nudge_margin: 0.1,
             rows_per_file: 1_000_000,
             hash_mb: 16,
         }
@@ -403,6 +469,9 @@ static ARGS_RE: LazyLock<Regex> = LazyLock::new(|| {
                     \s*--positions\s+(?P<positions>\d+) |
                     \s*--book\s+(?P<book>\S+) |
                     \s*--opening-plies\s+(?P<opening_plies>\d+) |
+                    \s*--nudges\s+(?P<nudges>\d+) |
+                    \s*--nudge-max-ply\s+(?P<nudge_max_ply>\d+) |
+                    \s*--nudge-margin\s+(?P<nudge_margin>[\d.]+) |
                     \s*--rows-per-file\s+(?P<rows_per_file>\d+) |
                     \s*--hash\s+(?P<hash>\d+)
                 )*
@@ -419,5 +488,8 @@ usage: weiawaga datagen --out DIR [options]
   --positions N         stop after roughly N recorded positions (default: run until killed)
   --book PATH           epd/fen file of start positions, one per line
   --opening-plies N     without --book: random opening plies per game, N or N+1 at random (default 8)
+  --nudges N            plies per game where a random near-best quiet move is played (default 5)
+  --nudge-max-ply N     nudges happen before this ply (default 24)
+  --nudge-margin E      wdl expected-score drop (0-1) a nudge may accept (default 0.1)
   --rows-per-file N     rows per parquet file (default 1000000)
   --hash MB             per-thread transposition table size (default 16)";
