@@ -11,11 +11,11 @@ use super::timer::*;
 use super::tt::*;
 use super::types::*;
 
-struct RootMove {
-    m: Move,
-    value: i32,
-    pv: Vec<Move>,
-    sel_depth: usize,
+pub struct RootMove {
+    pub m: Move,
+    pub value: i32,
+    pub pv: Vec<Move>,
+    pub sel_depth: usize,
 }
 
 pub struct Search<'a> {
@@ -683,6 +683,30 @@ impl<'a> Search<'a> {
         after.iter_mut().for_each(|line| line.clear());
     }
 
+    pub fn pv_wdl(board: &mut Board, pv: &[Move]) -> Option<[f32; 3]> {
+        for &pv_move in pv {
+            board.push(pv_move);
+        }
+        let mut leaf_ply = pv.len();
+        while leaf_ply > 0 && (!pv[leaf_ply - 1].is_quiet() || board.in_check()) {
+            board.pop();
+            leaf_ply -= 1;
+        }
+        if leaf_ply == 0 {
+            return None;
+        }
+        let mut wdl = board.wdl();
+        for _ in 0..leaf_ply {
+            board.pop();
+        }
+        // The head reports for the side to move at the leaf; flip back to
+        // the root's perspective after an odd number of plies.
+        if leaf_ply % 2 == 1 {
+            wdl.reverse();
+        }
+        Some(wdl)
+    }
+
     fn print_info(&self, board: &mut Board, depth: i8, line: &RootMove, multipv: Option<usize>) {
         let m = line.m;
         let value = line.value;
@@ -704,24 +728,8 @@ impl<'a> Search<'a> {
                     [1.0, 0.0, 0.0]
                 }
             } else {
-                for &pv_move in pv {
-                    board.push(pv_move);
-                }
-                let mut leaf_ply = pv.len();
-                while leaf_ply > 0 && (!pv[leaf_ply - 1].is_quiet() || board.in_check()) {
-                    board.pop();
-                    leaf_ply -= 1;
-                }
-                let mut wdl = board.wdl();
-                for _ in 0..leaf_ply {
-                    board.pop();
-                }
-                // The head reports for the side to move at the leaf; flip
-                // back to the root's perspective after an odd number of plies.
-                if leaf_ply % 2 == 1 {
-                    wdl.reverse();
-                }
-                wdl
+                // The root read is fine as display cosmetics.
+                Self::pv_wdl(board, pv).unwrap_or_else(|| board.wdl())
             };
             let per_mille = |p: f32| (p * 1000.0).round() as i32;
             format!(
@@ -777,17 +785,55 @@ impl Search<'_> {
 
 #[cfg(feature = "datagen")]
 impl Search<'_> {
-    pub fn go_datagen(&mut self, board: &mut Board, soft_nodes: u64) -> (Option<Move>, i32) {
-        let (mut best_move, mut value) = self.search_root(board, 1, -i32::MATE, i32::MATE);
-
-        for depth in 2..i8::MAX {
-            if best_move.is_none() || value.is_checkmate() || self.timer.nodes() >= soft_nodes {
-                break;
-            }
-            (best_move, value) = self.aspiration(board, depth, value);
+    // Like go, but with a soft node cap instead of a clock and the ranked
+    // lines as the result.
+    pub fn go_datagen(&mut self, board: &mut Board, soft_nodes: u64) -> Vec<RootMove> {
+        let mut moves = MoveList::from::<false>(board);
+        if moves.len() == 0 {
+            return Vec::new();
         }
 
-        (best_move, value)
+        let hash_move = self.tt.get(board, 0).and_then(|entry| entry.best_move());
+        let mut root_moves = self
+            .scorer
+            .create_sorter::<false>(&mut moves, board, 0, hash_move)
+            .map(|m| RootMove {
+                m,
+                value: -i32::MATE,
+                pv: Vec::new(),
+                sel_depth: 0,
+            })
+            .collect::<Vec<_>>();
+
+        let multi_pv = self.multi_pv.min(root_moves.len());
+
+        for pv_idx in 0..multi_pv {
+            let (value, bound) =
+                self.search_root(board, 1, -i32::MATE, i32::MATE, &mut root_moves[pv_idx..]);
+            if pv_idx == 0 {
+                self.tt
+                    .insert(board, 1, value, Some(root_moves[0].m), bound, 0);
+            }
+        }
+        root_moves[..multi_pv].sort_by_key(|line| std::cmp::Reverse(line.value));
+
+        for depth in 2..i8::MAX {
+            if root_moves[0].value.is_checkmate() || self.timer.nodes() >= soft_nodes {
+                break;
+            }
+
+            for pv_idx in 0..multi_pv {
+                let (value, bound) = self.aspiration(board, depth, &mut root_moves[pv_idx..]);
+                if pv_idx == 0 {
+                    self.tt
+                        .insert(board, depth, value, Some(root_moves[0].m), bound, 0);
+                }
+            }
+            root_moves[..multi_pv].sort_by_key(|line| std::cmp::Reverse(line.value));
+        }
+
+        root_moves.truncate(multi_pv);
+        root_moves
     }
 }
 

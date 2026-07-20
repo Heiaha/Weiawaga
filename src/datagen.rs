@@ -17,7 +17,6 @@ use regex::{Captures, Regex};
 use super::board::*;
 use super::moov::*;
 use super::move_list::*;
-use super::move_sorting::*;
 use super::piece::*;
 use super::search::*;
 use super::timer::*;
@@ -155,6 +154,9 @@ impl DataGen {
                 break 0;
             }
 
+            let nudge_here = nudge_plies.contains(&board.ply());
+            let multi_pv = if nudge_here { Self::NUDGE_LINES } else { 1 };
+
             let timer = Timer::new(
                 &board,
                 TimeControl::Infinite,
@@ -163,29 +165,33 @@ impl DataGen {
                 Arc::new(AtomicU64::new(0)),
                 Duration::ZERO,
             );
-            let mut search = Search::new(timer, tt, 1, false);
-            let (m, value) = search.go_datagen(&mut board, self.cfg.nodes);
-            let m = m.expect("Search returned no move despite legal moves.");
+            // The node budget scales with the line count so the label line
+            // keeps its usual depth at nudge plies.
+            let mut search = Search::new(timer, tt, 1, false, multi_pv);
+            let lines = search.go_datagen(&mut board, self.cfg.nodes * multi_pv as u64);
+            let best = lines
+                .first()
+                .expect("Search returned no move despite legal moves.");
 
             let white_value = if board.ctm() == Color::White {
-                value
+                best.value
             } else {
-                -value
+                -best.value
             };
             if white_value.is_checkmate() {
                 break white_value.signum() as i8;
             }
 
-            let quiet_spot = !board.in_check() && m.is_quiet();
+            let quiet_spot = !board.in_check() && best.m.is_quiet();
             let sample =
                 quiet_spot.then(|| (board.to_string(), white_value.clamp(-16000, 16000) as i16));
 
             // The sample keeps the searched eval, so a nudge below doesn't
             // touch the label; only the move played changes.
-            let m = if quiet_spot && nudge_plies.contains(&board.ply()) {
-                self.pick_nudge(&mut board, rng).unwrap_or(m)
+            let m = if nudge_here {
+                self.pick_nudge(&mut board, &lines, rng).unwrap_or(best.m)
             } else {
-                m
+                best.m
             };
 
             board.push(m);
@@ -212,40 +218,24 @@ impl DataGen {
             .collect()
     }
 
-    fn pick_nudge(&self, board: &mut Board, rng: &mut impl Rng) -> Option<Move> {
-        let mut scored = Vec::new();
-        let moves = MoveList::from::<false>(board);
-        for &m in &moves {
-            if !m.is_quiet() {
-                continue;
-            }
-            board.push(m);
-            if !board.in_check() && !Self::is_loud(board) {
-                // The head answers for the side to move — here the opponent —
-                // so its loss slot is the mover's win.
-                let [win, draw, _] = board.wdl();
-                scored.push((m, win + draw / 2.0));
-            }
-            board.pop();
-        }
+    fn pick_nudge(
+        &self,
+        board: &mut Board,
+        lines: &[RootMove],
+        rng: &mut impl Rng,
+    ) -> Option<Move> {
+        let [_, draw, win] = Search::pv_wdl(board, &lines[0].pv)?;
+        let best = win + draw / 2.0;
 
-        let best = scored.iter().fold(f32::MIN, |acc, &(_, e)| acc.max(e));
-        let candidates: Vec<Move> = scored
-            .into_iter()
-            .filter_map(|(m, e)| (best - e <= self.cfg.nudge_margin).then_some(m))
+        let candidates: Vec<Move> = lines
+            .iter()
+            .filter_map(|line| {
+                let [_, draw, win] = Search::pv_wdl(board, &line.pv)?;
+                (best - (win + draw / 2.0) <= self.cfg.nudge_margin).then_some(line.m)
+            })
             .collect();
 
         (!candidates.is_empty()).then(|| candidates[rng.random_range(0..candidates.len())])
-    }
-
-    // The wdl head only ever trains on positions with no tactic pending (the
-    // sample guard requires the searched best move to be quiet), so it must
-    // not be consulted where the mover has a material-winning capture.
-    fn is_loud(board: &Board) -> bool {
-        let captures = MoveList::from::<true>(board);
-        (&captures)
-            .into_iter()
-            .any(|&c| MoveScorer::see(board, c, 1))
     }
 
     fn start_position(&self, rng: &mut impl Rng) -> Option<Board> {
@@ -255,9 +245,6 @@ impl DataGen {
         }
 
         let mut board = Board::new();
-        // Half the games get one extra random ply so that each color is
-        // equally often first to move out of the opening; a fixed even
-        // count skews outcomes heavily toward white.
         for _ in 0..self.cfg.opening_plies + rng.random_range(0..=1) {
             let moves = MoveList::from::<false>(&board);
             if moves.len() == 0 {
@@ -271,6 +258,7 @@ impl DataGen {
 
 impl DataGen {
     const MAX_GAME_PLIES: usize = 800;
+    const NUDGE_LINES: usize = 4;
 }
 
 struct Game {
@@ -488,7 +476,7 @@ usage: weiawaga datagen --out DIR [options]
   --positions N         stop after roughly N recorded positions (default: run until killed)
   --book PATH           epd/fen file of start positions, one per line
   --opening-plies N     without --book: random opening plies per game, N or N+1 at random (default 8)
-  --nudges N            plies per game where a random near-best quiet move is played (default 5)
+  --nudges N            plies per game where a random near-best move is played (default 5)
   --nudge-max-ply N     nudges happen before this ply (default 24)
   --nudge-margin E      wdl expected-score drop (0-1) a nudge may accept (default 0.1)
   --rows-per-file N     rows per parquet file (default 1000000)
