@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -11,19 +11,14 @@ use arrow_schema::{DataType, Field, Schema};
 use parquet::arrow::ArrowWriter;
 use parquet::basic::{Compression, ZstdLevel};
 use parquet::file::properties::WriterProperties;
-use pyrrhic_rs::{EngineAdapter, TableBases, WdlProbeResult};
 use rand::Rng;
 use regex::{Captures, Regex};
 
-use super::attacks;
-use super::bitboard::*;
 use super::board::*;
 use super::move_list::*;
 use super::piece::*;
 use super::search::*;
-use super::square::*;
 use super::timer::*;
-use super::traits::*;
 use super::tt::*;
 use super::types::*;
 
@@ -47,34 +42,60 @@ pub fn run(args: Vec<String>) {
 
 struct DataGen {
     cfg: Config,
-    syzygy: Option<Syzygy>,
+    book: Vec<String>,
     produced: AtomicU64,
 }
 
 impl DataGen {
     fn new(cfg: Config) -> Result<Self, String> {
-        let syzygy = cfg
-            .syzygy
+        let book = cfg
+            .book
             .as_deref()
-            .map(|path| Syzygy::load(path, cfg.tb_men))
-            .transpose()?;
+            .map(Self::load_book)
+            .transpose()?
+            .unwrap_or_default();
 
-        if let Some(syzygy) = &syzygy {
-            println!(
-                "Loaded syzygy tablebases; probing positions with at most {} men.",
-                syzygy.men
-            );
+        if !book.is_empty() {
+            println!("Loaded {} book positions.", book.len());
         }
 
         Ok(Self {
             cfg,
-            syzygy,
+            book,
             produced: AtomicU64::new(0),
         })
     }
 
+    // EPD or FEN, one position per line: the first four fields are the
+    // position; any move counters or epd opcodes are dropped and reset.
+    fn load_book(path: &Path) -> Result<Vec<String>, String> {
+        let content =
+            fs::read_to_string(path).map_err(|e| format!("Unable to read the book: {e}"))?;
+
+        let book: Vec<String> = content
+            .lines()
+            .filter_map(|line| {
+                let fields: Vec<&str> = line.split_whitespace().take(4).collect();
+                (fields.len() == 4).then(|| format!("{} 0 1", fields.join(" ")))
+            })
+            .collect();
+
+        // Individual bad lines are skipped at play time, but a first line
+        // that doesn't parse means the whole file is the wrong format.
+        let first = book
+            .first()
+            .ok_or_else(|| format!("No positions found in {}.", path.display()))?;
+        if Board::try_from(first.as_str()).is_err() {
+            return Err(format!(
+                "{} does not look like an epd/fen book.",
+                path.display()
+            ));
+        }
+        Ok(book)
+    }
+
     fn run(&self) {
-        std::fs::create_dir_all(&self.cfg.out).expect("Unable to create the output directory.");
+        fs::create_dir_all(&self.cfg.out).expect("Unable to create the output directory.");
 
         println!(
             "Generating on {} threads at {} soft nodes per move.",
@@ -113,17 +134,7 @@ impl DataGen {
     }
 
     fn play_game(&self, tt: &TT, rng: &mut impl Rng) -> Option<Game> {
-        let mut board = Board::new();
-        // Half the games get one extra random ply so that each color is
-        // equally often first to move out of the opening; a fixed even count
-        // skews outcomes heavily toward white.
-        for _ in 0..self.cfg.opening_plies + rng.random_range(0..=1) {
-            let moves = MoveList::from::<false>(&board);
-            if moves.len() == 0 {
-                return None;
-            }
-            board.push(moves[rng.random_range(0..moves.len())]);
-        }
+        let mut board = self.start_position(rng)?;
 
         let mut samples = Vec::new();
         let outcome = loop {
@@ -139,10 +150,6 @@ impl DataGen {
 
             if board.is_draw() || board.ply() >= Self::MAX_GAME_PLIES {
                 break 0;
-            }
-
-            if let Some(wdl) = self.syzygy.as_ref().and_then(|syzygy| syzygy.probe(&board)) {
-                break wdl;
             }
 
             let timer = Timer::new(
@@ -183,6 +190,26 @@ impl DataGen {
             outcome,
             id: rng.random(),
         })
+    }
+
+    fn start_position(&self, rng: &mut impl Rng) -> Option<Board> {
+        if !self.book.is_empty() {
+            let fen = &self.book[rng.random_range(0..self.book.len())];
+            return Board::try_from(fen.as_str()).ok();
+        }
+
+        let mut board = Board::new();
+        // Half the games get one extra random ply so that each color is
+        // equally often first to move out of the opening; a fixed even
+        // count skews outcomes heavily toward white.
+        for _ in 0..self.cfg.opening_plies + rng.random_range(0..=1) {
+            let moves = MoveList::from::<false>(&board);
+            if moves.len() == 0 {
+                return None;
+            }
+            board.push(moves[rng.random_range(0..moves.len())]);
+        }
+        Some(board)
     }
 }
 
@@ -300,131 +327,12 @@ impl Writer {
     const ZSTD_LEVEL: i32 = 22;
 }
 
-struct Syzygy {
-    tablebases: TableBases<Adapter>,
-    men: u32,
-}
-
-impl Syzygy {
-    // Pyrrhic treats ':' as a path separator, which collides with Windows
-    // drive letters; fall back to a path relative to the working directory.
-    fn load(path: &str, men: u32) -> Result<Self, String> {
-        let attempt = |p: &str| {
-            let tablebases = TableBases::<Adapter>::new(p).ok()?;
-            // Pyrrhic accepts directories with no tables in them; a KQvK
-            // probe (white Ka1/Qb1, black Kh8) proves a real load.
-            tablebases
-                .probe_wdl(0b11, 1 << 63, (1 << 63) | 1, 0b10, 0, 0, 0, 0, 0, true)
-                .is_ok()
-                .then_some(tablebases)
-        };
-
-        let tablebases = attempt(path)
-            .or_else(|| {
-                let cwd = std::env::current_dir().ok()?;
-                let rel = Self::relative_to(Path::new(path), &cwd)?;
-                attempt(rel.to_str()?)
-            })
-            .ok_or_else(|| format!("No tablebases found at {path}."))?;
-
-        Ok(Self {
-            men: men.min(tablebases.max_pieces()),
-            tablebases,
-        })
-    }
-
-    fn probe(&self, board: &Board) -> Option<i8> {
-        if u32::from(board.all_pieces().pop_count()) > self.men || board.has_castling_rights() {
-            return None;
-        }
-
-        let wdl = self
-            .tablebases
-            .probe_wdl(
-                board.all_pieces_c(Color::White).0,
-                board.all_pieces_c(Color::Black).0,
-                board.bitboard_of_pt(PieceType::King).0,
-                board.bitboard_of_pt(PieceType::Queen).0,
-                board.bitboard_of_pt(PieceType::Rook).0,
-                board.bitboard_of_pt(PieceType::Bishop).0,
-                board.bitboard_of_pt(PieceType::Knight).0,
-                board.bitboard_of_pt(PieceType::Pawn).0,
-                board.ep_sq().map_or(0, |sq| sq as u32),
-                board.ctm() == Color::White,
-            )
-            .ok()?;
-
-        let stm_outcome = match wdl {
-            WdlProbeResult::Win => 1,
-            WdlProbeResult::Loss => -1,
-            _ => 0,
-        };
-        Some(if board.ctm() == Color::White {
-            stm_outcome
-        } else {
-            -stm_outcome
-        })
-    }
-
-    fn relative_to(target: &Path, base: &Path) -> Option<PathBuf> {
-        let target: Vec<_> = target.components().collect();
-        let base: Vec<_> = base.components().collect();
-
-        let common = target.iter().zip(&base).take_while(|(t, b)| t == b).count();
-        // No common prefix means different drives; no relative path exists.
-        if common == 0 {
-            return None;
-        }
-
-        let mut rel = PathBuf::new();
-        for _ in common..base.len() {
-            rel.push("..");
-        }
-        rel.extend(&target[common..]);
-        Some(rel)
-    }
-}
-
-#[derive(Clone)]
-struct Adapter;
-
-impl EngineAdapter for Adapter {
-    fn pawn_attacks(color: pyrrhic_rs::Color, sq: u64) -> u64 {
-        let color = match color {
-            pyrrhic_rs::Color::White => Color::White,
-            pyrrhic_rs::Color::Black => Color::Black,
-        };
-        attacks::pawn_attacks_sq(SQ::from_repr(sq as u8), color).0
-    }
-
-    fn knight_attacks(sq: u64) -> u64 {
-        attacks::knight_attacks(SQ::from_repr(sq as u8)).0
-    }
-
-    fn bishop_attacks(sq: u64, occ: u64) -> u64 {
-        attacks::bishop_attacks(SQ::from_repr(sq as u8), Bitboard(occ)).0
-    }
-
-    fn rook_attacks(sq: u64, occ: u64) -> u64 {
-        attacks::rook_attacks(SQ::from_repr(sq as u8), Bitboard(occ)).0
-    }
-
-    fn queen_attacks(sq: u64, occ: u64) -> u64 {
-        Self::rook_attacks(sq, occ) | Self::bishop_attacks(sq, occ)
-    }
-
-    fn king_attacks(sq: u64) -> u64 {
-        attacks::king_attacks(SQ::from_repr(sq as u8)).0
-    }
-}
-
 struct Config {
     out: PathBuf,
     nodes: u64,
     threads: usize,
     positions: u64,
-    syzygy: Option<String>,
-    tb_men: u32,
+    book: Option<PathBuf>,
     opening_plies: usize,
     rows_per_file: usize,
     hash_mb: usize,
@@ -441,6 +349,10 @@ impl Config {
             .transpose()
     }
 
+    fn opt_path(caps: &Captures, name: &str) -> Option<PathBuf> {
+        caps.name(name).map(|m| PathBuf::from(m.as_str()))
+    }
+
     fn parse(args: &[String]) -> Result<Self, String> {
         let line = args.join(" ");
         let caps = ARGS_RE
@@ -449,17 +361,13 @@ impl Config {
 
         let defaults = Self::default();
         Ok(Self {
-            out: caps
-                .name("out")
-                .map(|m| PathBuf::from(m.as_str()))
-                .ok_or("--out is required.")?,
+            out: Self::opt_path(&caps, "out").ok_or("--out is required.")?,
             nodes: Self::opt_number(&caps, "nodes")?.unwrap_or(defaults.nodes),
             threads: Self::opt_number(&caps, "threads")?
                 .unwrap_or(defaults.threads)
                 .max(1),
             positions: Self::opt_number(&caps, "positions")?.unwrap_or(defaults.positions),
-            syzygy: caps.name("syzygy").map(|m| m.as_str().to_string()),
-            tb_men: Self::opt_number(&caps, "tb_men")?.unwrap_or(defaults.tb_men),
+            book: Self::opt_path(&caps, "book"),
             opening_plies: Self::opt_number(&caps, "opening_plies")?
                 .unwrap_or(defaults.opening_plies),
             rows_per_file: Self::opt_number(&caps, "rows_per_file")?
@@ -477,8 +385,7 @@ impl Default for Config {
             nodes: 5000,
             threads: thread::available_parallelism().map_or(1, |n| n.get().saturating_sub(1)),
             positions: u64::MAX,
-            syzygy: None,
-            tb_men: 5,
+            book: None,
             opening_plies: 8,
             rows_per_file: 1_000_000,
             hash_mb: 16,
@@ -494,8 +401,7 @@ static ARGS_RE: LazyLock<Regex> = LazyLock::new(|| {
                     \s*--nodes\s+(?P<nodes>\d+) |
                     \s*--threads\s+(?P<threads>\d+) |
                     \s*--positions\s+(?P<positions>\d+) |
-                    \s*--syzygy\s+(?P<syzygy>\S+) |
-                    \s*--tb-men\s+(?P<tb_men>\d+) |
+                    \s*--book\s+(?P<book>\S+) |
                     \s*--opening-plies\s+(?P<opening_plies>\d+) |
                     \s*--rows-per-file\s+(?P<rows_per_file>\d+) |
                     \s*--hash\s+(?P<hash>\d+)
@@ -511,8 +417,7 @@ usage: weiawaga datagen --out DIR [options]
   --nodes N             soft node limit per move (default 5000)
   --threads N           worker threads (default: cores - 1)
   --positions N         stop after roughly N recorded positions (default: run until killed)
-  --syzygy PATH         syzygy tablebase directory for adjudication
-  --tb-men N            probe positions with at most N pieces (default 5)
-  --opening-plies N     random opening plies per game, N or N+1 at random (default 8)
+  --book PATH           epd/fen file of start positions, one per line
+  --opening-plies N     without --book: random opening plies per game, N or N+1 at random (default 8)
   --rows-per-file N     rows per parquet file (default 1000000)
   --hash MB             per-thread transposition table size (default 16)";
