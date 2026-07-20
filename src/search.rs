@@ -712,6 +712,22 @@ impl Search<'_> {
     const SING_EXTEND_DEPTH_MARGIN: i8 = 2;
 }
 
+#[cfg(feature = "datagen")]
+impl Search<'_> {
+    pub fn go_datagen(&mut self, board: &mut Board, soft_nodes: u64) -> (Option<Move>, i32) {
+        let (mut best_move, mut value) = self.search_root(board, 1, -i32::MATE, i32::MATE);
+
+        for depth in 2..i8::MAX {
+            if best_move.is_none() || value.is_checkmate() || self.timer.nodes() >= soft_nodes {
+                break;
+            }
+            (best_move, value) = self.aspiration(board, depth, value);
+        }
+
+        (best_move, value)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Bound {

@@ -2,6 +2,8 @@
 mod bitboard;
 mod attacks;
 mod board;
+#[cfg(feature = "datagen")]
+mod datagen;
 mod magics;
 mod moov;
 mod move_list;
@@ -20,6 +22,12 @@ mod uci;
 mod zobrist;
 
 fn main() {
+    #[cfg(feature = "datagen")]
+    if std::env::args().nth(1).as_deref() == Some("datagen") {
+        datagen::run(std::env::args().skip(2).collect());
+        return;
+    }
+
     let uci = uci::UCI::new();
     uci.run();
 }
