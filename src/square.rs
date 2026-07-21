@@ -25,7 +25,7 @@ impl SQ {
         Self::from_repr(((rank as u8) << 3) + (file as u8))
     }
 
-    pub fn bb(self) -> Bitboard {
+    pub const fn bb(self) -> Bitboard {
         B!(1 << self as usize)
     }
 

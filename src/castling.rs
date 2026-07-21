@@ -13,14 +13,14 @@ pub type CastlingMap<T> = EnumMap<T, { CastlingRights::COUNT }>;
 pub struct CastlingRights(u8);
 
 impl CastlingRights {
-    pub fn oo(color: Color) -> Self {
+    pub const fn oo(color: Color) -> Self {
         match color {
             Color::White => Self::WHITE_OO,
             Color::Black => Self::BLACK_OO,
         }
     }
 
-    pub fn ooo(color: Color) -> Self {
+    pub const fn ooo(color: Color) -> Self {
         match color {
             Color::White => Self::WHITE_OOO,
             Color::Black => Self::BLACK_OOO,
@@ -52,11 +52,11 @@ impl CastlingRights {
         Self::KILLED[sq]
     }
 
-    pub fn contains(self, right: Self) -> bool {
+    pub const fn contains(self, right: Self) -> bool {
         self.0 & right.0 != 0
     }
 
-    pub fn without(self, rights: Self) -> Self {
+    pub const fn without(self, rights: Self) -> Self {
         Self(self.0 & !rights.0)
     }
 

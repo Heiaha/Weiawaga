@@ -8,11 +8,15 @@ use std::num::NonZeroU16;
 pub struct Move(NonZeroU16);
 
 impl Move {
-    pub fn new(from_sq: SQ, to_sq: SQ, flags: MoveFlags) -> Self {
-        Self(
-            NonZeroU16::new((flags as u16) << 12 | (from_sq as u16) << 6 | (to_sq as u16))
-                .expect("MoveInt is zero."),
-        )
+    pub const fn new(from_sq: SQ, to_sq: SQ, flags: MoveFlags) -> Self {
+        Self::from_int((flags as u16) << 12 | (from_sq as u16) << 6 | (to_sq as u16))
+    }
+
+    pub const fn from_int(m: u16) -> Self {
+        match NonZeroU16::new(m) {
+            Some(m) => Self(m),
+            None => panic!("MoveInt is zero."),
+        }
     }
 
     pub fn to_sq(self) -> SQ {
@@ -33,15 +37,15 @@ impl Move {
         MoveFlags::from(((self.0.get() >> 12) & 0xf) as u8)
     }
 
-    pub fn move_int(self) -> u16 {
+    pub const fn move_int(self) -> u16 {
         self.0.get()
     }
 
-    pub fn is_quiet(self) -> bool {
+    pub const fn is_quiet(self) -> bool {
         (self.0.get() >> 12) & 0b1100 == 0
     }
 
-    pub fn is_capture(self) -> bool {
+    pub const fn is_capture(self) -> bool {
         (self.0.get() >> 12) & 0b0100 != 0
     }
 
@@ -61,12 +65,6 @@ impl Move {
 
     pub fn is_castling(self) -> bool {
         matches!(self.flags(), MoveFlags::OO | MoveFlags::OOO)
-    }
-}
-
-impl From<u16> for Move {
-    fn from(m: u16) -> Self {
-        Self(NonZeroU16::new(m).expect("MoveInt is zero."))
     }
 }
 

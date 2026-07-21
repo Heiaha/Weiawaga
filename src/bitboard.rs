@@ -29,15 +29,15 @@ impl Bitboard {
         sq
     }
 
-    pub fn is_several(&self) -> bool {
+    pub const fn is_several(&self) -> bool {
         self.0 & (self.0.wrapping_sub(1)) != 0
     }
 
-    pub fn is_single(&self) -> bool {
+    pub const fn is_single(&self) -> bool {
         self.0 != 0 && !self.is_several()
     }
 
-    pub fn pop_count(&self) -> u8 {
+    pub const fn pop_count(&self) -> u8 {
         self.0.count_ones() as u8
     }
 
@@ -56,7 +56,7 @@ impl Bitboard {
         }
     }
 
-    pub fn reverse(self) -> Self {
+    pub const fn reverse(self) -> Self {
         Self(self.0.reverse_bits())
     }
 }
