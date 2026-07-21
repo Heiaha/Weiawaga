@@ -34,17 +34,7 @@ impl Board {
     }
 
     pub fn clear(&mut self) {
-        self.ply = 0;
-        self.ctm = Color::White;
-        self.history = [HistoryEntry::default(); Self::N_HISTORIES];
-
-        self.color_bb = ColorMap::default();
-        self.piece_type_bb = PieceTypeMap::default();
-        self.board = SQMap::default();
-
-        self.material_hash = 0;
-
-        self.network = Network::new();
+        *self = Self::default();
     }
 
     pub fn piece_at(&self, sq: SQ) -> Option<Piece> {

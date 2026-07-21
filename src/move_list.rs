@@ -7,15 +7,12 @@ use arrayvec::ArrayVec;
 
 pub const MAX_MOVES: usize = 252;
 
+#[derive(Default)]
 pub struct MoveList(ArrayVec<Move, MAX_MOVES>);
 
 impl MoveList {
-    pub fn new() -> Self {
-        Self(ArrayVec::new())
-    }
-
     pub fn from<const QUIESCENCE: bool>(board: &Board) -> Self {
-        let mut moves = Self::new();
+        let mut moves = Self::default();
         board.generate_legal_moves::<QUIESCENCE>(&mut moves);
         moves
     }
