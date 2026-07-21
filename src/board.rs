@@ -221,16 +221,17 @@ impl Board {
     }
 
     fn is_repetition(&self) -> bool {
-        let lookback = self.history[self.ply]
-            .plies_from_null
-            .min(self.history[self.ply].half_move_counter) as usize;
+        let current = &self.history[self.ply];
+        let lookback = current.plies_from_null.min(current.half_move_counter) as usize;
 
         self.history[self.ply - lookback..self.ply]
             .iter()
             .rev()
             .skip(1)
             .step_by(2)
-            .any(|entry| self.material_hash == entry.material_hash)
+            .any(|entry| {
+                entry.material_hash == self.material_hash && entry.rights == current.rights
+            })
     }
 
     pub fn is_draw(&self) -> bool {
@@ -1109,6 +1110,21 @@ mod tests {
         // A rook move kills only its own wing.
         board.push_str("h8h1").unwrap();
         assert_eq!(rights(&board), "q");
+    }
+
+    #[test]
+    fn repetition_needs_castling_rights() {
+        let mut board = Board::try_from("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1").unwrap();
+        for m in ["e1e2", "e8e7", "e2e1", "e7e8"] {
+            board.push_str(m).unwrap();
+        }
+        assert_eq!(board.is_repetition(), false);
+
+        for m in ["e1e2", "e8e7", "e2e1", "e7e8"] {
+            board.push_str(m).unwrap();
+        }
+
+        assert_eq!(board.is_repetition(), true);
     }
 
     #[test]
