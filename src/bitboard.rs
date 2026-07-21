@@ -1,8 +1,6 @@
 use super::attacks;
-use super::piece::*;
 use super::square::*;
 use super::traits::*;
-use super::types::*;
 use std::fmt;
 use std::ops::{
     BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, Not, Shl, ShlAssign, Shr,
@@ -31,15 +29,15 @@ impl Bitboard {
         sq
     }
 
-    pub fn is_several(&self) -> bool {
+    pub const fn is_several(&self) -> bool {
         self.0 & (self.0.wrapping_sub(1)) != 0
     }
 
-    pub fn is_single(&self) -> bool {
+    pub const fn is_single(&self) -> bool {
         self.0 != 0 && !self.is_several()
     }
 
-    pub fn pop_count(&self) -> u8 {
+    pub const fn pop_count(&self) -> u8 {
         self.0.count_ones() as u8
     }
 
@@ -58,7 +56,7 @@ impl Bitboard {
         }
     }
 
-    pub fn reverse(self) -> Self {
+    pub const fn reverse(self) -> Self {
         Self(self.0.reverse_bits())
     }
 }
@@ -74,41 +72,6 @@ impl Bitboard {
 
     pub fn between(sq1: SQ, sq2: SQ) -> Self {
         BETWEEN_BB[sq1][sq2]
-    }
-
-    pub fn oo_mask(c: Color) -> Self {
-        match c {
-            Color::White => Self::WHITE_OO_MASK,
-            Color::Black => Self::BLACK_OO_MASK,
-        }
-    }
-
-    pub fn ooo_mask(c: Color) -> Self {
-        match c {
-            Color::White => Self::WHITE_OOO_MASK,
-            Color::Black => Self::BLACK_OOO_MASK,
-        }
-    }
-
-    pub fn oo_blockers_mask(c: Color) -> Self {
-        match c {
-            Color::White => Self::WHITE_OO_BLOCKERS_AND_ATTACKERS_MASK,
-            Color::Black => Self::BLACK_OO_BLOCKERS_AND_ATTACKERS_MASK,
-        }
-    }
-
-    pub fn ooo_blockers_mask(c: Color) -> Self {
-        match c {
-            Color::White => Self::WHITE_OOO_BLOCKERS_AND_ATTACKERS_MASK,
-            Color::Black => Self::BLACK_OOO_BLOCKERS_AND_ATTACKERS_MASK,
-        }
-    }
-
-    pub fn ignore_ooo_danger(c: Color) -> Self {
-        match c {
-            Color::White => Self::WHITE_OOO_DANGER,
-            Color::Black => Self::BLACK_OOO_DANGER,
-        }
     }
 }
 
@@ -279,21 +242,6 @@ impl Bitboard {
     pub const TWO: Self = B!(2);
     pub const LIGHT_SQUARES: Self = B!(0x55AA55AA55AA55AA);
     pub const DARK_SQUARES: Self = B!(0xAA55AA55AA55AA55);
-
-    pub const WHITE_OO_MASK: Self = B!(0x90);
-    pub const WHITE_OOO_MASK: Self = B!(0x11);
-    pub const WHITE_OO_BLOCKERS_AND_ATTACKERS_MASK: Self = B!(0x60);
-    pub const WHITE_OOO_BLOCKERS_AND_ATTACKERS_MASK: Self = B!(0xe);
-
-    pub const BLACK_OO_MASK: Self = B!(0x9000000000000000);
-    pub const BLACK_OOO_MASK: Self = B!(0x1100000000000000);
-    pub const BLACK_OO_BLOCKERS_AND_ATTACKERS_MASK: Self = B!(0x6000000000000000);
-    pub const BLACK_OOO_BLOCKERS_AND_ATTACKERS_MASK: Self = B!(0xE00000000000000);
-
-    pub const ALL_CASTLING_MASK: Self = B!(0x9100000000000091);
-
-    pub const WHITE_OOO_DANGER: Self = B!(0x2);
-    pub const BLACK_OOO_DANGER: Self = B!(0x200000000000000);
 
     pub const CENTER: Self = B!(0x1818000000);
 }

@@ -1,17 +1,9 @@
-use super::piece::*;
-use super::square::*;
 use super::traits::*;
 use std::ops::{Index, IndexMut};
 use std::slice::{Iter, IterMut};
 
 // Maximum distance from the root, used to size per-ply tables.
 pub const MAX_PLY: usize = 256;
-
-pub type ColorMap<T> = EnumMap<T, { Color::COUNT }>;
-pub type PieceMap<T> = EnumMap<T, { Piece::COUNT }>;
-pub type PieceTypeMap<T> = EnumMap<T, { PieceType::COUNT }>;
-pub type SQMap<T> = EnumMap<T, { SQ::COUNT }>;
-pub type FileMap<T> = EnumMap<T, { File::COUNT }>;
 
 #[derive(Copy, Clone)]
 pub struct EnumMap<T, const N: usize>([T; N]);

@@ -4,6 +4,7 @@ use super::board::*;
 use super::moov::*;
 use super::move_list::*;
 use super::piece::*;
+use super::square::*;
 use super::traits::*;
 use super::types::*;
 

@@ -1,12 +1,12 @@
 use super::attacks;
 use super::bitboard::*;
+use super::castling::*;
 use super::moov::*;
 use super::move_list::*;
 use super::nnue::*;
 use super::piece::*;
 use super::square::*;
 use super::traits::*;
-use super::types::*;
 use super::zobrist::*;
 use regex::Regex;
 use std::fmt;
@@ -34,17 +34,7 @@ impl Board {
     }
 
     pub fn clear(&mut self) {
-        self.ply = 0;
-        self.ctm = Color::White;
-        self.history = [HistoryEntry::default(); Self::N_HISTORIES];
-
-        self.color_bb = ColorMap::default();
-        self.piece_type_bb = PieceTypeMap::default();
-        self.board = SQMap::default();
-
-        self.material_hash = 0;
-
-        self.network = Network::new();
+        *self = Self::default();
     }
 
     pub fn piece_at(&self, sq: SQ) -> Option<Piece> {
@@ -221,16 +211,17 @@ impl Board {
     }
 
     fn is_repetition(&self) -> bool {
-        let lookback = self.history[self.ply]
-            .plies_from_null
-            .min(self.history[self.ply].half_move_counter) as usize;
+        let current = &self.history[self.ply];
+        let lookback = current.plies_from_null.min(current.half_move_counter) as usize;
 
         self.history[self.ply - lookback..self.ply]
             .iter()
             .rev()
             .skip(1)
             .step_by(2)
-            .any(|entry| self.material_hash == entry.material_hash)
+            .any(|entry| {
+                entry.material_hash == self.material_hash && entry.rights == current.rights
+            })
     }
 
     pub fn is_draw(&self) -> bool {
@@ -246,7 +237,7 @@ impl Board {
         self.ply += 1;
 
         self.history[self.ply] = HistoryEntry {
-            entry: self.history[self.ply - 1].entry,
+            rights: self.history[self.ply - 1].rights,
             half_move_counter: self.history[self.ply - 1].half_move_counter + 1,
             plies_from_null: 0,
             moov: None,
@@ -324,7 +315,9 @@ impl Board {
         self.refresh_network_if_needed(self.ctm);
 
         self.history[self.ply] = HistoryEntry {
-            entry: self.history[self.ply - 1].entry | to_sq.bb() | from_sq.bb(),
+            rights: self.history[self.ply - 1]
+                .rights
+                .without(CastlingRights::killed(from_sq) | CastlingRights::killed(to_sq)),
             moov: Some(m),
             plies_from_null: self.history[self.ply - 1].plies_from_null + 1,
             material_hash: self.material_hash,
@@ -510,13 +503,9 @@ impl Board {
                         // that can capture it.
                         ///////////////////////////////////////////////////////////////////
                         if pt == PieceType::Pawn
-                            && self.history[self.ply].epsq.is_some_and(|epsq| {
-                                checkers == epsq.bb().shift(Direction::South.relative(us))
-                            })
+                            && let Some(epsq) = self.history[self.ply].epsq
+                            && checkers == epsq.bb().shift(Direction::South.relative(us))
                         {
-                            let epsq = self.history[self.ply]
-                                .epsq
-                                .expect("No epsq found for checker.");
                             let pawns = attacks::pawn_attacks_sq(epsq, them)
                                 & self.bitboard_of(us, PieceType::Pawn)
                                 & not_pinned;
@@ -554,140 +543,17 @@ impl Board {
                 ///////////////////////////////////////////////////////////////////
                 capture_mask = them_bb;
                 quiet_mask = !all;
-                if let Some(epsq) = self.history[self.ply].epsq {
-                    let epsq_attackers = attacks::pawn_attacks_sq(epsq, them)
-                        & self.bitboard_of(us, PieceType::Pawn);
-                    let unpinned_epsq_attackers = epsq_attackers & not_pinned;
-                    for sq in unpinned_epsq_attackers {
-                        ///////////////////////////////////////////////////////////////////
-                        // From surge:
-                        // This piece of evil bit-fiddling magic prevents the infamous 'pseudo-pinned' e.p. case,
-                        // where the pawn is not directly pinned, but on moving the pawn and capturing the enemy pawn
-                        // e.p., a rook or queen attack to the king is revealed
-                        //
-                        //
-                        // nbqkbnr
-                        // ppp.pppp
-                        // ........
-                        // r..pP..K
-                        // ........
-                        // ........
-                        // PPPP.PPP
-                        // RNBQ.BNR
-                        //
-                        // Here, if white plays exd5 e.p., the black rook on a5 attacks the white king on h5
-                        ///////////////////////////////////////////////////////////////////
-                        let attacks = attacks::sliding_attacks(
-                            our_king,
-                            all ^ sq.bb() ^ epsq.bb().shift(Direction::South.relative(us)),
-                            our_king.rank().bb(),
-                        );
 
-                        if (attacks & their_orth_sliders) == Bitboard::ZERO {
-                            moves.push(Move::new(sq, epsq, MoveFlags::EnPassant));
-                        }
-                    }
-                    ///////////////////////////////////////////////////////////////////
-                    // Pinned pawns can only capture ep if they are pinned diagonally
-                    // and the ep square is in line with the king.
-                    ///////////////////////////////////////////////////////////////////
-                    let pinned_epsq_attackers =
-                        epsq_attackers & pinned & Bitboard::line(epsq, our_king);
-                    if pinned_epsq_attackers != Bitboard::ZERO {
-                        moves.push(Move::new(
-                            pinned_epsq_attackers.lsb(),
-                            epsq,
-                            MoveFlags::EnPassant,
-                        ));
-                    }
-                }
-
-                ///////////////////////////////////////////////////////////////////
-                // Only castle if:
-                // 1. Neither the king nor rook have moved.
-                // 2. The king is not in check.
-                // 3. The relevant squares are not attacked.
-                ///////////////////////////////////////////////////////////////////
-                if !QUIESCENCE {
-                    if ((self.history[self.ply].entry & Bitboard::oo_mask(us))
-                        | ((all | danger) & Bitboard::oo_blockers_mask(us)))
-                        == Bitboard::ZERO
-                    {
-                        moves.push(match us {
-                            Color::White => Move::new(SQ::E1, SQ::G1, MoveFlags::OO),
-                            Color::Black => Move::new(SQ::E8, SQ::G8, MoveFlags::OO),
-                        });
-                    }
-                    if ((self.history[self.ply].entry & Bitboard::ooo_mask(us))
-                        | ((all | (danger & !Bitboard::ignore_ooo_danger(us)))
-                            & Bitboard::ooo_blockers_mask(us)))
-                        == Bitboard::ZERO
-                    {
-                        moves.push(match us {
-                            Color::White => Move::new(SQ::E1, SQ::C1, MoveFlags::OOO),
-                            Color::Black => Move::new(SQ::E8, SQ::C8, MoveFlags::OOO),
-                        });
-                    }
-                }
-                ///////////////////////////////////////////////////////////////////
-                // For each pinned rook, bishop, or queen, only include attacks
-                // that are aligned with our king.
-                ///////////////////////////////////////////////////////////////////
-                let pinned_pieces = !(not_pinned | self.bitboard_of(us, PieceType::Knight));
-                for sq in pinned_pieces {
-                    let pt = self
-                        .piece_type_at(sq)
-                        .expect("Unexpected None for piece type.");
-                    let attacks_along_pin =
-                        attacks::attacks(pt, sq, all) & Bitboard::line(our_king, sq);
-                    if !QUIESCENCE {
-                        moves.make_q(sq, attacks_along_pin & quiet_mask);
-                    }
-                    moves.make_c(sq, attacks_along_pin & capture_mask);
-                }
-
-                ///////////////////////////////////////////////////////////////////
-                // For each pinned pawn
-                ///////////////////////////////////////////////////////////////////
-                let pinned_pawns = !not_pinned & self.bitboard_of(us, PieceType::Pawn);
-                for sq in pinned_pawns {
-                    ///////////////////////////////////////////////////////////////////
-                    // Quiet promotions are impossible since the square in front of the
-                    // pawn will be occupied
-                    ///////////////////////////////////////////////////////////////////
-                    if sq.rank() == Rank::Seven.relative(us) {
-                        moves.make_pc(
-                            sq,
-                            attacks::pawn_attacks_sq(sq, us)
-                                & capture_mask
-                                & Bitboard::line(our_king, sq),
-                        );
-                    } else {
-                        moves.make_c(
-                            sq,
-                            attacks::pawn_attacks_sq(sq, us)
-                                & them_bb
-                                & Bitboard::line(sq, our_king),
-                        );
-
-                        ///////////////////////////////////////////////////////////////////
-                        // Single and double pawn pushes
-                        ///////////////////////////////////////////////////////////////////
-                        if !QUIESCENCE {
-                            let single_pinned_pushes = sq.bb().shift(Direction::North.relative(us))
-                                & !all
-                                & Bitboard::line(our_king, sq);
-                            let double_pinned_pushes = (single_pinned_pushes
-                                & Rank::Three.relative(us).bb())
-                            .shift(Direction::North.relative(us))
-                                & !all
-                                & Bitboard::line(our_king, sq);
-
-                            moves.make_q(sq, single_pinned_pushes);
-                            moves.make_dp(sq, double_pinned_pushes);
-                        }
-                    }
-                }
+                self.push_ep_moves(moves, all, pinned, our_king);
+                self.push_castling_moves::<QUIESCENCE>(moves, all, danger);
+                self.push_pinned_moves::<QUIESCENCE>(
+                    moves,
+                    all,
+                    pinned,
+                    our_king,
+                    quiet_mask,
+                    capture_mask,
+                );
             }
         }
 
@@ -717,6 +583,196 @@ impl Board {
                 moves.make_q(sq, orth_attacks & quiet_mask);
             }
         }
+
+        self.push_pawn_moves::<QUIESCENCE>(moves, all, pinned, quiet_mask, capture_mask);
+    }
+
+    fn push_ep_moves(&self, moves: &mut MoveList, all: Bitboard, pinned: Bitboard, our_king: SQ) {
+        ///////////////////////////////////////////////////////////////////
+        // En passant, both for unpinned attackers (with the revealed-check
+        // guard) and diagonally pinned ones. Never called while in check.
+        ///////////////////////////////////////////////////////////////////
+        let Some(epsq) = self.history[self.ply].epsq else {
+            return;
+        };
+
+        let us = self.ctm;
+        let them = !self.ctm;
+
+        let epsq_attackers =
+            attacks::pawn_attacks_sq(epsq, them) & self.bitboard_of(us, PieceType::Pawn);
+        let unpinned_epsq_attackers = epsq_attackers & !pinned;
+        for sq in unpinned_epsq_attackers {
+            ///////////////////////////////////////////////////////////////////
+            // From surge:
+            // This piece of evil bit-fiddling magic prevents the infamous 'pseudo-pinned' e.p. case,
+            // where the pawn is not directly pinned, but on moving the pawn and capturing the enemy pawn
+            // e.p., a rook or queen attack to the king is revealed
+            //
+            //
+            // nbqkbnr
+            // ppp.pppp
+            // ........
+            // r..pP..K
+            // ........
+            // ........
+            // PPPP.PPP
+            // RNBQ.BNR
+            //
+            // Here, if white plays exd5 e.p., the black rook on a5 attacks the white king on h5
+            ///////////////////////////////////////////////////////////////////
+            let attacks = attacks::sliding_attacks(
+                our_king,
+                all ^ sq.bb() ^ epsq.bb().shift(Direction::South.relative(us)),
+                our_king.rank().bb(),
+            );
+
+            if (attacks & self.orthogonal_sliders_c(them)) == Bitboard::ZERO {
+                moves.push(Move::new(sq, epsq, MoveFlags::EnPassant));
+            }
+        }
+        ///////////////////////////////////////////////////////////////////
+        // Pinned pawns can only capture ep if they are pinned diagonally
+        // and the ep square is in line with the king.
+        ///////////////////////////////////////////////////////////////////
+        let pinned_epsq_attackers = epsq_attackers & pinned & Bitboard::line(epsq, our_king);
+        if pinned_epsq_attackers != Bitboard::ZERO {
+            moves.push(Move::new(
+                pinned_epsq_attackers.lsb(),
+                epsq,
+                MoveFlags::EnPassant,
+            ));
+        }
+    }
+
+    fn push_castling_moves<const QUIESCENCE: bool>(
+        &self,
+        moves: &mut MoveList,
+        all: Bitboard,
+        danger: Bitboard,
+    ) {
+        ///////////////////////////////////////////////////////////////////
+        // Only castle if:
+        // 1. Not in quiescence, since castling is never a capture.
+        // 2. Neither the king nor rook have moved.
+        // 3. The king is not in check (never called while in check).
+        // 4. The relevant squares are not attacked.
+        ///////////////////////////////////////////////////////////////////
+        if QUIESCENCE {
+            return;
+        }
+
+        let us = self.ctm;
+        let rights = self.history[self.ply].rights;
+
+        if rights.contains(CastlingRights::oo(us))
+            && all & CastlingRights::oo_path(us) == Bitboard::ZERO
+            && danger & CastlingRights::oo_king_path(us) == Bitboard::ZERO
+        {
+            moves.push(match us {
+                Color::White => Move::new(SQ::E1, SQ::G1, MoveFlags::OO),
+                Color::Black => Move::new(SQ::E8, SQ::G8, MoveFlags::OO),
+            });
+        }
+        if rights.contains(CastlingRights::ooo(us))
+            && all & CastlingRights::ooo_path(us) == Bitboard::ZERO
+            && danger & CastlingRights::ooo_king_path(us) == Bitboard::ZERO
+        {
+            moves.push(match us {
+                Color::White => Move::new(SQ::E1, SQ::C1, MoveFlags::OOO),
+                Color::Black => Move::new(SQ::E8, SQ::C8, MoveFlags::OOO),
+            });
+        }
+    }
+
+    fn push_pinned_moves<const QUIESCENCE: bool>(
+        &self,
+        moves: &mut MoveList,
+        all: Bitboard,
+        pinned: Bitboard,
+        our_king: SQ,
+        quiet_mask: Bitboard,
+        capture_mask: Bitboard,
+    ) {
+        ///////////////////////////////////////////////////////////////////
+        // Pinned pieces may only move along the line between our king and
+        // their pinner. Never called while in check.
+        ///////////////////////////////////////////////////////////////////
+        let us = self.ctm;
+        let them_bb = self.all_pieces_c(!us);
+
+        ///////////////////////////////////////////////////////////////////
+        // For each pinned rook, bishop, or queen, only include attacks
+        // that are aligned with our king. Pinned pawns are handled below,
+        // and a pinned knight can never move at all.
+        ///////////////////////////////////////////////////////////////////
+        let pinned_pieces = pinned
+            & !(self.bitboard_of(us, PieceType::Knight) | self.bitboard_of(us, PieceType::Pawn));
+        for sq in pinned_pieces {
+            let pt = self
+                .piece_type_at(sq)
+                .expect("Unexpected None for piece type.");
+            let attacks_along_pin = attacks::attacks(pt, sq, all) & Bitboard::line(our_king, sq);
+            if !QUIESCENCE {
+                moves.make_q(sq, attacks_along_pin & quiet_mask);
+            }
+            moves.make_c(sq, attacks_along_pin & capture_mask);
+        }
+
+        ///////////////////////////////////////////////////////////////////
+        // For each pinned pawn
+        ///////////////////////////////////////////////////////////////////
+        let pinned_pawns = pinned & self.bitboard_of(us, PieceType::Pawn);
+        for sq in pinned_pawns {
+            ///////////////////////////////////////////////////////////////////
+            // Quiet promotions are impossible since the square in front of the
+            // pawn will be occupied
+            ///////////////////////////////////////////////////////////////////
+            if sq.rank() == Rank::Seven.relative(us) {
+                moves.make_pc(
+                    sq,
+                    attacks::pawn_attacks_sq(sq, us) & capture_mask & Bitboard::line(our_king, sq),
+                );
+            } else {
+                moves.make_c(
+                    sq,
+                    attacks::pawn_attacks_sq(sq, us) & them_bb & Bitboard::line(sq, our_king),
+                );
+
+                ///////////////////////////////////////////////////////////////////
+                // Single and double pawn pushes
+                ///////////////////////////////////////////////////////////////////
+                if !QUIESCENCE {
+                    let single_pinned_pushes = sq.bb().shift(Direction::North.relative(us))
+                        & !all
+                        & Bitboard::line(our_king, sq);
+                    let double_pinned_pushes = (single_pinned_pushes
+                        & Rank::Three.relative(us).bb())
+                    .shift(Direction::North.relative(us))
+                        & !all
+                        & Bitboard::line(our_king, sq);
+
+                    moves.make_q(sq, single_pinned_pushes);
+                    moves.make_dp(sq, double_pinned_pushes);
+                }
+            }
+        }
+    }
+
+    fn push_pawn_moves<const QUIESCENCE: bool>(
+        &self,
+        moves: &mut MoveList,
+        all: Bitboard,
+        pinned: Bitboard,
+        quiet_mask: Bitboard,
+        capture_mask: Bitboard,
+    ) {
+        ///////////////////////////////////////////////////////////////////
+        // Non-pinned pawn moves: pushes, captures, and promotions, all
+        // filtered through the check-evasion masks.
+        ///////////////////////////////////////////////////////////////////
+        let us = self.ctm;
+        let not_pinned = !pinned;
 
         let back_pawns =
             self.bitboard_of(us, PieceType::Pawn) & not_pinned & !Rank::Seven.relative(us).bb();
@@ -851,18 +907,6 @@ impl Board {
         self.refresh_network_if_needed(Color::White);
         self.refresh_network_if_needed(Color::Black);
 
-        let mut castling_mask = Bitboard::ALL_CASTLING_MASK;
-        for (symbol, mask) in [
-            ('K', Bitboard::WHITE_OO_MASK),
-            ('Q', Bitboard::WHITE_OOO_MASK),
-            ('k', Bitboard::BLACK_OO_MASK),
-            ('q', Bitboard::BLACK_OOO_MASK),
-        ] {
-            if castling.contains(symbol) {
-                castling_mask &= !mask;
-            }
-        }
-
         let epsq = if en_passant_sq != "-" {
             let epsq = SQ::try_from(en_passant_sq)?;
             Some(epsq)
@@ -875,7 +919,7 @@ impl Board {
             .map_err(|_| "Invalid half move counter.")?;
 
         self.history[self.ply] = HistoryEntry {
-            entry: castling_mask,
+            rights: CastlingRights::try_from(castling)?,
             moov: None,
             material_hash: self.material_hash,
             plies_from_null: 0,
@@ -895,7 +939,7 @@ impl Board {
     }
 
     pub fn hash(&self) -> u64 {
-        let mut hash = self.material_hash;
+        let mut hash = self.material_hash ^ ZOBRIST.castling_hash(self.history[self.ply].rights);
 
         if let Some(sq) = self.history[self.ply].epsq {
             hash ^= ZOBRIST.ep_hash(sq);
@@ -986,21 +1030,6 @@ impl fmt::Display for Board {
             }
         }
 
-        let mut castling_rights_str = String::new();
-        for (symbol, mask) in "KQkq".chars().zip([
-            Bitboard::WHITE_OO_MASK,
-            Bitboard::WHITE_OOO_MASK,
-            Bitboard::BLACK_OO_MASK,
-            Bitboard::BLACK_OOO_MASK,
-        ]) {
-            if mask & self.history[self.ply].entry == Bitboard::ZERO {
-                castling_rights_str.push(symbol);
-            }
-        }
-        if castling_rights_str.is_empty() {
-            castling_rights_str = "-".to_string();
-        }
-
         let epsq_str = match self.history[self.ply].epsq {
             Some(epsq) => epsq.to_string(),
             None => "-".to_string(),
@@ -1011,7 +1040,7 @@ impl fmt::Display for Board {
             "{} {} {} {} {} {}",
             board_str,
             self.ctm,
-            castling_rights_str,
+            self.history[self.ply].rights,
             epsq_str,
             self.history[self.ply].half_move_counter,
             self.ply / 2 + 1,
@@ -1062,7 +1091,7 @@ static FEN_RE: LazyLock<Regex> = LazyLock::new(|| {
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HistoryEntry {
-    entry: Bitboard,
+    rights: CastlingRights,
     captured: Option<Piece>,
     epsq: Option<SQ>,
     moov: Option<Move>,
@@ -1128,6 +1157,59 @@ mod tests {
             let mut board = Board::new();
             board.set_fen(fen).expect("Test FEN should be valid.");
             walk_evals(&mut board, depth);
+        }
+    }
+
+    #[test]
+    fn castling_rights_updates() {
+        let rights = |board: &Board| board.to_string().split(' ').nth(2).unwrap().to_string();
+
+        // Rook takes rook: one move kills a right on each side.
+        let mut board = Board::try_from("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1").unwrap();
+        board.push_str("a1a8").unwrap();
+        assert_eq!(rights(&board), "Kk");
+        board.pop();
+        assert_eq!(rights(&board), "KQkq");
+
+        // King moves kill both of their side's rights, castling included.
+        board.push_str("e1g1").unwrap();
+        assert_eq!(rights(&board), "kq");
+        board.push_str("e8d8").unwrap();
+        assert_eq!(rights(&board), "-");
+        board.pop();
+
+        // A rook move kills only its own wing.
+        board.push_str("h8h1").unwrap();
+        assert_eq!(rights(&board), "q");
+    }
+
+    #[test]
+    fn repetition_needs_castling_rights() {
+        let mut board = Board::try_from("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1").unwrap();
+        for m in ["e1e2", "e8e7", "e2e1", "e7e8"] {
+            board.push_str(m).unwrap();
+        }
+        assert_eq!(board.is_repetition(), false);
+
+        for m in ["e1e2", "e8e7", "e2e1", "e7e8"] {
+            board.push_str(m).unwrap();
+        }
+
+        assert_eq!(board.is_repetition(), true);
+    }
+
+    #[test]
+    fn castling_rights_hashed() {
+        let kiwipete = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w";
+        let boards = ["KQkq", "KQ", "kq", "-"]
+            .map(|rights| Board::try_from(format!("{kiwipete} {rights} - 0 1").as_str()).unwrap());
+
+        // Identical pieces, so any hash difference must come from the rights.
+        for (i, a) in boards.iter().enumerate() {
+            for b in &boards[i + 1..] {
+                assert_eq!(a.material_hash(), b.material_hash());
+                assert_ne!(a.hash(), b.hash());
+            }
         }
     }
 

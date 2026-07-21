@@ -15,7 +15,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 pub struct TTEntry(u64);
 
 impl TTEntry {
-    fn new(
+    const fn new(
         hash: u64,
         value: i32,
         best_move: Option<Move>,
@@ -24,7 +24,10 @@ impl TTEntry {
         age: u8,
     ) -> Self {
         let key16 = (hash >> Self::KEY_SHIFT) as u16 as u64;
-        let m16 = best_move.map_or(0, |m| m.move_int()) as u64;
+        let m16 = match best_move {
+            Some(m) => m.move_int() as u64,
+            None => 0,
+        };
         let value16 = value as i16 as u16 as u64;
         let depth8 = depth as u8 as u64;
         let bound2 = bound as u8 as u64;
@@ -39,32 +42,34 @@ impl TTEntry {
         )
     }
 
-    pub fn key(self) -> u64 {
+    pub const fn key(self) -> u64 {
         self.0 >> Self::KEY_SHIFT
     }
 
-    pub fn age(self) -> u8 {
+    pub const fn age(self) -> u8 {
         ((self.0 >> Self::AGE_SHIFT) & Self::AGE_MASK) as u8
     }
 
-    pub fn depth(self) -> i8 {
+    pub const fn depth(self) -> i8 {
         ((self.0 >> Self::DEPTH_SHIFT) & Self::DEPTH_MASK) as u8 as i8
     }
 
-    pub fn bound(self) -> Bound {
+    pub const fn bound(self) -> Bound {
         unsafe { core::mem::transmute(((self.0 >> Self::BOUND_SHIFT) & Self::BOUND_MASK) as u8) }
     }
 
-    pub fn value(self) -> i32 {
+    pub const fn value(self) -> i32 {
         ((self.0 >> Self::VALUE_SHIFT) & Self::VALUE_MASK) as u16 as i16 as i32
     }
 
-    pub fn best_move(self) -> Option<Move> {
-        let m = (self.0 & Self::MOVE_MASK) as u16;
-        (m != 0).then(|| Move::from(m))
+    pub const fn best_move(self) -> Option<Move> {
+        match (self.0 & Self::MOVE_MASK) as u16 {
+            0 => None,
+            m => Some(Move::from_int(m)),
+        }
     }
 
-    pub fn with_value(self, value: i32) -> Self {
+    pub const fn with_value(self, value: i32) -> Self {
         let value16 = (value as i16 as u16 as u64) << Self::VALUE_SHIFT;
         let cleared = self.0 & !(Self::VALUE_MASK << Self::VALUE_SHIFT);
         Self(cleared | value16)

@@ -1,6 +1,6 @@
+use super::castling::*;
 use super::piece::*;
 use super::square::*;
-use super::types::*;
 use std::sync::LazyLock;
 
 use rand::rngs::StdRng;
@@ -12,6 +12,7 @@ pub struct Hasher {
     zobrist_table: PieceMap<SQMap<u64>>,
     zobrist_ep: FileMap<u64>,
     zobrist_color: ColorMap<u64>,
+    zobrist_castling: CastlingMap<u64>,
 }
 
 impl Hasher {
@@ -32,10 +33,16 @@ impl Hasher {
 
         let zobrist_color = ColorMap::new([rng.next_u64(), rng.next_u64()]);
 
+        let mut zobrist_castling = CastlingMap::default();
+        zobrist_castling
+            .iter_mut()
+            .for_each(|hash| *hash = rng.next_u64());
+
         Self {
             zobrist_table,
             zobrist_ep,
             zobrist_color,
+            zobrist_castling,
         }
     }
 
@@ -49,6 +56,10 @@ impl Hasher {
 
     pub fn ep_hash(&self, epsq: SQ) -> u64 {
         self.zobrist_ep[epsq.file()]
+    }
+
+    pub fn castling_hash(&self, rights: CastlingRights) -> u64 {
+        self.zobrist_castling[rights]
     }
 
     pub fn color_hash(&self, color: Color) -> u64 {
