@@ -2,6 +2,7 @@
 mod bitboard;
 mod attacks;
 mod board;
+mod castling;
 mod magics;
 mod moov;
 mod move_list;

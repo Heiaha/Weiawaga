@@ -1,7 +1,10 @@
 use super::bitboard::*;
 use super::traits::*;
+use super::types::*;
 use std::fmt;
 use std::ops::{Add, Sub};
+
+pub type SQMap<T> = EnumMap<T, { SQ::COUNT }>;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
 #[rustfmt::skip]
@@ -185,6 +188,8 @@ impl TryFrom<char> for Rank {
         }
     }
 }
+
+pub type FileMap<T> = EnumMap<T, { File::COUNT }>;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
 #[repr(u8)]

@@ -1,12 +1,12 @@
 use super::attacks;
 use super::bitboard::*;
+use super::castling::*;
 use super::moov::*;
 use super::move_list::*;
 use super::nnue::*;
 use super::piece::*;
 use super::square::*;
 use super::traits::*;
-use super::types::*;
 use super::zobrist::*;
 use regex::Regex;
 use std::fmt;
@@ -246,7 +246,7 @@ impl Board {
         self.ply += 1;
 
         self.history[self.ply] = HistoryEntry {
-            entry: self.history[self.ply - 1].entry,
+            rights: self.history[self.ply - 1].rights,
             half_move_counter: self.history[self.ply - 1].half_move_counter + 1,
             plies_from_null: 0,
             moov: None,
@@ -324,7 +324,9 @@ impl Board {
         self.refresh_network_if_needed(self.ctm);
 
         self.history[self.ply] = HistoryEntry {
-            entry: self.history[self.ply - 1].entry | to_sq.bb() | from_sq.bb(),
+            rights: self.history[self.ply - 1]
+                .rights
+                .without(CastlingRights::killed(from_sq) | CastlingRights::killed(to_sq)),
             moov: Some(m),
             plies_from_null: self.history[self.ply - 1].plies_from_null + 1,
             material_hash: self.material_hash,
@@ -609,19 +611,19 @@ impl Board {
                 // 3. The relevant squares are not attacked.
                 ///////////////////////////////////////////////////////////////////
                 if !QUIESCENCE {
-                    if ((self.history[self.ply].entry & Bitboard::oo_mask(us))
-                        | ((all | danger) & Bitboard::oo_blockers_mask(us)))
-                        == Bitboard::ZERO
+                    let rights = self.history[self.ply].rights;
+                    if rights.contains(CastlingRights::oo(us))
+                        && all & CastlingRights::oo_path(us) == Bitboard::ZERO
+                        && danger & CastlingRights::oo_king_path(us) == Bitboard::ZERO
                     {
                         moves.push(match us {
                             Color::White => Move::new(SQ::E1, SQ::G1, MoveFlags::OO),
                             Color::Black => Move::new(SQ::E8, SQ::G8, MoveFlags::OO),
                         });
                     }
-                    if ((self.history[self.ply].entry & Bitboard::ooo_mask(us))
-                        | ((all | (danger & !Bitboard::ignore_ooo_danger(us)))
-                            & Bitboard::ooo_blockers_mask(us)))
-                        == Bitboard::ZERO
+                    if rights.contains(CastlingRights::ooo(us))
+                        && all & CastlingRights::ooo_path(us) == Bitboard::ZERO
+                        && danger & CastlingRights::ooo_king_path(us) == Bitboard::ZERO
                     {
                         moves.push(match us {
                             Color::White => Move::new(SQ::E1, SQ::C1, MoveFlags::OOO),
@@ -851,18 +853,6 @@ impl Board {
         self.refresh_network_if_needed(Color::White);
         self.refresh_network_if_needed(Color::Black);
 
-        let mut castling_mask = Bitboard::ALL_CASTLING_MASK;
-        for (symbol, mask) in [
-            ('K', Bitboard::WHITE_OO_MASK),
-            ('Q', Bitboard::WHITE_OOO_MASK),
-            ('k', Bitboard::BLACK_OO_MASK),
-            ('q', Bitboard::BLACK_OOO_MASK),
-        ] {
-            if castling.contains(symbol) {
-                castling_mask &= !mask;
-            }
-        }
-
         let epsq = if en_passant_sq != "-" {
             let epsq = SQ::try_from(en_passant_sq)?;
             Some(epsq)
@@ -875,7 +865,7 @@ impl Board {
             .map_err(|_| "Invalid half move counter.")?;
 
         self.history[self.ply] = HistoryEntry {
-            entry: castling_mask,
+            rights: CastlingRights::try_from(castling)?,
             moov: None,
             material_hash: self.material_hash,
             plies_from_null: 0,
@@ -895,7 +885,7 @@ impl Board {
     }
 
     pub fn hash(&self) -> u64 {
-        let mut hash = self.material_hash;
+        let mut hash = self.material_hash ^ ZOBRIST.castling_hash(self.history[self.ply].rights);
 
         if let Some(sq) = self.history[self.ply].epsq {
             hash ^= ZOBRIST.ep_hash(sq);
@@ -968,21 +958,6 @@ impl fmt::Display for Board {
             }
         }
 
-        let mut castling_rights_str = String::new();
-        for (symbol, mask) in "KQkq".chars().zip([
-            Bitboard::WHITE_OO_MASK,
-            Bitboard::WHITE_OOO_MASK,
-            Bitboard::BLACK_OO_MASK,
-            Bitboard::BLACK_OOO_MASK,
-        ]) {
-            if mask & self.history[self.ply].entry == Bitboard::ZERO {
-                castling_rights_str.push(symbol);
-            }
-        }
-        if castling_rights_str.is_empty() {
-            castling_rights_str = "-".to_string();
-        }
-
         let epsq_str = match self.history[self.ply].epsq {
             Some(epsq) => epsq.to_string(),
             None => "-".to_string(),
@@ -993,7 +968,7 @@ impl fmt::Display for Board {
             "{} {} {} {} {} {}",
             board_str,
             self.ctm,
-            castling_rights_str,
+            self.history[self.ply].rights,
             epsq_str,
             self.history[self.ply].half_move_counter,
             self.ply / 2 + 1,
@@ -1044,7 +1019,7 @@ static FEN_RE: LazyLock<Regex> = LazyLock::new(|| {
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HistoryEntry {
-    entry: Bitboard,
+    rights: CastlingRights,
     captured: Option<Piece>,
     epsq: Option<SQ>,
     moov: Option<Move>,
@@ -1110,6 +1085,44 @@ mod tests {
             let mut board = Board::new();
             board.set_fen(fen).expect("Test FEN should be valid.");
             walk_evals(&mut board, depth);
+        }
+    }
+
+    #[test]
+    fn castling_rights_updates() {
+        let rights = |board: &Board| board.to_string().split(' ').nth(2).unwrap().to_string();
+
+        // Rook takes rook: one move kills a right on each side.
+        let mut board = Board::try_from("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1").unwrap();
+        board.push_str("a1a8").unwrap();
+        assert_eq!(rights(&board), "Kk");
+        board.pop();
+        assert_eq!(rights(&board), "KQkq");
+
+        // King moves kill both of their side's rights, castling included.
+        board.push_str("e1g1").unwrap();
+        assert_eq!(rights(&board), "kq");
+        board.push_str("e8d8").unwrap();
+        assert_eq!(rights(&board), "-");
+        board.pop();
+
+        // A rook move kills only its own wing.
+        board.push_str("h8h1").unwrap();
+        assert_eq!(rights(&board), "q");
+    }
+
+    #[test]
+    fn castling_rights_hashed() {
+        let kiwipete = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w";
+        let boards = ["KQkq", "KQ", "kq", "-"]
+            .map(|rights| Board::try_from(format!("{kiwipete} {rights} - 0 1").as_str()).unwrap());
+
+        // Identical pieces, so any hash difference must come from the rights.
+        for (i, a) in boards.iter().enumerate() {
+            for b in &boards[i + 1..] {
+                assert_eq!(a.material_hash(), b.material_hash());
+                assert_ne!(a.hash(), b.hash());
+            }
         }
     }
 

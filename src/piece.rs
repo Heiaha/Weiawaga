@@ -1,6 +1,9 @@
 use super::traits::*;
+use super::types::*;
 use std::fmt;
 use std::ops::Not;
+
+pub type PieceMap<T> = EnumMap<T, { Piece::COUNT }>;
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Debug)]
 #[repr(u8)]
@@ -89,6 +92,8 @@ impl Piece {
     const PIECE_STR: &'static str = "PNBRQK  pnbrqk";
 }
 
+pub type PieceTypeMap<T> = EnumMap<T, { PieceType::COUNT }>;
+
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Debug)]
 #[repr(u8)]
 pub enum PieceType {
@@ -120,6 +125,8 @@ impl fmt::Display for PieceType {
 impl PieceType {
     pub const PIECE_TYPE_STR: &'static str = "pnbrqk";
 }
+
+pub type ColorMap<T> = EnumMap<T, { Color::COUNT }>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u8)]
