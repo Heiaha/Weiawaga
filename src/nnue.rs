@@ -2,7 +2,6 @@ use super::bitboard::*;
 use super::piece::*;
 use super::square::*;
 use super::traits::*;
-use super::types::*;
 
 use wide::*;
 

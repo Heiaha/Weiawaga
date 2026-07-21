@@ -3,7 +3,6 @@ use super::magics::*;
 use super::piece::*;
 use super::square::*;
 use super::traits::*;
-use super::types::*;
 
 #[rustfmt::skip]
 const KNIGHT_ATTACKS: SQMap<Bitboard> = SQMap::new([
