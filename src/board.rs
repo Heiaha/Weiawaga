@@ -957,24 +957,6 @@ impl Board {
     }
 }
 
-#[cfg(feature = "datagen")]
-impl Board {
-    pub fn ep_sq(&self) -> Option<SQ> {
-        self.history[self.ply].epsq
-    }
-
-    pub fn has_castling_rights(&self) -> bool {
-        [
-            Bitboard::WHITE_OO_MASK,
-            Bitboard::WHITE_OOO_MASK,
-            Bitboard::BLACK_OO_MASK,
-            Bitboard::BLACK_OOO_MASK,
-        ]
-        .into_iter()
-        .any(|mask| mask & self.history[self.ply].entry == Bitboard::ZERO)
-    }
-}
-
 impl Default for Board {
     fn default() -> Self {
         Self {

@@ -2,6 +2,7 @@
 mod bitboard;
 mod attacks;
 mod board;
+mod castling;
 #[cfg(feature = "datagen")]
 mod datagen;
 mod magics;
