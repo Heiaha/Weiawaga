@@ -11,7 +11,10 @@ use arrow_schema::{DataType, Field, Schema};
 use parquet::arrow::ArrowWriter;
 use parquet::basic::{Compression, ZstdLevel};
 use parquet::file::properties::WriterProperties;
-use rand::{Rng, seq::IteratorRandom};
+use rand::{
+    Rng,
+    seq::{IndexedRandom, IteratorRandom},
+};
 use regex::{Captures, Regex};
 
 use super::board::*;
@@ -245,8 +248,7 @@ impl DataGen {
     }
 
     fn start_position(&self, rng: &mut impl Rng) -> Option<Board> {
-        if !self.book.is_empty() {
-            let fen = &self.book[rng.random_range(0..self.book.len())];
+        if let Some(fen) = self.book.choose(rng) {
             return Board::try_from(fen.as_str()).ok();
         }
 
