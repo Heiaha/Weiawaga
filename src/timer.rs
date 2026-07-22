@@ -88,21 +88,9 @@ impl FromStr for TimeControl {
             return Ok(TimeControl::Infinite);
         }
 
-        let caps = GO_RE.captures(line).ok_or("Invalid go format.")?;
-
-        if caps.name("mate").is_some() {
-            return Err("Feature is not implemented.");
-        }
-
-        Self::parse_fixed(&caps)?
-            .xor(Self::parse_variable(&caps)?)
-            .ok_or("No recognizable or bad combination of go parameters provided.")
-    }
-}
-
-static GO_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"(?x)^
+        static GO_RE: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(
+                r"(?x)^
                 go
                 (?:
                     \s+infinite |
@@ -118,9 +106,21 @@ static GO_RE: LazyLock<Regex> = LazyLock::new(|| {
                     \s+ponder
                 )*
             $",
-    )
-    .expect("Go regex should be valid.")
-});
+            )
+            .expect("Go regex should be valid.")
+        });
+
+        let caps = GO_RE.captures(line).ok_or("Invalid go format.")?;
+
+        if caps.name("mate").is_some() {
+            return Err("Feature is not implemented.");
+        }
+
+        Self::parse_fixed(&caps)?
+            .xor(Self::parse_variable(&caps)?)
+            .ok_or("No recognizable or bad combination of go parameters provided.")
+    }
+}
 
 #[derive(Clone)]
 pub struct Timer {
