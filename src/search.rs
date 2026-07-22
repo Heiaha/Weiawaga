@@ -170,7 +170,7 @@ impl<'a> Search<'a> {
         // Clear the pv line and excluded moves.
         ///////////////////////////////////////////////////////////////////
         self.pv_table.iter_mut().for_each(|line| line.clear());
-        self.excluded_moves.iter_mut().for_each(|m| *m = None);
+        self.excluded_moves.fill(None);
 
         ///////////////////////////////////////////////////////////////////
         // Check extension.
@@ -191,8 +191,8 @@ impl<'a> Search<'a> {
         let mut tt_flag = Bound::Upper;
         let mut value = 0;
 
-        for idx in 0..lines.len() {
-            let m = lines[idx].m;
+        for (idx, line) in lines.iter().enumerate() {
+            let m = line.m;
 
             if self.id == 0
                 && self.timer.elapsed() >= Self::PRINT_CURRMOVENUMBER_TIME

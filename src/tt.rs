@@ -103,11 +103,7 @@ impl TT {
     pub fn new(megabytes: usize) -> Self {
         let upper_limit = megabytes * 1024 * 1024 / size_of::<AtomicU64>() + 1;
         let count = upper_limit.next_power_of_two() / 2;
-        let mut table = Vec::with_capacity(count);
-
-        for _ in 0..count {
-            table.push(AtomicU64::new(0));
-        }
+        let table = (0..count).map(|_| AtomicU64::new(0)).collect();
 
         TT { table, age: 0 }
     }

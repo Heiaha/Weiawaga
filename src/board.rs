@@ -1105,8 +1105,8 @@ mod tests {
         }
 
         let moves = MoveList::from::<false>(board);
-        for i in 0..moves.len() {
-            board.push(moves[i]);
+        for &m in &moves {
+            board.push(m);
             walk_evals(board, depth - 1);
             board.pop();
         }
