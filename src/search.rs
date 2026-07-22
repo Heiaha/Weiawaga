@@ -73,23 +73,7 @@ impl<'a> Search<'a> {
 
         let multi_pv = self.multi_pv.min(root_moves.len());
 
-        for pv_idx in 0..multi_pv {
-            let (value, bound) = self.search_root(
-                &mut board,
-                1,
-                -i32::MATE,
-                i32::MATE,
-                &mut root_moves[pv_idx..],
-            );
-            if pv_idx == 0 && !self.timer.is_stopped() {
-                self.tt
-                    .insert(&board, 1, value, Some(root_moves[0].m), bound, 0);
-            }
-            self.sel_depth = 0;
-        }
-        root_moves[..multi_pv].sort_by_key(|line| std::cmp::Reverse(line.value));
-
-        'deepening: for depth in 2..i8::MAX {
+        'deepening: for depth in 1..i8::MAX {
             if !self.timer.start_check(Some(root_moves[0].m), depth) {
                 break;
             }
@@ -143,6 +127,10 @@ impl<'a> Search<'a> {
     }
 
     fn aspiration(&mut self, board: &mut Board, depth: i8, lines: &mut [RootMove]) -> (i32, Bound) {
+        if depth < Self::ASPIRATION_MIN_DEPTH {
+            return self.search_root(board, depth, -i32::MATE, i32::MATE, lines);
+        }
+
         let pred = lines[0].value;
         let alpha = (pred - Self::ASPIRATION_WINDOW).max(-i32::MATE);
         let beta = (pred + Self::ASPIRATION_WINDOW).min(i32::MATE);
@@ -770,6 +758,7 @@ impl Search<'_> {
     const RFP_MAX_DEPTH: i8 = 9;
     const RFP_MARGIN_MULTIPLIER: i32 = 63;
     const ASPIRATION_WINDOW: i32 = 61;
+    const ASPIRATION_MIN_DEPTH: i8 = 4;
     const NULL_MIN_DEPTH: i8 = 2;
     const NULL_MIN_DEPTH_REDUCTION: i8 = 1;
     const NULL_DEPTH_DIVIDER: i8 = 2;

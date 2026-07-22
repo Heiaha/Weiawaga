@@ -200,6 +200,10 @@ impl Timer {
             return true;
         }
 
+        if depth <= 1 {
+            return true;
+        }
+
         let start = match self.control {
             TimeControl::Infinite => true,
             TimeControl::FixedDuration(duration) => self.elapsed() + self.overhead <= duration,
