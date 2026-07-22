@@ -139,6 +139,9 @@ impl DataGen {
         let nudge_plies = self.pick_nudge_plies(board.ply(), rng);
 
         let mut samples = Vec::new();
+        let mut plies = 0;
+        let mut nudge_attempts = 0;
+        let mut nudge_deviations = 0;
         let outcome = loop {
             let moves = MoveList::from::<false>(&board);
             if moves.len() == 0 {
@@ -186,15 +189,17 @@ impl DataGen {
             let sample =
                 quiet_spot.then(|| (board.to_string(), white_value.clamp(-16000, 16000) as i16));
 
-            // The sample keeps the searched eval, so a nudge below doesn't
-            // touch the label; only the move played changes.
             let m = if nudge_here {
-                self.pick_nudge(&mut board, &lines, rng).unwrap_or(best.m)
+                nudge_attempts += 1;
+                let m = self.pick_nudge(&mut board, &lines, rng).unwrap_or(best.m);
+                nudge_deviations += (m != best.m) as usize;
+                m
             } else {
                 best.m
             };
 
             board.push(m);
+            plies += 1;
 
             if let Some(sample) = sample
                 && !board.in_check()
@@ -206,6 +211,9 @@ impl DataGen {
         Some(Game {
             samples,
             outcome,
+            plies,
+            nudge_attempts,
+            nudge_deviations,
             id: rng.random(),
         })
     }
@@ -264,12 +272,16 @@ impl DataGen {
 struct Game {
     samples: Vec<(String, i16)>,
     outcome: i8,
+    plies: usize,
+    nudge_attempts: usize,
+    nudge_deviations: usize,
     id: [u8; 16],
 }
 
 struct Writer {
     out: PathBuf,
     rows_per_file: usize,
+    positions: u64,
     schema: Arc<Schema>,
     props: WriterProperties,
     fens: Vec<String>,
@@ -278,6 +290,13 @@ struct Writer {
     outcomes: Vec<i8>,
     games: u64,
     written: u64,
+    wins: u64,
+    draws: u64,
+    losses: u64,
+    plies: u64,
+    cp_abs_sum: u64,
+    nudge_attempts: u64,
+    nudge_deviations: u64,
     start: Instant,
 }
 
@@ -298,6 +317,7 @@ impl Writer {
         Self {
             out: cfg.out.clone(),
             rows_per_file: cfg.rows_per_file,
+            positions: cfg.positions,
             schema,
             props,
             fens: Vec::new(),
@@ -306,6 +326,13 @@ impl Writer {
             outcomes: Vec::new(),
             games: 0,
             written: 0,
+            wins: 0,
+            draws: 0,
+            losses: 0,
+            plies: 0,
+            cp_abs_sum: 0,
+            nudge_attempts: 0,
+            nudge_deviations: 0,
             start: Instant::now(),
         }
     }
@@ -317,11 +344,7 @@ impl Writer {
 
             while self.fens.len() >= self.rows_per_file {
                 self.flush(self.rows_per_file);
-                let rate = self.written as f64 / self.start.elapsed().as_secs_f64();
-                println!(
-                    "{} positions from {} games ({rate:.0}/s)",
-                    self.written, self.games
-                );
+                println!("{}", self.report());
             }
         }
 
@@ -329,19 +352,55 @@ impl Writer {
         if rest > 0 {
             self.flush(rest);
         }
-        println!(
-            "Done: {} positions from {} games.",
-            self.written, self.games
-        );
+        println!("Done: {}", self.report());
     }
 
     fn push_game(&mut self, game: Game) {
+        match game.outcome {
+            1 => self.wins += 1,
+            0 => self.draws += 1,
+            _ => self.losses += 1,
+        }
+        self.plies += game.plies as u64;
+        self.nudge_attempts += game.nudge_attempts as u64;
+        self.nudge_deviations += game.nudge_deviations as u64;
+
         for (fen, cp) in game.samples {
+            self.cp_abs_sum += cp.unsigned_abs() as u64;
             self.fens.push(fen);
             self.game_ids.push(game.id);
             self.cps.push(cp);
             self.outcomes.push(game.outcome);
         }
+    }
+
+    fn report(&self) -> String {
+        let games = self.games.max(1) as f64;
+        let samples = (self.written + self.fens.len() as u64).max(1) as f64;
+        let rate = self.written as f64 / self.start.elapsed().as_secs_f64();
+        let pct = |n: u64| 100.0 * n as f64 / games;
+        let deviated = 100.0 * self.nudge_deviations as f64 / self.nudge_attempts.max(1) as f64;
+
+        let mut report = format!(
+            "{} positions from {} games ({rate:.0}/s) \
+             | W/D/L {:.0}/{:.0}/{:.0}% | {:.1} pos/game | {:.0} plies/game | avg |cp| {:.0} \
+             | {:.2} nudges/game ({deviated:.0}% deviated) | {}",
+            self.written,
+            self.games,
+            pct(self.wins),
+            pct(self.draws),
+            pct(self.losses),
+            samples / games,
+            self.plies as f64 / games,
+            self.cp_abs_sum as f64 / samples,
+            self.nudge_attempts as f64 / games,
+            format_hms(self.start.elapsed().as_secs()),
+        );
+        if self.written < self.positions && self.positions != u64::MAX && rate > 0.0 {
+            let eta = (self.positions - self.written) as f64 / rate;
+            report += &format!(" | ETA {}", format_hms(eta as u64));
+        }
+        report
     }
 
     fn flush(&mut self, n: usize) {
@@ -369,6 +428,17 @@ impl Writer {
 
 impl Writer {
     const ZSTD_LEVEL: i32 = 22;
+}
+
+fn format_hms(secs: u64) -> String {
+    let (h, m, s) = (secs / 3600, secs / 60 % 60, secs % 60);
+    if h > 0 {
+        format!("{h}h{m:02}m")
+    } else if m > 0 {
+        format!("{m}m{s:02}s")
+    } else {
+        format!("{s}s")
+    }
 }
 
 struct Config {
