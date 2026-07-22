@@ -907,12 +907,9 @@ impl Board {
         self.refresh_network_if_needed(Color::White);
         self.refresh_network_if_needed(Color::Black);
 
-        let epsq = if en_passant_sq != "-" {
-            let epsq = SQ::try_from(en_passant_sq)?;
-            Some(epsq)
-        } else {
-            None
-        };
+        let epsq = (en_passant_sq != "-")
+            .then(|| SQ::try_from(en_passant_sq))
+            .transpose()?;
 
         let half_move_counter = halfmove_clock
             .parse::<u16>()
@@ -939,13 +936,12 @@ impl Board {
     }
 
     pub fn hash(&self) -> u64 {
-        let mut hash = self.material_hash ^ ZOBRIST.castling_hash(self.history[self.ply].rights);
-
-        if let Some(sq) = self.history[self.ply].epsq {
-            hash ^= ZOBRIST.ep_hash(sq);
-        }
-
-        hash ^ ZOBRIST.color_hash(self.ctm)
+        self.material_hash
+            ^ ZOBRIST.castling_hash(self.history[self.ply].rights)
+            ^ self.history[self.ply]
+                .epsq
+                .map_or(0, |sq| ZOBRIST.ep_hash(sq))
+            ^ ZOBRIST.color_hash(self.ctm)
     }
 
     pub fn material_hash(&self) -> u64 {
@@ -1012,10 +1008,9 @@ impl fmt::Display for Board {
             }
         }
 
-        let epsq_str = match self.history[self.ply].epsq {
-            Some(epsq) => epsq.to_string(),
-            None => "-".to_string(),
-        };
+        let epsq_str = self.history[self.ply]
+            .epsq
+            .map_or("-".to_string(), |epsq| epsq.to_string());
 
         write!(
             f,
