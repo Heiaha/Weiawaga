@@ -13,6 +13,10 @@ impl<T, const N: usize> EnumMap<T, N> {
         Self(data)
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.0.iter()
+    }
+
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
         self.0.iter_mut()
     }

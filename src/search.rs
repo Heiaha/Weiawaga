@@ -18,6 +18,17 @@ pub struct RootMove {
     pub sel_depth: usize,
 }
 
+impl RootMove {
+    fn new(m: Move) -> Self {
+        Self {
+            m,
+            value: -i32::MATE,
+            pv: Vec::new(),
+            sel_depth: 0,
+        }
+    }
+}
+
 pub struct Search<'a> {
     id: u16,
     sel_depth: usize,
@@ -49,7 +60,7 @@ impl<'a> Search<'a> {
 
     pub fn go(&mut self, mut board: Board) -> (Option<Move>, Option<Move>) {
         let mut moves = MoveList::from::<false>(&board);
-        if moves.len() == 0 {
+        if moves.is_empty() {
             return (None, None);
         }
 
@@ -63,12 +74,7 @@ impl<'a> Search<'a> {
         let mut root_moves = self
             .scorer
             .create_sorter::<false>(&mut moves, &board, 0, hash_move)
-            .map(|m| RootMove {
-                m,
-                value: -i32::MATE,
-                pv: Vec::new(),
-                sel_depth: 0,
-            })
+            .map(RootMove::new)
             .collect::<Vec<_>>();
 
         let multi_pv = self.multi_pv.min(root_moves.len());
@@ -499,7 +505,7 @@ impl<'a> Search<'a> {
         ///////////////////////////////////////////////////////////////////
         // Checkmate and stalemate check.
         ///////////////////////////////////////////////////////////////////
-        if moves.len() == 0 && excluded_move.is_none() {
+        if moves.is_empty() && excluded_move.is_none() {
             if in_check {
                 best_value = -mate_value;
             } else {
@@ -510,7 +516,7 @@ impl<'a> Search<'a> {
         if !self.timer.is_stopped() {
             best_move = best_move
                 .or_else(|| self.tt.get(board, ply).and_then(|entry| entry.best_move()))
-                .or_else(|| moves.into_iter().next().cloned());
+                .or_else(|| moves.into_iter().next().copied());
 
             self.tt
                 .insert(board, depth, best_value, best_move, tt_flag, ply);
@@ -778,7 +784,7 @@ impl Search<'_> {
     // lines as the result.
     pub fn go_datagen(&mut self, board: &mut Board, soft_nodes: u64) -> Vec<RootMove> {
         let mut moves = MoveList::from::<false>(board);
-        if moves.len() == 0 {
+        if moves.is_empty() {
             return Vec::new();
         }
 
@@ -786,12 +792,7 @@ impl Search<'_> {
         let mut root_moves = self
             .scorer
             .create_sorter::<false>(&mut moves, board, 0, hash_move)
-            .map(|m| RootMove {
-                m,
-                value: -i32::MATE,
-                pv: Vec::new(),
-                sel_depth: 0,
-            })
+            .map(RootMove::new)
             .collect::<Vec<_>>();
 
         let multi_pv = self.multi_pv.min(root_moves.len());

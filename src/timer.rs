@@ -290,7 +290,7 @@ impl Timer {
             return 1.0;
         }
 
-        let total_nodes = self.nodes_table.into_iter().flatten().sum::<u64>();
+        let total_nodes = self.nodes_table.iter().flatten().sum::<u64>();
         if total_nodes == 0 {
             return 1.0;
         }

@@ -147,7 +147,7 @@ impl DataGen {
         let mut nudge_deviations = 0;
         let outcome = loop {
             let moves = MoveList::from::<false>(&board);
-            if moves.len() == 0 {
+            if moves.is_empty() {
                 break if board.in_check() {
                     // The side to move is mated; the previous mover won.
                     if board.ctm() == Color::White { -1 } else { 1 }
@@ -255,7 +255,7 @@ impl DataGen {
         let mut board = Board::new();
         for _ in 0..self.cfg.opening_plies + rng.random_range(0..=1) {
             let moves = MoveList::from::<false>(&board);
-            if moves.len() == 0 {
+            if moves.is_empty() {
                 return None;
             }
             board.push(moves[rng.random_range(0..moves.len())]);

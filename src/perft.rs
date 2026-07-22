@@ -12,7 +12,7 @@ fn perft<const ROOT: bool>(board: &mut Board, depth: i8) -> u128 {
 
     let mut nodes = 0;
 
-    for m in moves.into_iter().cloned() {
+    for m in moves.into_iter().copied() {
         board.push(m);
         let count = perft::<false>(board, depth - 1);
         board.pop();
