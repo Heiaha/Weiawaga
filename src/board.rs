@@ -1171,13 +1171,13 @@ mod tests {
         for m in ["e1e2", "e8e7", "e2e1", "e7e8"] {
             board.push_str(m).unwrap();
         }
-        assert_eq!(board.is_repetition(), false);
+        assert!(!board.is_repetition());
 
         for m in ["e1e2", "e8e7", "e2e1", "e7e8"] {
             board.push_str(m).unwrap();
         }
 
-        assert_eq!(board.is_repetition(), true);
+        assert!(board.is_repetition());
     }
 
     #[test]
@@ -1201,18 +1201,18 @@ mod tests {
     #[test]
     fn threefold_repetition() {
         let mut board = Board::new();
-        assert_eq!(board.is_repetition(), false);
+        assert!(!board.is_repetition());
         board.push_str("e2e4").unwrap();
-        assert_eq!(board.is_repetition(), false);
+        assert!(!board.is_repetition());
         board.push_str("e7e5").unwrap();
-        assert_eq!(board.is_repetition(), false);
+        assert!(!board.is_repetition());
         board.push_str("f1c4").unwrap();
-        assert_eq!(board.is_repetition(), false);
+        assert!(!board.is_repetition());
         board.push_str("f8c5").unwrap();
-        assert_eq!(board.is_repetition(), false);
+        assert!(!board.is_repetition());
         board.push_str("c4f1").unwrap();
-        assert_eq!(board.is_repetition(), false);
+        assert!(!board.is_repetition());
         board.push_str("c5f8").unwrap();
-        assert_eq!(board.is_repetition(), true);
+        assert!(board.is_repetition());
     }
 }
