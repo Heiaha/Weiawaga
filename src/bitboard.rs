@@ -197,14 +197,39 @@ impl Sub for Bitboard {
 // Iterator
 //////////////////////////////////////////////
 
-impl Iterator for Bitboard {
+#[derive(Clone, Debug)]
+pub struct BitboardIter(Bitboard);
+
+impl Iterator for BitboardIter {
     type Item = SQ;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.0 == 0 {
+        if self.0 == Bitboard::ZERO {
             return None;
         }
-        Some(self.pop_lsb())
+        Some(self.0.pop_lsb())
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let n = self.0.pop_count() as usize;
+        (n, Some(n))
+    }
+
+    fn count(self) -> usize {
+        self.0.pop_count() as usize
+    }
+}
+
+impl ExactSizeIterator for BitboardIter {}
+
+impl std::iter::FusedIterator for BitboardIter {}
+
+impl IntoIterator for Bitboard {
+    type Item = SQ;
+    type IntoIter = BitboardIter;
+
+    fn into_iter(self) -> BitboardIter {
+        BitboardIter(self)
     }
 }
 

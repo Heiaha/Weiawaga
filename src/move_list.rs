@@ -21,6 +21,10 @@ impl MoveList {
         self.0.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     pub fn push(&mut self, m: Move) {
         self.0.push(m);
     }
