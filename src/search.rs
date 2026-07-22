@@ -660,6 +660,18 @@ impl<'a> Search<'a> {
 
     fn late_move_reduction(depth: i8, move_index: usize) -> i8 {
         // LMR table idea from Ethereal
+        static LMR_TABLE: LazyLock<[[i8; 64]; 64]> = LazyLock::new(|| {
+            let mut lmr_table = [[0; 64]; 64];
+            for (depth, row) in lmr_table.iter_mut().enumerate().skip(1) {
+                for (move_number, reduction) in row.iter_mut().enumerate().skip(1) {
+                    *reduction = (Search::LMR_BASE_REDUCTION
+                        + (depth as f32).ln() * (move_number as f32).ln()
+                            / Search::LMR_MOVE_DIVIDER) as i8;
+                }
+            }
+            lmr_table
+        });
+
         LMR_TABLE[depth.min(63) as usize][move_index.min(63)]
     }
 
@@ -824,15 +836,3 @@ pub enum Bound {
     Lower,
     Upper,
 }
-
-static LMR_TABLE: LazyLock<[[i8; 64]; 64]> = LazyLock::new(|| {
-    let mut lmr_table = [[0; 64]; 64];
-    for (depth, row) in lmr_table.iter_mut().enumerate().skip(1) {
-        for (move_number, reduction) in row.iter_mut().enumerate().skip(1) {
-            *reduction = (Search::LMR_BASE_REDUCTION
-                + (depth as f32).ln() * (move_number as f32).ln() / Search::LMR_MOVE_DIVIDER)
-                as i8;
-        }
-    }
-    lmr_table
-});

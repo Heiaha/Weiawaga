@@ -67,10 +67,51 @@ impl Bitboard {
 
 impl Bitboard {
     pub fn line(sq1: SQ, sq2: SQ) -> Self {
+        static LINES_BB: LazyLock<SQMap<SQMap<Bitboard>>> = LazyLock::new(|| {
+            let mut lines_bb = SQMap::<SQMap<Bitboard>>::default();
+            for sq1 in Bitboard::ALL {
+                for sq2 in Bitboard::ALL {
+                    if sq1.file() == sq2.file() || sq1.rank() == sq2.rank() {
+                        lines_bb[sq1][sq2] = attacks::rook_attacks_for_init(sq1, Bitboard::ZERO)
+                            & attacks::rook_attacks_for_init(sq2, Bitboard::ZERO)
+                            | sq1.bb()
+                            | sq2.bb();
+                    } else if sq1.diagonal() == sq2.diagonal()
+                        || sq1.antidiagonal() == sq2.antidiagonal()
+                    {
+                        lines_bb[sq1][sq2] = attacks::bishop_attacks_for_init(sq1, Bitboard::ZERO)
+                            & attacks::bishop_attacks_for_init(sq2, Bitboard::ZERO)
+                            | sq1.bb()
+                            | sq2.bb();
+                    }
+                }
+            }
+            lines_bb
+        });
+
         LINES_BB[sq1][sq2]
     }
 
     pub fn between(sq1: SQ, sq2: SQ) -> Self {
+        static BETWEEN_BB: LazyLock<SQMap<SQMap<Bitboard>>> = LazyLock::new(|| {
+            let mut between_bb = SQMap::<SQMap<Bitboard>>::default();
+            for sq1 in Bitboard::ALL {
+                for sq2 in Bitboard::ALL {
+                    let sqs = sq1.bb() | sq2.bb();
+                    if sq1.file() == sq2.file() || sq1.rank() == sq2.rank() {
+                        between_bb[sq1][sq2] = attacks::rook_attacks_for_init(sq1, sqs)
+                            & attacks::rook_attacks_for_init(sq2, sqs);
+                    } else if sq1.diagonal() == sq2.diagonal()
+                        || sq1.antidiagonal() == sq2.antidiagonal()
+                    {
+                        between_bb[sq1][sq2] = attacks::bishop_attacks_for_init(sq1, sqs)
+                            & attacks::bishop_attacks_for_init(sq2, sqs);
+                    }
+                }
+            }
+            between_bb
+        });
+
         BETWEEN_BB[sq1][sq2]
     }
 }
@@ -270,39 +311,3 @@ impl Bitboard {
 
     pub const CENTER: Self = B!(0x1818000000);
 }
-
-static BETWEEN_BB: LazyLock<SQMap<SQMap<Bitboard>>> = LazyLock::new(|| {
-    let mut between_bb = SQMap::<SQMap<Bitboard>>::default();
-    for sq1 in Bitboard::ALL {
-        for sq2 in Bitboard::ALL {
-            let sqs = sq1.bb() | sq2.bb();
-            if sq1.file() == sq2.file() || sq1.rank() == sq2.rank() {
-                between_bb[sq1][sq2] = attacks::rook_attacks_for_init(sq1, sqs)
-                    & attacks::rook_attacks_for_init(sq2, sqs);
-            } else if sq1.diagonal() == sq2.diagonal() || sq1.antidiagonal() == sq2.antidiagonal() {
-                between_bb[sq1][sq2] = attacks::bishop_attacks_for_init(sq1, sqs)
-                    & attacks::bishop_attacks_for_init(sq2, sqs);
-            }
-        }
-    }
-    between_bb
-});
-static LINES_BB: LazyLock<SQMap<SQMap<Bitboard>>> = LazyLock::new(|| {
-    let mut lines_bb = SQMap::<SQMap<Bitboard>>::default();
-    for sq1 in Bitboard::ALL {
-        for sq2 in Bitboard::ALL {
-            if sq1.file() == sq2.file() || sq1.rank() == sq2.rank() {
-                lines_bb[sq1][sq2] = attacks::rook_attacks_for_init(sq1, Bitboard::ZERO)
-                    & attacks::rook_attacks_for_init(sq2, Bitboard::ZERO)
-                    | sq1.bb()
-                    | sq2.bb();
-            } else if sq1.diagonal() == sq2.diagonal() || sq1.antidiagonal() == sq2.antidiagonal() {
-                lines_bb[sq1][sq2] = attacks::bishop_attacks_for_init(sq1, Bitboard::ZERO)
-                    & attacks::bishop_attacks_for_init(sq2, Bitboard::ZERO)
-                    | sq1.bb()
-                    | sq2.bb();
-            }
-        }
-    }
-    lines_bb
-});
