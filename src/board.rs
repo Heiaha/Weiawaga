@@ -416,14 +416,17 @@ impl Board {
 
         danger |= self
             .bitboard_of(them, PieceType::Knight)
+            .into_iter()
             .map(attacks::knight_attacks)
             .fold(Bitboard::ZERO, |a, b| a | b);
 
         danger |= their_diag_sliders
+            .into_iter()
             .map(|sq| attacks::bishop_attacks(sq, all ^ our_king.bb()))
             .fold(Bitboard::ZERO, |a, b| a | b);
 
         danger |= their_orth_sliders
+            .into_iter()
             .map(|sq| attacks::rook_attacks(sq, all ^ our_king.bb()))
             .fold(Bitboard::ZERO, |a, b| a | b);
 
