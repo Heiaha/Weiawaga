@@ -471,6 +471,27 @@ impl Config {
     }
 
     fn parse(args: &[String]) -> Result<Self, String> {
+        static ARGS_RE: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(
+                r"(?x)^
+                (?:
+                    \s*--out\s+(?P<out>\S+) |
+                    \s*--nodes\s+(?P<nodes>\d+) |
+                    \s*--threads\s+(?P<threads>\d+) |
+                    \s*--positions\s+(?P<positions>\d+) |
+                    \s*--book\s+(?P<book>\S+) |
+                    \s*--opening-plies\s+(?P<opening_plies>\d+) |
+                    \s*--nudges\s+(?P<nudges>\d+) |
+                    \s*--nudge-max-ply\s+(?P<nudge_max_ply>\d+) |
+                    \s*--nudge-margin\s+(?P<nudge_margin>[\d.]+) |
+                    \s*--rows-per-file\s+(?P<rows_per_file>\d+) |
+                    \s*--hash\s+(?P<hash>\d+)
+                )*
+            \s*$",
+            )
+            .expect("Datagen args regex should be valid.")
+        });
+
         let line = args.join(" ");
         let caps = ARGS_RE
             .captures(&line)
@@ -516,27 +537,6 @@ impl Default for Config {
         }
     }
 }
-
-static ARGS_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"(?x)^
-                (?:
-                    \s*--out\s+(?P<out>\S+) |
-                    \s*--nodes\s+(?P<nodes>\d+) |
-                    \s*--threads\s+(?P<threads>\d+) |
-                    \s*--positions\s+(?P<positions>\d+) |
-                    \s*--book\s+(?P<book>\S+) |
-                    \s*--opening-plies\s+(?P<opening_plies>\d+) |
-                    \s*--nudges\s+(?P<nudges>\d+) |
-                    \s*--nudge-max-ply\s+(?P<nudge_max_ply>\d+) |
-                    \s*--nudge-margin\s+(?P<nudge_margin>[\d.]+) |
-                    \s*--rows-per-file\s+(?P<rows_per_file>\d+) |
-                    \s*--hash\s+(?P<hash>\d+)
-                )*
-            \s*$",
-    )
-    .expect("Datagen args regex should be valid.")
-});
 
 const USAGE: &str = "\
 usage: weiawaga datagen --out DIR [options]

@@ -117,6 +117,17 @@ impl FromStr for EngineOption {
     type Err = &'static str;
 
     fn from_str(line: &str) -> Result<Self, Self::Err> {
+        static OPTION_RE: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(
+                r"(?x)^
+                setoption\s+
+                name\s+(?P<name>.*?)
+                (?:\s+value\s+(?P<value>.+))?
+            $",
+            )
+            .expect("Failed to compile option regex.")
+        });
+
         let re_captures = OPTION_RE.captures(line).ok_or("Unable to parse option.")?;
 
         let name = re_captures
@@ -237,6 +248,17 @@ impl UCICommand {
     }
 
     fn parse_position(line: &str) -> Result<Self, &'static str> {
+        static POSITION_RE: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(
+                r"(?x)^
+                position\s+
+                (?:(?P<startpos>startpos)|fen\s+(?P<fen>.+?))
+                (\s+moves\s+(?P<moves>(?:.+?)+))?
+            $",
+            )
+            .expect("Failed to compile position regex.")
+        });
+
         let re_captures = POSITION_RE
             .captures(line)
             .ok_or("Invalid position format.")?;
@@ -275,6 +297,16 @@ impl UCICommand {
     }
 
     fn parse_perft(line: &str) -> Result<Self, &'static str> {
+        static PERFT_RE: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(
+                r"(?x)^
+                perft\s+
+                (?P<depth>.*?)
+            $",
+            )
+            .expect("Failed to compile perft regex.")
+        });
+
         let re_captures = PERFT_RE.captures(line).ok_or("Invalid perft format.")?;
 
         re_captures
@@ -286,35 +318,3 @@ impl UCICommand {
             .map(Self::Perft)
     }
 }
-
-static POSITION_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"(?x)^
-                position\s+
-                (?:(?P<startpos>startpos)|fen\s+(?P<fen>.+?))
-                (\s+moves\s+(?P<moves>(?:.+?)+))?
-            $",
-    )
-    .expect("Failed to compile position regex.")
-});
-
-static OPTION_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"(?x)^
-                setoption\s+
-                name\s+(?P<name>.*?)
-                (?:\s+value\s+(?P<value>.+))?
-            $",
-    )
-    .expect("Failed to compile option regex.")
-});
-
-static PERFT_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"(?x)^
-                perft\s+
-                (?P<depth>.*?)
-            $",
-    )
-    .expect("Failed to compile perft regex.")
-});

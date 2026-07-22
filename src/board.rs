@@ -849,6 +849,20 @@ impl Board {
             return Err("FEN should be a single ASCII line.");
         }
 
+        static FEN_RE: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(
+                r"(?x)^
+                (?P<piece_placement>[KQRBNPkqrbnp1-8/]+)\s+
+                (?P<active_color>[wb])\s+
+                (?P<castling>[KQkq\-]+)\s+
+                (?P<en_passant>[a-h1-8\-]+)
+                (?:\s+(?P<halfmove>\d+))?
+                (?:\s+(?P<fullmove>\d+))?
+            $",
+            )
+            .expect("Failed to compile fen regex.")
+        });
+
         let re_captures = FEN_RE.captures(fen).ok_or("Invalid fen format.")?;
 
         let piece_placement = re_captures
@@ -1055,20 +1069,6 @@ impl Board {
     const N_HISTORIES: usize = 1024;
     const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 }
-
-static FEN_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"(?x)^
-                (?P<piece_placement>[KQRBNPkqrbnp1-8/]+)\s+
-                (?P<active_color>[wb])\s+
-                (?P<castling>[KQkq\-]+)\s+
-                (?P<en_passant>[a-h1-8\-]+)
-                (?:\s+(?P<halfmove>\d+))?
-                (?:\s+(?P<fullmove>\d+))?
-            $",
-    )
-    .expect("Failed to compile fen regex.")
-});
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HistoryEntry {
