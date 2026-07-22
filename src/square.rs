@@ -3,6 +3,7 @@ use super::traits::*;
 use super::types::*;
 use std::fmt;
 use std::ops::{Add, Sub};
+use std::str::FromStr;
 
 pub type SQMap<T> = EnumMap<T, { SQ::COUNT }>;
 
@@ -88,10 +89,10 @@ impl fmt::Display for SQ {
     }
 }
 
-impl TryFrom<&str> for SQ {
-    type Error = &'static str;
+impl FromStr for SQ {
+    type Err = &'static str;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         let mut chars = value.chars();
 
         let file_char = chars.next().ok_or("Invalid square.")?;

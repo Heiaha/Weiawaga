@@ -10,6 +10,7 @@ use super::traits::*;
 use super::zobrist::*;
 use regex::Regex;
 use std::fmt;
+use std::str::FromStr;
 use std::sync::LazyLock;
 
 #[derive(Clone)]
@@ -26,7 +27,7 @@ pub struct Board {
 
 impl Board {
     pub fn new() -> Self {
-        Self::try_from(Self::STARTING_FEN).unwrap()
+        Self::STARTING_FEN.parse().unwrap()
     }
 
     pub fn reset(&mut self) {
@@ -415,14 +416,17 @@ impl Board {
 
         danger |= self
             .bitboard_of(them, PieceType::Knight)
+            .into_iter()
             .map(attacks::knight_attacks)
             .fold(Bitboard::ZERO, |a, b| a | b);
 
         danger |= their_diag_sliders
+            .into_iter()
             .map(|sq| attacks::bishop_attacks(sq, all ^ our_king.bb()))
             .fold(Bitboard::ZERO, |a, b| a | b);
 
         danger |= their_orth_sliders
+            .into_iter()
             .map(|sq| attacks::rook_attacks(sq, all ^ our_king.bb()))
             .fold(Bitboard::ZERO, |a, b| a | b);
 
@@ -908,7 +912,7 @@ impl Board {
         self.refresh_network_if_needed(Color::Black);
 
         let epsq = (en_passant_sq != "-")
-            .then(|| SQ::try_from(en_passant_sq))
+            .then(|| en_passant_sq.parse())
             .transpose()?;
 
         let half_move_counter = halfmove_clock
@@ -916,7 +920,7 @@ impl Board {
             .map_err(|_| "Invalid half move counter.")?;
 
         self.history[self.ply] = HistoryEntry {
-            rights: CastlingRights::try_from(castling)?,
+            rights: castling.parse()?,
             moov: None,
             material_hash: self.material_hash,
             plies_from_null: 0,
@@ -968,10 +972,10 @@ impl Default for Board {
     }
 }
 
-impl TryFrom<&str> for Board {
-    type Error = &'static str;
+impl FromStr for Board {
+    type Err = &'static str;
 
-    fn try_from(fen: &str) -> Result<Self, Self::Error> {
+    fn from_str(fen: &str) -> Result<Self, Self::Err> {
         let mut board = Board::default();
         board.set_fen(fen)?;
         Ok(board)
@@ -1142,7 +1146,9 @@ mod tests {
         let rights = |board: &Board| board.to_string().split(' ').nth(2).unwrap().to_string();
 
         // Rook takes rook: one move kills a right on each side.
-        let mut board = Board::try_from("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1").unwrap();
+        let mut board = "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"
+            .parse::<Board>()
+            .unwrap();
         board.push_str("a1a8").unwrap();
         assert_eq!(rights(&board), "Kk");
         board.pop();
@@ -1162,24 +1168,29 @@ mod tests {
 
     #[test]
     fn repetition_needs_castling_rights() {
-        let mut board = Board::try_from("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1").unwrap();
+        let mut board = "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"
+            .parse::<Board>()
+            .unwrap();
         for m in ["e1e2", "e8e7", "e2e1", "e7e8"] {
             board.push_str(m).unwrap();
         }
-        assert_eq!(board.is_repetition(), false);
+        assert!(!board.is_repetition());
 
         for m in ["e1e2", "e8e7", "e2e1", "e7e8"] {
             board.push_str(m).unwrap();
         }
 
-        assert_eq!(board.is_repetition(), true);
+        assert!(board.is_repetition());
     }
 
     #[test]
     fn castling_rights_hashed() {
         let kiwipete = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w";
-        let boards = ["KQkq", "KQ", "kq", "-"]
-            .map(|rights| Board::try_from(format!("{kiwipete} {rights} - 0 1").as_str()).unwrap());
+        let boards = ["KQkq", "KQ", "kq", "-"].map(|rights| {
+            format!("{kiwipete} {rights} - 0 1")
+                .parse::<Board>()
+                .unwrap()
+        });
 
         // Identical pieces, so any hash difference must come from the rights.
         for (i, a) in boards.iter().enumerate() {
@@ -1193,18 +1204,18 @@ mod tests {
     #[test]
     fn threefold_repetition() {
         let mut board = Board::new();
-        assert_eq!(board.is_repetition(), false);
+        assert!(!board.is_repetition());
         board.push_str("e2e4").unwrap();
-        assert_eq!(board.is_repetition(), false);
+        assert!(!board.is_repetition());
         board.push_str("e7e5").unwrap();
-        assert_eq!(board.is_repetition(), false);
+        assert!(!board.is_repetition());
         board.push_str("f1c4").unwrap();
-        assert_eq!(board.is_repetition(), false);
+        assert!(!board.is_repetition());
         board.push_str("f8c5").unwrap();
-        assert_eq!(board.is_repetition(), false);
+        assert!(!board.is_repetition());
         board.push_str("c4f1").unwrap();
-        assert_eq!(board.is_repetition(), false);
+        assert!(!board.is_repetition());
         board.push_str("c5f8").unwrap();
-        assert_eq!(board.is_repetition(), true);
+        assert!(board.is_repetition());
     }
 }

@@ -3,6 +3,7 @@ use super::search_master::*;
 use super::timer::*;
 use regex::Regex;
 use std::io::BufRead;
+use std::str::FromStr;
 use std::sync::LazyLock;
 use std::sync::{
     Arc,
@@ -45,7 +46,7 @@ impl UCI {
             .lines()
             .map(|line| line.expect("Unable to parse line."))
         {
-            match UCICommand::try_from(line.as_str()) {
+            match line.parse::<UCICommand>() {
                 Ok(cmd) => match cmd {
                     UCICommand::Quit => return,
                     UCICommand::Stop => {
@@ -112,10 +113,10 @@ impl EngineOption {
     }
 }
 
-impl TryFrom<&str> for EngineOption {
-    type Error = &'static str;
+impl FromStr for EngineOption {
+    type Err = &'static str;
 
-    fn try_from(line: &str) -> Result<Self, Self::Error> {
+    fn from_str(line: &str) -> Result<Self, Self::Err> {
         let re_captures = OPTION_RE.captures(line).ok_or("Unable to parse option.")?;
 
         let name = re_captures
@@ -192,10 +193,10 @@ pub enum UCICommand {
     Fen,
 }
 
-impl TryFrom<&str> for UCICommand {
-    type Error = &'static str;
+impl FromStr for UCICommand {
+    type Err = &'static str;
 
-    fn try_from(line: &str) -> Result<Self, Self::Error> {
+    fn from_str(line: &str) -> Result<Self, Self::Err> {
         let line = line.trim();
 
         let command = match line {
@@ -228,7 +229,7 @@ impl TryFrom<&str> for UCICommand {
 impl UCICommand {
     fn parse_go(line: &str) -> Result<Self, &'static str> {
         let ponder = line.contains("ponder");
-        let time_control = TimeControl::try_from(line)?;
+        let time_control = line.parse()?;
         Ok(Self::Go {
             time_control,
             ponder,
@@ -257,7 +258,7 @@ impl UCICommand {
             .unwrap_or_default();
 
         let mut board = match fen {
-            Some(fen) => Board::try_from(fen)?,
+            Some(fen) => fen.parse()?,
             None => Board::new(),
         };
 
@@ -269,7 +270,7 @@ impl UCICommand {
     }
 
     fn parse_option(line: &str) -> Result<Self, &'static str> {
-        let engine_option = EngineOption::try_from(line)?;
+        let engine_option = line.parse()?;
         Ok(Self::Option(engine_option))
     }
 

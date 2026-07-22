@@ -87,21 +87,14 @@ fn init_magics_type(
         magics.masks[sq] = slow_attacks_gen(sq, Bitboard::ZERO) & !edges;
         magics.magics[sq] = magic_init[sq];
 
-        let mut subset = Bitboard::ZERO;
-        let mut entries = Vec::new();
-        let mut max_index = 0;
+        let entries: Vec<_> = std::iter::successors(Some(Bitboard::ZERO), |&subset| {
+            let next = (subset - magics.masks[sq]) & magics.masks[sq];
+            (next != Bitboard::ZERO).then_some(next)
+        })
+        .map(|subset| (magics.index(sq, subset), slow_attacks_gen(sq, subset)))
+        .collect();
 
-        loop {
-            let idx = magics.index(sq, subset);
-            let attack = slow_attacks_gen(sq, subset);
-            entries.push((idx, attack));
-            max_index = max_index.max(idx);
-
-            subset = (subset - magics.masks[sq]) & magics.masks[sq];
-            if subset == Bitboard::ZERO {
-                break;
-            }
-        }
+        let max_index = entries.iter().map(|&(idx, _)| idx).max().unwrap_or(0);
 
         let mut table = vec![Bitboard::ZERO; max_index + 1];
         for (idx, att) in entries {

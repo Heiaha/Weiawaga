@@ -5,6 +5,7 @@ use super::traits::*;
 use super::types::*;
 use std::fmt;
 use std::ops::BitOr;
+use std::str::FromStr;
 
 pub type CastlingMap<T> = EnumMap<T, { CastlingRights::COUNT }>;
 
@@ -77,10 +78,10 @@ impl BitOr for CastlingRights {
     }
 }
 
-impl TryFrom<&str> for CastlingRights {
-    type Error = &'static str;
+impl FromStr for CastlingRights {
+    type Err = &'static str;
 
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "-" {
             return Ok(Self::NONE);
         }
