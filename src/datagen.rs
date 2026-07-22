@@ -11,7 +11,7 @@ use arrow_schema::{DataType, Field, Schema};
 use parquet::arrow::ArrowWriter;
 use parquet::basic::{Compression, ZstdLevel};
 use parquet::file::properties::WriterProperties;
-use rand::Rng;
+use rand::{Rng, seq::IteratorRandom};
 use regex::{Captures, Regex};
 
 use super::board::*;
@@ -235,15 +235,13 @@ impl DataGen {
         let [_, draw, win] = Search::pv_wdl(board, &lines[0].pv)?;
         let best = win + draw / 2.0;
 
-        let candidates: Vec<Move> = lines
+        lines
             .iter()
             .filter_map(|line| {
                 let [_, draw, win] = Search::pv_wdl(board, &line.pv)?;
                 (best - (win + draw / 2.0) <= self.cfg.nudge_margin).then_some(line.m)
             })
-            .collect();
-
-        (!candidates.is_empty()).then(|| candidates[rng.random_range(0..candidates.len())])
+            .choose(rng)
     }
 
     fn start_position(&self, rng: &mut impl Rng) -> Option<Board> {

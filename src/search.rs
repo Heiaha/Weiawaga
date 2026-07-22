@@ -796,21 +796,7 @@ impl Search<'_> {
 
         let multi_pv = self.multi_pv.min(root_moves.len());
 
-        for pv_idx in 0..multi_pv {
-            let (value, bound) =
-                self.search_root(board, 1, -i32::MATE, i32::MATE, &mut root_moves[pv_idx..]);
-            if pv_idx == 0 {
-                self.tt
-                    .insert(board, 1, value, Some(root_moves[0].m), bound, 0);
-            }
-        }
-        root_moves[..multi_pv].sort_by_key(|line| std::cmp::Reverse(line.value));
-
-        for depth in 2..i8::MAX {
-            if root_moves[0].value.is_checkmate() || self.timer.nodes() >= soft_nodes {
-                break;
-            }
-
+        for depth in 1..i8::MAX {
             for pv_idx in 0..multi_pv {
                 let (value, bound) = self.aspiration(board, depth, &mut root_moves[pv_idx..]);
                 if pv_idx == 0 {
@@ -819,6 +805,10 @@ impl Search<'_> {
                 }
             }
             root_moves[..multi_pv].sort_by_key(|line| std::cmp::Reverse(line.value));
+
+            if root_moves[0].value.is_checkmate() || self.timer.nodes() >= soft_nodes {
+                break;
+            }
         }
 
         root_moves.truncate(multi_pv);
