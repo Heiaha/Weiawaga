@@ -89,7 +89,7 @@ impl DataGen {
         let first = book
             .first()
             .ok_or_else(|| format!("No positions found in {}.", path.display()))?;
-        if Board::try_from(first.as_str()).is_err() {
+        if first.parse::<Board>().is_err() {
             return Err(format!(
                 "{} does not look like an epd/fen book.",
                 path.display()
@@ -249,7 +249,7 @@ impl DataGen {
 
     fn start_position(&self, rng: &mut impl Rng) -> Option<Board> {
         if let Some(fen) = self.book.choose(rng) {
-            return Board::try_from(fen.as_str()).ok();
+            return fen.parse().ok();
         }
 
         let mut board = Board::new();

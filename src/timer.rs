@@ -3,10 +3,10 @@ use super::moov::*;
 use super::piece::*;
 use super::square::*;
 use regex::{Captures, Regex};
+use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock};
 use std::time::{Duration, Instant};
-use std::{convert::TryFrom, str::FromStr};
 
 // Some ideas taken from asymptote, which has a very elegant timer implementation.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -80,10 +80,10 @@ impl TimeControl {
     }
 }
 
-impl TryFrom<&str> for TimeControl {
-    type Error = &'static str;
+impl FromStr for TimeControl {
+    type Err = &'static str;
 
-    fn try_from(line: &str) -> Result<Self, Self::Error> {
+    fn from_str(line: &str) -> Result<Self, Self::Err> {
         if line == "go" || line == "go ponder" || line.contains("infinite") {
             return Ok(TimeControl::Infinite);
         }
