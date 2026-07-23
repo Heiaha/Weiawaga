@@ -6,7 +6,7 @@ use super::move_list::*;
 fn perft<const ROOT: bool>(board: &mut Board, depth: i8) -> u128 {
     let moves: MoveList = MoveList::from::<false>(board);
 
-    if depth == 1 {
+    if depth <= 1 {
         return moves.len() as u128;
     }
 
