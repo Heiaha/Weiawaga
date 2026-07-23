@@ -28,7 +28,7 @@ struct Embedding<const N: usize, const D: usize> {
 }
 
 impl<const N: usize, const D: usize> Embedding<N, D> {
-    fn new(weights: &'static [[i16x32; D]; N]) -> Self {
+    const fn new(weights: &'static [[i16x32; D]; N]) -> Self {
         Self { weights }
     }
 
@@ -56,7 +56,7 @@ struct Linear<const IN: usize, const OUT: usize> {
 }
 
 impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
-    fn new(weights: &'static [i16x32; IN], biases: &'static [i16; OUT]) -> Self {
+    const fn new(weights: &'static [i16x32; IN], biases: &'static [i16; OUT]) -> Self {
         Self { weights, biases }
     }
 
@@ -87,7 +87,7 @@ struct WdlLayer<const IN: usize> {
 }
 
 impl<const IN: usize> WdlLayer<IN> {
-    fn new(weights: &'static [[f32; IN]; 3], biases: &'static [f32; 3]) -> Self {
+    const fn new(weights: &'static [[f32; IN]; 3], biases: &'static [f32; 3]) -> Self {
         Self { weights, biases }
     }
 
