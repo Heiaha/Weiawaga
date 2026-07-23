@@ -1018,7 +1018,7 @@ impl fmt::Display for Board {
             self.history[self.ply].rights,
             epsq_str,
             self.history[self.ply].half_move_counter,
-            self.ply / 2 + 1,
+            self.fullmove_number(),
         )
     }
 }
