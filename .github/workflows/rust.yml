@@ -15,8 +15,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Build
-      run: cargo build --verbose
+    - uses: actions/checkout@v4
+    - uses: Swatinem/rust-cache@v2
+    - name: Clippy
+      run: cargo clippy --release --all-targets --all-features -- -D warnings
     - name: Run tests
       run: cargo test --verbose --release
