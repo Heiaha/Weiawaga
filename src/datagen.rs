@@ -125,7 +125,6 @@ impl DataGen {
             else {
                 continue;
             };
-
             self.produced
                 .fetch_add(game.samples.len() as u64, Ordering::Relaxed);
             if tx.send(game).is_err() {
