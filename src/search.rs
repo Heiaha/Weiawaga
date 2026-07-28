@@ -552,6 +552,7 @@ impl<'a> Search<'a> {
         let eval = board.eval();
 
         if eval >= beta {
+            self.tt.insert(board, 0, eval, None, Bound::Lower, ply);
             return eval;
         }
         alpha = alpha.max(eval);
@@ -564,6 +565,8 @@ impl<'a> Search<'a> {
             tt_entry.and_then(|entry| entry.best_move()),
         );
 
+        let mut tt_flag = Bound::Upper;
+        let mut best_move = None;
         let mut best_value = eval;
 
         for m in sorter {
@@ -583,12 +586,20 @@ impl<'a> Search<'a> {
                 best_value = value;
 
                 if value > alpha {
+                    best_move = Some(m);
                     if value >= beta {
+                        tt_flag = Bound::Lower;
                         break;
                     }
+                    tt_flag = Bound::Exact;
                     alpha = value;
                 }
             }
+        }
+
+        if !self.timer.is_stopped() {
+            self.tt
+                .insert(board, 0, best_value, best_move, tt_flag, ply);
         }
 
         best_value
