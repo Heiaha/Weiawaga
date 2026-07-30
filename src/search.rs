@@ -513,7 +513,7 @@ impl<'a> Search<'a> {
             }
         }
 
-        if !self.timer.is_stopped() {
+        if !self.timer.is_stopped() && excluded_move.is_none() {
             best_move = best_move
                 .or_else(|| self.tt.get(board, ply).and_then(|entry| entry.best_move()))
                 .or_else(|| moves.into_iter().next().copied());
