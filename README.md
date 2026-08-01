@@ -7,31 +7,45 @@ A UCI chess engine written in Rust. If you find this repository, come play me on
 
 https://lichess.org/@/Weiawaga
 
-## Features
+## Overview
 
-- Board representation
-    - [Bitboards](https://en.wikipedia.org/wiki/Bitboard)
-- Move generation
-    - [Fancy magic bitboard hashing](https://www.chessprogramming.org/Magic_Bitboards#Fancy)
-- Search
-    - [Principal variation search](https://www.chessprogramming.org/Principal_Variation_Search)
-    - [Lazy SMP](https://www.chessprogramming.org/Lazy_SMP)
-    - [Iterative deepening](https://en.wikipedia.org/wiki/Iterative_deepening_depth-first_search)
-    - [Quiescence search](https://en.wikipedia.org/wiki/Quiescence_search)
-    - [Aspiration windows](https://www.chessprogramming.org/Aspiration_Windows)
-    - [Reverse futility pruning](https://www.chessprogramming.org/Reverse_Futility_Pruning)
-    - [Null move pruning](https://www.chessprogramming.org/Null_Move_Pruning)
-    - [Check extensions](https://www.chessprogramming.org/Check_Extensions)
-- [NNUE](https://www.chessprogramming.org/NNUE) evaluation
-- Move ordering
-    - [Hash move](https://www.chessprogramming.org/Hash_Move)
-    - [Static exchange evaluation](https://www.chessprogramming.org/Static_Exchange_Evaluation)
-    - [Killer heuristic](https://www.chessprogramming.org/Killer_Heuristic)
-    - [History heuristic](https://www.chessprogramming.org/History_Heuristic)
-- Other
-    - [Zobrist hashing](https://www.chessprogramming.org/Zobrist_Hashing) / [Transposition table](https://en.wikipedia.org/wiki/Transposition_table)
+Weiawaga is built on bitboards with fancy magic move generation and searches
+with a principal variation alpha-beta framework. It includes iterative deepening,
+aspiration windows, a lockless transposition table, and Lazy SMP parallelism,
+with the usual modern selectivity on top. Evaluation is a hand-rolled
+efficiently updatable neural network (NNUE) with SIMD inference, trained with
+[Mimir](https://github.com/Heiaha/Mimir).
 
-Move generation inspired by [surge](https://github.com/nkarve/surge). A previous version of this engine written in Java can be found [here](https://github.com/Heiaha/WeiawagaJ).
-The NNUE training code can be found [here](https://github.com/Heiaha/Mimir).
+## Building
+
+Requires stable Rust (1.89+). The network weights are embedded in the binary
+at compile time, so a build is fully self-contained:
+
+```
+cargo build --release
+```
+
+## Usage
+
+Weiawaga speaks standard UCI: point any UCI-compatible interface (cutechess,
+Arena, Banksia, En Croissant, ...) at the binary, or drive it directly from a
+terminal. Supported options:
+
+| Option          | Description                                        |
+| --------------- | -------------------------------------------------- |
+| `Hash`          | Transposition table size in MB                     |
+| `Threads`       | Number of search threads                           |
+| `MultiPV`       | Number of principal variations to report           |
+| `Ponder`        | Think on the opponent's time                       |
+| `Move Overhead` | Per-move time buffer (ms) for connection latency   |
+| `UCI_ShowWDL`   | Report win/draw/loss probabilities with the score  |
+| `Clear Hash`    | Clear the transposition table                      |
+
+## Acknowledgements
+
+Move generation inspired by [surge](https://github.com/nkarve/surge). A
+previous version of this engine written in Java can be found
+[here](https://github.com/Heiaha/WeiawagaJ). The NNUE training code can be
+found [here](https://github.com/Heiaha/Mimir).
 
 **[What's a Weiawaga?](https://www.youtube.com/watch?v=7lRpoYGzx0o)**
