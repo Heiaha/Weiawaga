@@ -138,17 +138,26 @@ impl<'a> Search<'a> {
         }
 
         let pred = lines[0].value;
-        let alpha = (pred - Self::ASPIRATION_WINDOW).max(-i32::MATE);
-        let beta = (pred + Self::ASPIRATION_WINDOW).min(i32::MATE);
+        let mut delta = Self::ASPIRATION_WINDOW;
+        let mut alpha = (pred - delta).max(-i32::MATE);
+        let mut beta = (pred + delta).min(i32::MATE);
 
-        let (value, bound) = self.search_root(board, depth, alpha, beta, lines);
+        loop {
+            let (value, bound) = self.search_root(board, depth, alpha, beta, lines);
 
-        if value <= alpha {
-            self.search_root(board, depth, -i32::MATE, beta, lines)
-        } else if value >= beta {
-            self.search_root(board, depth, alpha, i32::MATE, lines)
-        } else {
-            (value, bound)
+            if self.timer.is_stopped() {
+                return (value, bound);
+            }
+
+            if value <= alpha {
+                alpha = (value - delta).max(-i32::MATE);
+            } else if value >= beta {
+                beta = (value + delta).min(i32::MATE);
+            } else {
+                return (value, bound);
+            }
+
+            delta += delta / 2;
         }
     }
 
@@ -786,7 +795,7 @@ impl Search<'_> {
     const PRINT_CURRMOVENUMBER_TIME: Duration = Duration::from_millis(3000);
     const RFP_MAX_DEPTH: i8 = 9;
     const RFP_MARGIN_MULTIPLIER: i32 = 63;
-    const ASPIRATION_WINDOW: i32 = 61;
+    const ASPIRATION_WINDOW: i32 = 16;
     const ASPIRATION_MIN_DEPTH: i8 = 4;
     const NULL_MIN_DEPTH: i8 = 2;
     const NULL_MIN_DEPTH_REDUCTION: i8 = 1;
