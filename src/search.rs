@@ -1,3 +1,4 @@
+use std::ops::ControlFlow;
 use std::sync::LazyLock;
 use std::time::Duration;
 
@@ -400,20 +401,14 @@ impl<'a> Search<'a> {
                 continue;
             }
 
-            let extension = tt_entry
+            let extension = match tt_entry
                 .filter(|&entry| Self::can_singular_extend(entry, m, depth, excluded_move))
-                .map_or(0, |entry| {
-                    let target = entry.value() - (2 * depth as i32);
-                    self.excluded_moves[ply] = Some(m);
-                    let extension =
-                        if self.search(board, (depth - 1) / 2, target - 1, target, ply) < target {
-                            1
-                        } else {
-                            0
-                        };
-                    self.excluded_moves[ply] = None;
-                    extension
-                });
+                .map_or(ControlFlow::Continue(0), |entry| {
+                    self.singular_extension(board, entry, m, depth, beta, ply)
+                }) {
+                ControlFlow::Continue(extension) => extension,
+                ControlFlow::Break(value) => return value,
+            };
 
             ///////////////////////////////////////////////////////////////////
             // Make move and deepen search via principal variation search.
@@ -667,6 +662,35 @@ impl<'a> Search<'a> {
             && excluded_move.is_none()
             && entry.depth() + Self::SING_EXTEND_DEPTH_MARGIN >= depth
             && entry.bound() != Bound::Upper
+    }
+
+    fn singular_extension(
+        &mut self,
+        board: &mut Board,
+        entry: TTEntry,
+        m: Move,
+        depth: i8,
+        beta: i32,
+        ply: usize,
+    ) -> ControlFlow<i32, i8> {
+        let target = entry.value() - (2 * depth as i32);
+        self.excluded_moves[ply] = Some(m);
+        let value = self.search(board, (depth - 1) / 2, target - 1, target, ply);
+        self.excluded_moves[ply] = None;
+
+        if self.timer.is_stopped() {
+            return ControlFlow::Break(0);
+        }
+        if value < target {
+            return ControlFlow::Continue(1);
+        }
+        if target >= beta {
+            return ControlFlow::Break(target);
+        }
+        if entry.value() >= beta {
+            return ControlFlow::Continue(-1);
+        }
+        ControlFlow::Continue(0)
     }
 
     fn null_reduction(depth: i8) -> i8 {
