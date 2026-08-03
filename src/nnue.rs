@@ -164,7 +164,7 @@ struct CacheEntry {
 pub struct Network {
     input_layers: [Embedding<{ Self::N_INPUTS }, { Self::L1 / Self::LANES }>; Self::N_KING_BUCKETS],
     hidden_layers: [Linear<{ 2 * Self::L1 / Self::LANES }, 1>; Self::N_BUCKETS],
-    wdl_layer: WdlLayer<{ 2 * Self::L1 }>,
+    wdl_layers: [WdlLayer<{ 2 * Self::L1 }>; Self::N_BUCKETS],
 
     stack: Vec<Accumulator>,
     idx: usize,
@@ -185,7 +185,9 @@ impl Network {
 
         let hidden_layers = core::array::from_fn(|_| Linear::new(w.take(), b.take()));
 
-        let wdl_layer = WdlLayer::new(b.take(), b.take());
+        let wdl_weights: [_; Self::N_BUCKETS] = core::array::from_fn(|_| b.take());
+        let wdl_biases: [_; Self::N_BUCKETS] = core::array::from_fn(|_| b.take());
+        let wdl_layers = core::array::from_fn(|i| WdlLayer::new(wdl_weights[i], wdl_biases[i]));
 
         let cold_entry = CacheEntry {
             acc: *input_bias,
@@ -195,7 +197,7 @@ impl Network {
         Self {
             input_layers,
             hidden_layers,
-            wdl_layer,
+            wdl_layers,
             stack: vec![
                 Accumulator {
                     acc: ColorMap::new([*input_bias; Color::COUNT]),
@@ -307,7 +309,8 @@ impl Network {
             *activation = a * a;
         }
 
-        self.wdl_layer.forward(&activations)
+        let bucket = (acc.pop_count as usize - 2) / Self::BUCKET_DIV;
+        self.wdl_layers[bucket].forward(&activations)
     }
 }
 
@@ -315,7 +318,7 @@ impl Network {
     const N_INPUTS: usize = Piece::COUNT * SQ::COUNT;
     const N_KING_BUCKETS: usize = 4;
     const N_ACCUMULATORS: usize = 1024;
-    const L1: usize = 512;
+    const L1: usize = 768;
     const N_BUCKETS: usize = 8;
     const BUCKET_DIV: usize = 32_usize.div_ceil(Self::N_BUCKETS);
     const LANES: usize = i16x32::LANES as usize;
@@ -328,7 +331,7 @@ impl Network {
         + Self::L1
         + Self::N_BUCKETS * (2 * Self::L1);
     const B_I16: usize = Self::N_BUCKETS;
-    const WDL_F32: usize = 3 * (2 * Self::L1) + 3;
+    const WDL_F32: usize = Self::N_BUCKETS * (3 * (2 * Self::L1) + 3);
     const NET_BYTES: usize = 2 * Self::W_I16 + 2 * Self::B_I16 + 4 * Self::WDL_F32;
 }
 

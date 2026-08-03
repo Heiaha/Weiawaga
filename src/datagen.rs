@@ -145,6 +145,9 @@ impl DataGen {
         let mut plies = 0;
         let mut nudge_attempts = 0;
         let mut nudge_deviations = 0;
+        let mut adjudicated = false;
+        let mut prev_call = None;
+        let mut streak = 0;
         let outcome = loop {
             let moves = MoveList::from::<false>(&board);
             if moves.is_empty() {
@@ -192,6 +195,21 @@ impl DataGen {
             let sample =
                 quiet_spot.then(|| (board.to_string(), white_value.clamp(-16000, 16000) as i16));
 
+            if sample.is_some() {
+                let call = Self::adjudication_call(&mut board, &best.pv, white_value);
+                streak = if call == prev_call { streak + 1 } else { 1 };
+                prev_call = call;
+
+                if let Some(result) = call
+                    && self.cfg.adj_streak != 0
+                    && streak >= self.cfg.adj_streak
+                {
+                    samples.extend(sample);
+                    adjudicated = true;
+                    break result;
+                }
+            }
+
             let m = if nudge_here {
                 nudge_attempts += 1;
                 let m = self.pick_nudge(&mut board, &lines, rng).unwrap_or(best.m);
@@ -217,8 +235,25 @@ impl DataGen {
             plies,
             nudge_attempts,
             nudge_deviations,
+            adjudicated,
             id: rng.random(),
         })
+    }
+
+    fn adjudication_call(board: &mut Board, pv: &[Move], white_value: i32) -> Option<i8> {
+        let mut wdl = Search::pv_wdl(board, pv)?;
+        if board.ctm() == Color::Black {
+            wdl.reverse();
+        }
+
+        let [loss, _, win] = wdl;
+        if win >= Self::ADJ_THRESHOLD && white_value > 0 {
+            Some(1)
+        } else if loss >= Self::ADJ_THRESHOLD && white_value < 0 {
+            Some(-1)
+        } else {
+            None
+        }
     }
 
     fn pick_nudge_plies(&self, first_ply: usize, rng: &mut impl Rng) -> Vec<usize> {
@@ -267,6 +302,7 @@ impl DataGen {
 impl DataGen {
     const MAX_GAME_PLIES: usize = 800;
     const NUDGE_LINES: usize = 4;
+    const ADJ_THRESHOLD: f32 = 0.999;
 }
 
 struct Game {
@@ -275,6 +311,7 @@ struct Game {
     plies: usize,
     nudge_attempts: usize,
     nudge_deviations: usize,
+    adjudicated: bool,
     id: [u8; 16],
 }
 
@@ -297,6 +334,7 @@ struct Writer {
     cp_abs_sum: u64,
     nudge_attempts: u64,
     nudge_deviations: u64,
+    adjudicated: u64,
     start: Instant,
 }
 
@@ -333,6 +371,7 @@ impl Writer {
             cp_abs_sum: 0,
             nudge_attempts: 0,
             nudge_deviations: 0,
+            adjudicated: 0,
             start: Instant::now(),
         }
     }
@@ -364,6 +403,7 @@ impl Writer {
         self.plies += game.plies as u64;
         self.nudge_attempts += game.nudge_attempts as u64;
         self.nudge_deviations += game.nudge_deviations as u64;
+        self.adjudicated += game.adjudicated as u64;
 
         for (fen, cp) in game.samples {
             self.cp_abs_sum += cp.unsigned_abs() as u64;
@@ -383,13 +423,14 @@ impl Writer {
 
         let mut report = format!(
             "{} positions from {} games ({rate:.0}/s) \
-             | W/D/L {:.0}/{:.0}/{:.0}% | {:.1} pos/game | {:.0} plies/game | avg |cp| {:.0} \
+             | W/D/L {:.0}/{:.0}/{:.0}% | {:.0}% adjudicated | {:.1} pos/game | {:.0} plies/game | avg |cp| {:.0} \
              | {:.2} nudges/game ({deviated:.0}% deviated) | {}",
             self.written,
             self.games,
             pct(self.wins),
             pct(self.draws),
             pct(self.losses),
+            pct(self.adjudicated),
             samples / games,
             self.plies as f64 / games,
             self.cp_abs_sum as f64 / samples,
@@ -451,6 +492,7 @@ struct Config {
     nudges: usize,
     nudge_max_ply: usize,
     nudge_margin: f32,
+    adj_streak: usize,
     rows_per_file: usize,
     hash_mb: usize,
 }
@@ -484,6 +526,7 @@ impl Config {
                     \s*--nudges\s+(?P<nudges>\d+) |
                     \s*--nudge-max-ply\s+(?P<nudge_max_ply>\d+) |
                     \s*--nudge-margin\s+(?P<nudge_margin>[\d.]+) |
+                    \s*--adj-streak\s+(?P<adj_streak>\d+) |
                     \s*--rows-per-file\s+(?P<rows_per_file>\d+) |
                     \s*--hash\s+(?P<hash>\d+)
                 )*
@@ -512,6 +555,7 @@ impl Config {
             nudge_max_ply: Self::opt_number(&caps, "nudge_max_ply")?
                 .unwrap_or(defaults.nudge_max_ply),
             nudge_margin: Self::opt_number(&caps, "nudge_margin")?.unwrap_or(defaults.nudge_margin),
+            adj_streak: Self::opt_number(&caps, "adj_streak")?.unwrap_or(defaults.adj_streak),
             rows_per_file: Self::opt_number(&caps, "rows_per_file")?
                 .unwrap_or(defaults.rows_per_file)
                 .max(1),
@@ -532,6 +576,7 @@ impl Default for Config {
             nudges: 5,
             nudge_max_ply: 24,
             nudge_margin: 0.1,
+            adj_streak: 2,
             rows_per_file: 1_000_000,
             hash_mb: 16,
         }
@@ -549,5 +594,6 @@ usage: weiawaga datagen --out DIR [options]
   --nudges N            plies per game where a random near-best move is played (default 5)
   --nudge-max-ply N     nudges happen before this ply (default 24)
   --nudge-margin E      wdl expected-score drop (0-1) a nudge may accept (default 0.1)
+  --adj-streak N        consecutive same-call samples required to adjudicate, 0 disables (default 2)
   --rows-per-file N     rows per parquet file (default 1000000)
   --hash MB             per-thread transposition table size (default 16)";
