@@ -332,18 +332,25 @@ impl<'a> Search<'a> {
             }
         }
         ///////////////////////////////////////////////////////////////////
-        // Compute the static eval once per node and track it per ply, for
-        // future "improving" checks against the eval two plies ago. The
+        // Compute the static eval once per node and track it per ply. The
         // eval is meaningless while in check, so store -MATE there.
         ///////////////////////////////////////////////////////////////////
         let static_eval = if in_check { -i32::MATE } else { board.eval() };
         self.eval_stack[ply] = static_eval;
 
+        let improving = !in_check && ply >= 2 && {
+            let mut prev = self.eval_stack[ply - 2];
+            if prev == -i32::MATE && ply >= 4 {
+                prev = self.eval_stack[ply - 4];
+            }
+            static_eval > prev
+        };
+
         ///////////////////////////////////////////////////////////////////
         // Reverse Futility Pruning
         ///////////////////////////////////////////////////////////////////
         if Self::can_apply_rfp(depth, in_check, is_pv, beta, excluded_move)
-            && static_eval - Self::rfp_margin(depth) >= beta
+            && static_eval - Self::rfp_margin(depth, improving) >= beta
         {
             return static_eval;
         }
@@ -698,8 +705,9 @@ impl<'a> Search<'a> {
         Self::NULL_MIN_DEPTH_REDUCTION + (depth - Self::NULL_MIN_DEPTH) / Self::NULL_DEPTH_DIVIDER
     }
 
-    fn rfp_margin(depth: i8) -> i32 {
+    fn rfp_margin(depth: i8, improving: bool) -> i32 {
         Self::RFP_MARGIN_MULTIPLIER * (depth as i32)
+            - Self::RFP_IMPROVING_MARGIN * (improving as i32)
     }
 
     fn late_move_reduction(depth: i8, move_index: usize) -> i8 {
@@ -819,6 +827,7 @@ impl Search<'_> {
     const PRINT_CURRMOVENUMBER_TIME: Duration = Duration::from_millis(3000);
     const RFP_MAX_DEPTH: i8 = 9;
     const RFP_MARGIN_MULTIPLIER: i32 = 63;
+    const RFP_IMPROVING_MARGIN: i32 = 30;
     const ASPIRATION_WINDOW: i32 = 16;
     const ASPIRATION_MIN_DEPTH: i8 = 4;
     const NULL_MIN_DEPTH: i8 = 2;
