@@ -386,4 +386,34 @@ mod tests {
         assert_eq!(flat_idx(bk, SQ::G8, Color::Black, b_ctx), 321);
         assert_eq!(flat_idx(wk, SQ::D5, Color::Black, b_ctx), 732);
     }
+
+    #[test]
+    fn clone_shares_weights_with_the_static_blob() {
+        let a = Network::new();
+        let b = a.clone();
+
+        // Same pointers after clone, and they point into NETWORK itself.
+        assert!(std::ptr::eq(
+            a.input_layers[0].weights,
+            b.input_layers[0].weights
+        ));
+        assert!(std::ptr::eq(
+            a.hidden_layers[0].weights,
+            b.hidden_layers[0].weights
+        ));
+        assert!(std::ptr::eq(
+            a.wdl_layers[0].weights,
+            b.wdl_layers[0].weights
+        ));
+
+        let blob = NETWORK.0.as_ptr_range();
+        let w = a.input_layers[0].weights.as_ptr() as *const u8;
+        assert!(blob.contains(&w));
+
+        println!(
+            "size_of::<Network>() = {} bytes (blob = {} bytes)",
+            std::mem::size_of::<Network>(),
+            Network::NET_BYTES,
+        );
+    }
 }

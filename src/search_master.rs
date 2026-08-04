@@ -157,7 +157,7 @@ impl SearchMaster {
                 );
                 s.spawn(move || helper_search_thread.go(thread_board));
             }
-            main_search_thread.go(board.clone())
+            main_search_thread.go(board)
         });
 
         // UCI forbids sending bestmove while in ponder mode; if the search

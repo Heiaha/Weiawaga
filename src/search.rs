@@ -742,38 +742,38 @@ impl<'a> Search<'a> {
     }
 
     pub fn pv_wdl(board: &mut Board, pv: &[Move]) -> Option<[f32; 3]> {
-        let is_draw = pv.iter().fold(false, |drawn, &pv_move| {
+        let drawn_ply = pv.iter().enumerate().fold(None, |drawn, (idx, &pv_move)| {
             board.push(pv_move);
-            drawn | board.is_draw()
+            drawn.or_else(|| board.is_draw().then_some(idx + 1))
         });
-        if is_draw {
-            for _ in 0..pv.len() {
-                board.pop();
-            }
-            return Some([0.0, 1.0, 0.0]);
-        }
+
         let mut leaf_ply = pv.len();
         while leaf_ply > 0 && (!pv[leaf_ply - 1].is_quiet() || board.in_check()) {
             board.pop();
             leaf_ply -= 1;
         }
-        if leaf_ply == 0 {
-            return None;
+
+        let wdl = (leaf_ply > 0).then(|| Self::leaf_wdl(board, drawn_ply, leaf_ply));
+        for _ in 0..leaf_ply {
+            board.pop();
         }
+        wdl
+    }
+
+    fn leaf_wdl(board: &mut Board, drawn_ply: Option<usize>, ply: usize) -> [f32; 3] {
+        if drawn_ply.is_some_and(|drawn| drawn <= ply) || MoveList::from::<false>(board).is_empty()
+        {
+            return [0.0, 1.0, 0.0];
+        }
+
         let [mut loss, _, mut win] = board.wdl();
         let decisive = 1.0 - f32::from(board.half_move_counter()) / 100.0;
         win *= decisive;
         loss *= decisive;
-        let draw = 1.0 - win - loss;
-        for _ in 0..leaf_ply {
-            board.pop();
-        }
-        // The head reports for the side to move at the leaf; flip back to
-        // the root's perspective after an odd number of plies.
-        if leaf_ply % 2 == 1 {
+        if ply % 2 == 1 {
             std::mem::swap(&mut win, &mut loss);
         }
-        Some([loss, draw, win])
+        [loss, 1.0 - win - loss, win]
     }
 
     fn print_info(&self, board: &mut Board, depth: i8, line: &RootMove, multipv: Option<usize>) {
