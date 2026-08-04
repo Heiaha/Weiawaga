@@ -761,7 +761,7 @@ impl<'a> Search<'a> {
             return None;
         }
         let [mut loss, _, mut win] = board.wdl();
-        let decisive = 1.0 - f32::from(board.halfmove_clock()) / 100.0;
+        let decisive = 1.0 - f32::from(board.half_move_counter()) / 100.0;
         win *= decisive;
         loss *= decisive;
         let draw = 1.0 - win - loss;
