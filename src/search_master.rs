@@ -156,7 +156,7 @@ impl SearchMaster {
                 );
                 s.spawn(move || helper_search_thread.go(thread_board));
             }
-            main_search_thread.go(board.clone())
+            main_search_thread.go(board)
         });
 
         while self.pondering.load(Ordering::Acquire) {
