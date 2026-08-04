@@ -229,6 +229,10 @@ impl Board {
         self.is_fifty() || self.is_insufficient_material() || self.is_repetition()
     }
 
+    pub fn half_move_counter(&self) -> u16 {
+        self.history[self.ply].half_move_counter
+    }
+
     pub fn has_non_pawn_material(&self) -> bool {
         self.bitboard_of(self.ctm, PieceType::Pawn) | self.bitboard_of(self.ctm, PieceType::King)
             != self.all_pieces_c(self.ctm)

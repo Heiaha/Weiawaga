@@ -742,8 +742,15 @@ impl<'a> Search<'a> {
     }
 
     pub fn pv_wdl(board: &mut Board, pv: &[Move]) -> Option<[f32; 3]> {
-        for &pv_move in pv {
+        let is_draw = pv.iter().fold(false, |drawn, &pv_move| {
             board.push(pv_move);
+            drawn | board.is_draw()
+        });
+        if is_draw {
+            for _ in 0..pv.len() {
+                board.pop();
+            }
+            return Some([0.0, 1.0, 0.0]);
         }
         let mut leaf_ply = pv.len();
         while leaf_ply > 0 && (!pv[leaf_ply - 1].is_quiet() || board.in_check()) {
@@ -753,16 +760,20 @@ impl<'a> Search<'a> {
         if leaf_ply == 0 {
             return None;
         }
-        let mut wdl = board.wdl();
+        let [mut loss, _, mut win] = board.wdl();
+        let decisive = 1.0 - f32::from(board.halfmove_clock()) / 100.0;
+        win *= decisive;
+        loss *= decisive;
+        let draw = 1.0 - win - loss;
         for _ in 0..leaf_ply {
             board.pop();
         }
         // The head reports for the side to move at the leaf; flip back to
         // the root's perspective after an odd number of plies.
         if leaf_ply % 2 == 1 {
-            wdl.reverse();
+            std::mem::swap(&mut win, &mut loss);
         }
-        Some(wdl)
+        Some([loss, draw, win])
     }
 
     fn print_info(&self, board: &mut Board, depth: i8, line: &RootMove, multipv: Option<usize>) {
