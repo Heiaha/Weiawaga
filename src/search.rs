@@ -170,15 +170,9 @@ impl<'a> Search<'a> {
         beta: i32,
         lines: &mut [RootMove],
     ) -> (i32, Bound) {
-        ///////////////////////////////////////////////////////////////////
-        // Clear the pv line and excluded moves.
-        ///////////////////////////////////////////////////////////////////
         self.pv_table.iter_mut().for_each(|line| line.clear());
         self.excluded_moves.fill(None);
 
-        ///////////////////////////////////////////////////////////////////
-        // Check extension.
-        ///////////////////////////////////////////////////////////////////
         if board.in_check() {
             depth += 1;
         }
@@ -193,7 +187,6 @@ impl<'a> Search<'a> {
         let mut best_idx = 0;
         let mut best_value = -i32::MATE;
         let mut tt_flag = Bound::Upper;
-        let mut value = 0;
 
         for (idx, line) in lines.iter().enumerate() {
             let m = line.m;
@@ -206,8 +199,11 @@ impl<'a> Search<'a> {
             }
 
             board.push(m);
-            if idx == 0 || -self.search(board, depth - 1, -alpha - 1, -alpha, 1) > alpha {
-                value = -self.search(board, depth - 1, -beta, -alpha, 1)
+            let value = if idx == 0 || -self.search(board, depth - 1, -alpha - 1, -alpha, 1) > alpha
+            {
+                -self.search(board, depth - 1, -beta, -alpha, 1)
+            } else {
+                -i32::MATE
             };
             board.pop();
 
@@ -262,16 +258,10 @@ impl<'a> Search<'a> {
         mut beta: i32,
         ply: usize,
     ) -> i32 {
-        ///////////////////////////////////////////////////////////////////
-        // Clear the pv line.
-        ///////////////////////////////////////////////////////////////////
         self.pv_table[ply].clear();
         self.sel_depth = self.sel_depth.max(ply);
 
-        ///////////////////////////////////////////////////////////////////
-        // Mate distance pruning - will help reduce
-        // some nodes when checkmate is near.
-        ///////////////////////////////////////////////////////////////////
+        // Mate distance pruning.
         let mate_value = i32::MATE - (ply as i32);
         alpha = alpha.max(-mate_value);
         beta = beta.min(mate_value - 1);
@@ -279,19 +269,11 @@ impl<'a> Search<'a> {
             return alpha;
         }
 
-        ///////////////////////////////////////////////////////////////////
-        // Extend search if position is in check. Check if we're in a pv
-        ///////////////////////////////////////////////////////////////////
         let in_check = board.in_check();
         if in_check {
             depth += 1;
         }
 
-        ///////////////////////////////////////////////////////////////////
-        // Quiescence search - here we search tactical
-        // moves after the main search to prevent a
-        // horizon effect.
-        ///////////////////////////////////////////////////////////////////
         if depth <= 0 {
             return self.q_search(board, alpha, beta, ply);
         }
@@ -304,16 +286,9 @@ impl<'a> Search<'a> {
             return 0;
         }
 
-        ///////////////////////////////////////////////////////////////////
-        // Check if we're in a pv node
-        ///////////////////////////////////////////////////////////////////
         let is_pv = alpha != beta - 1;
         let excluded_move = self.excluded_moves[ply];
 
-        ///////////////////////////////////////////////////////////////////
-        // Probe the hash table and adjust the value.
-        // If appropriate, produce a cutoff.
-        ///////////////////////////////////////////////////////////////////
         let tt_entry = self.tt.get(board, ply);
         if let Some(tt_entry) = tt_entry
             && tt_entry.depth() >= depth
@@ -346,18 +321,12 @@ impl<'a> Search<'a> {
             static_eval > prev
         };
 
-        ///////////////////////////////////////////////////////////////////
-        // Reverse Futility Pruning
-        ///////////////////////////////////////////////////////////////////
         if Self::can_apply_rfp(depth, in_check, is_pv, beta, excluded_move)
             && static_eval - Self::rfp_margin(depth, improving) >= beta
         {
             return static_eval;
         }
 
-        ///////////////////////////////////////////////////////////////////
-        // Null move pruning.
-        ///////////////////////////////////////////////////////////////////
         if Self::can_apply_null(
             board,
             depth,
@@ -386,10 +355,6 @@ impl<'a> Search<'a> {
             depth -= Self::IID_DEPTH_REDUCTION;
         }
 
-        ///////////////////////////////////////////////////////////////////
-        // Generate moves, score, and begin searching
-        // recursively.
-        ///////////////////////////////////////////////////////////////////
         let mut tt_flag = Bound::Upper;
         let mut best_move = None;
         let mut best_value = -i32::MATE;
@@ -417,9 +382,6 @@ impl<'a> Search<'a> {
                 ControlFlow::Break(value) => return value,
             };
 
-            ///////////////////////////////////////////////////////////////////
-            // Make move and deepen search via principal variation search.
-            ///////////////////////////////////////////////////////////////////
             board.push(m);
 
             if depth > 1 {
@@ -430,9 +392,6 @@ impl<'a> Search<'a> {
             if idx == 0 {
                 value = -self.search(board, depth + extension - 1, -beta, -alpha, ply + 1);
             } else {
-                ///////////////////////////////////////////////////////////////////
-                // Late move reductions.
-                ///////////////////////////////////////////////////////////////////
                 let mut reduction = if Self::can_apply_lmr(m, depth, idx) {
                     Self::late_move_reduction(depth, idx)
                 } else {
@@ -475,9 +434,6 @@ impl<'a> Search<'a> {
                 return 0;
             }
 
-            ///////////////////////////////////////////////////////////////////
-            // Re-bound, check for cutoffs, and add killers and history.
-            ///////////////////////////////////////////////////////////////////
             if value > best_value {
                 best_value = value;
 
@@ -513,15 +469,8 @@ impl<'a> Search<'a> {
             }
         }
 
-        ///////////////////////////////////////////////////////////////////
-        // Checkmate and stalemate check.
-        ///////////////////////////////////////////////////////////////////
         if moves.is_empty() && excluded_move.is_none() {
-            if in_check {
-                best_value = -mate_value;
-            } else {
-                best_value = 0;
-            }
+            best_value = if in_check { -mate_value } else { 0 };
         }
 
         if !self.timer.is_stopped() && excluded_move.is_none() {

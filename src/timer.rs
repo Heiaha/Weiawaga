@@ -147,7 +147,13 @@ impl Timer {
         overhead: Duration,
     ) -> Self {
         let (time_target, time_maximum) = match control {
-            TimeControl::Variable { .. } => Self::calculate_time(board, control),
+            TimeControl::Variable {
+                wtime,
+                btime,
+                winc,
+                binc,
+                moves_to_go,
+            } => Self::calculate_time(board, wtime, btime, winc, binc, moves_to_go),
             _ => (Duration::ZERO, Duration::ZERO),
         };
 
@@ -166,18 +172,14 @@ impl Timer {
         }
     }
 
-    fn calculate_time(board: &Board, control: TimeControl) -> (Duration, Duration) {
-        let TimeControl::Variable {
-            wtime,
-            btime,
-            winc,
-            binc,
-            moves_to_go,
-        } = control
-        else {
-            unreachable!()
-        };
-
+    fn calculate_time(
+        board: &Board,
+        wtime: Duration,
+        btime: Duration,
+        winc: Option<Duration>,
+        binc: Option<Duration>,
+        moves_to_go: Option<u32>,
+    ) -> (Duration, Duration) {
         let (time, inc) = match board.ctm() {
             Color::White => (wtime, winc),
             Color::Black => (btime, binc),

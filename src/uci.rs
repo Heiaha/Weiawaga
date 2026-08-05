@@ -6,9 +6,8 @@ use std::io::BufRead;
 use std::str::FromStr;
 use std::sync::LazyLock;
 use std::sync::{
-    Arc,
     atomic::{AtomicBool, Ordering},
-    mpsc,
+    mpsc, Arc,
 };
 use std::time::Duration;
 use std::{io, thread};
@@ -104,8 +103,21 @@ impl EngineOption {
     pub const MULTIPV_MAX: usize = 255;
     pub const MULTIPV_DEFAULT: usize = 1;
 
-    fn parse_bool(value: String) -> Result<bool, &'static str> {
-        match value.trim().to_ascii_lowercase().as_str() {
+    fn parse_value<T: FromStr>(value: Option<String>) -> Result<T, &'static str> {
+        value
+            .ok_or("No option value specified.")?
+            .trim()
+            .parse()
+            .map_err(|_| "Unable to parse option value.")
+    }
+
+    fn parse_bool(value: Option<String>) -> Result<bool, &'static str> {
+        match value
+            .ok_or("No option value specified.")?
+            .trim()
+            .to_ascii_lowercase()
+            .as_str()
+        {
             "true" | "on" | "1" => Ok(true),
             "false" | "off" | "0" => Ok(false),
             _ => Err("Unrecognized boolean value."),
@@ -137,51 +149,16 @@ impl FromStr for EngineOption {
 
         let value = re_captures.name("value").map(|m| m.as_str().to_string());
 
-        let result = match name.as_str() {
-            "Hash" => {
-                let mb = value
-                    .ok_or("No mb value specified.")?
-                    .parse::<usize>()
-                    .map_err(|_| "Unable to parse hash mb.")?;
-                Self::Hash(mb)
-            }
-            "Threads" => {
-                let num_threads = value
-                    .ok_or("No threads value specified.")?
-                    .parse::<u16>()
-                    .map_err(|_| "Unable to parse number of threads.")?;
-                Self::Threads(num_threads)
-            }
-            "Move Overhead" => {
-                let ms = value
-                    .ok_or("No overhead value specified.")?
-                    .parse::<u64>()
-                    .map_err(|_| "Unable to parse overhead ms.")?;
-                let overhead = Duration::from_millis(ms);
-                Self::MoveOverhead(overhead)
-            }
-            "Ponder" => {
-                let enabled = Self::parse_bool(value.ok_or("No ponder value specified.")?)?;
-                Self::Ponder(enabled)
-            }
-            "UCI_ShowWDL" => {
-                let enabled = Self::parse_bool(value.ok_or("No wdl value specified.")?)?;
-                Self::ShowWDL(enabled)
-            }
-            "MultiPV" => {
-                let n = value
-                    .ok_or("No multipv value specified.")?
-                    .parse::<usize>()
-                    .map_err(|_| "Unable to parse multipv count.")?;
-                Self::MultiPV(n)
-            }
+        Ok(match name.as_str() {
+            "Hash" => Self::Hash(Self::parse_value(value)?),
+            "Threads" => Self::Threads(Self::parse_value(value)?),
+            "Move Overhead" => Self::MoveOverhead(Duration::from_millis(Self::parse_value(value)?)),
+            "Ponder" => Self::Ponder(Self::parse_bool(value)?),
+            "UCI_ShowWDL" => Self::ShowWDL(Self::parse_bool(value)?),
+            "MultiPV" => Self::MultiPV(Self::parse_value(value)?),
             "Clear Hash" => Self::ClearHash,
-            _ => {
-                return Err("Unable to parse option.");
-            }
-        };
-
-        Ok(result)
+            _ => return Err("Unable to parse option."),
+        })
     }
 }
 
