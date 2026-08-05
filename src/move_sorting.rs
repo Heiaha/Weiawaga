@@ -152,6 +152,10 @@ impl MoveScorer {
         self.history_scores[ctm][m.from_sq()][m.to_sq()]
     }
 
+    pub fn piece_value(pt: PieceType) -> i32 {
+        Self::SEE_PIECE_TYPE[pt]
+    }
+
     pub fn see(board: &Board, m: Move, threshold: i32) -> bool {
         if m.promotion().is_some() {
             return true;

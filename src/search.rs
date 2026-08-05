@@ -8,6 +8,7 @@ use super::board::*;
 use super::moov::*;
 use super::move_list::*;
 use super::move_sorting::*;
+use super::piece::*;
 use super::timer::*;
 use super::tt::*;
 use super::types::*;
@@ -364,16 +365,18 @@ impl<'a> Search<'a> {
         let mut quiets_tried = ArrayVec::<Move, MAX_MOVES>::new();
 
         let mut moves = MoveList::from::<false>(board);
-        let sorter = self.scorer.create_sorter::<false>(
-            &mut moves,
-            board,
-            ply,
-            tt_entry.and_then(|entry| entry.best_move()),
-        );
+        let mut sorter = self
+            .scorer
+            .create_sorter::<false>(
+                &mut moves,
+                board,
+                ply,
+                tt_entry.and_then(|entry| entry.best_move()),
+            )
+            .enumerate();
 
-        for (idx, m) in sorter
-            .enumerate()
-            .filter(|&(idx, m)| Self::searchable(m, idx, futile, excluded_move))
+        while let Some((idx, m)) =
+            sorter.find(|&(idx, m)| Self::searchable(m, idx, futile, excluded_move))
         {
             let extension = match tt_entry
                 .filter(|&entry| Self::can_singular_extend(entry, m, depth, excluded_move))
@@ -520,7 +523,7 @@ impl<'a> Search<'a> {
         alpha = alpha.max(eval);
 
         let mut moves = MoveList::from::<true>(board);
-        let sorter = self.scorer.create_sorter::<true>(
+        let mut sorter = self.scorer.create_sorter::<true>(
             &mut moves,
             board,
             ply,
@@ -531,11 +534,7 @@ impl<'a> Search<'a> {
         let mut best_move = None;
         let mut best_value = eval;
 
-        for m in sorter {
-            if !MoveScorer::see(board, m, 0) {
-                continue;
-            }
-
+        while let Some(m) = sorter.find(|&m| Self::q_searchable(board, m, eval, alpha)) {
             board.push(m);
             let value = -self.q_search(board, -beta, -alpha, ply + 1);
             board.pop();
@@ -602,6 +601,15 @@ impl<'a> Search<'a> {
             && !is_pv
             && !beta.is_checkmate()
             && excluded_move.is_none()
+    }
+
+    fn q_searchable(board: &Board, m: Move, eval: i32, alpha: i32) -> bool {
+        (!Self::can_apply_delta(m, alpha) || eval + Self::delta_margin(board, m) > alpha)
+            && MoveScorer::see(board, m, 0)
+    }
+
+    fn can_apply_delta(m: Move, alpha: i32) -> bool {
+        m.is_capture() && m.promotion().is_none() && !alpha.is_checkmate()
     }
 
     fn can_apply_futility(
@@ -676,6 +684,17 @@ impl<'a> Search<'a> {
 
     fn futility_margin(depth: i8) -> i32 {
         Self::FUTILITY_MARGIN_MULTIPLIER * (depth as i32)
+    }
+
+    fn delta_margin(board: &Board, m: Move) -> i32 {
+        let captured = if m.is_ep() {
+            PieceType::Pawn
+        } else {
+            board
+                .piece_type_at(m.to_sq())
+                .expect("No captured piece in delta margin.")
+        };
+        MoveScorer::piece_value(captured) + Self::DELTA_MARGIN
     }
 
     fn rfp_margin(depth: i8, improving: bool) -> i32 {
@@ -812,6 +831,7 @@ impl Search<'_> {
     const RFP_MAX_DEPTH: i8 = 9;
     const FUTILITY_MAX_DEPTH: i8 = 6;
     const FUTILITY_MARGIN_MULTIPLIER: i32 = 100;
+    const DELTA_MARGIN: i32 = 200;
     const RFP_MARGIN_MULTIPLIER: i32 = 63;
     const RFP_IMPROVING_MARGIN: i32 = 30;
     const ASPIRATION_WINDOW: i32 = 16;
