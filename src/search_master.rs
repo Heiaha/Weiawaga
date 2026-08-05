@@ -5,9 +5,9 @@ use super::timer::*;
 use super::tt::*;
 use super::uci::*;
 use std::io::Write;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::Receiver;
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
@@ -176,27 +176,36 @@ impl SearchMaster {
         self.tt.age_up();
     }
 
+    fn checked<T: PartialOrd>(
+        value: T,
+        range: std::ops::RangeInclusive<T>,
+        err: &'static str,
+    ) -> Result<T, &'static str> {
+        range.contains(&value).then_some(value).ok_or(err)
+    }
+
     fn set_option(&mut self, engine_option: EngineOption) -> Result<(), &'static str> {
         match engine_option {
             EngineOption::Hash(mb) => {
-                if !(EngineOption::HASH_MIN..=EngineOption::HASH_MAX).contains(&mb) {
-                    return Err("Hash size out of range.");
-                }
-                self.tt = TT::new(mb);
+                self.tt = TT::new(Self::checked(
+                    mb,
+                    EngineOption::HASH_MIN..=EngineOption::HASH_MAX,
+                    "Hash size out of range.",
+                )?);
             }
             EngineOption::Threads(n_threads) => {
-                if !(EngineOption::THREADS_MIN..=EngineOption::THREADS_MAX).contains(&n_threads) {
-                    return Err("Threads out of range.");
-                }
-                self.n_threads = n_threads;
+                self.n_threads = Self::checked(
+                    n_threads,
+                    EngineOption::THREADS_MIN..=EngineOption::THREADS_MAX,
+                    "Threads out of range.",
+                )?;
             }
             EngineOption::MoveOverhead(overhead) => {
-                if !(EngineOption::MOVE_OVERHEAD_MIN..=EngineOption::MOVE_OVERHEAD_MAX)
-                    .contains(&overhead)
-                {
-                    return Err("Move overhead out of range.");
-                }
-                self.overhead = overhead;
+                self.overhead = Self::checked(
+                    overhead,
+                    EngineOption::MOVE_OVERHEAD_MIN..=EngineOption::MOVE_OVERHEAD_MAX,
+                    "Move overhead out of range.",
+                )?;
             }
             EngineOption::Ponder(ponder_enabled) => {
                 self.ponder_enabled = ponder_enabled;
@@ -205,10 +214,11 @@ impl SearchMaster {
                 self.show_wdl = show_wdl;
             }
             EngineOption::MultiPV(multi_pv) => {
-                if !(EngineOption::MULTIPV_MIN..=EngineOption::MULTIPV_MAX).contains(&multi_pv) {
-                    return Err("MultiPV out of range.");
-                }
-                self.multi_pv = multi_pv;
+                self.multi_pv = Self::checked(
+                    multi_pv,
+                    EngineOption::MULTIPV_MIN..=EngineOption::MULTIPV_MAX,
+                    "MultiPV out of range.",
+                )?;
             }
             EngineOption::ClearHash => {
                 self.tt.clear();

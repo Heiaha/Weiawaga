@@ -20,10 +20,6 @@ impl Iterator for MoveSorter<'_> {
     type Item = Move;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.idx >= self.moves.len() {
-            return None;
-        }
-
         let max_idx = (self.idx..self.moves.len()).max_by_key(|&i| self.scores[i])?;
         self.moves.swap(self.idx, max_idx);
         self.scores.swap(self.idx, max_idx);
