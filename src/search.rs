@@ -355,6 +355,9 @@ impl<'a> Search<'a> {
             depth -= Self::IID_DEPTH_REDUCTION;
         }
 
+        let futile = Self::can_apply_futility(depth, in_check, is_pv, alpha, excluded_move)
+            && static_eval + Self::futility_margin(depth) <= alpha;
+
         let mut tt_flag = Bound::Upper;
         let mut best_move = None;
         let mut best_value = -i32::MATE;
@@ -368,11 +371,10 @@ impl<'a> Search<'a> {
             tt_entry.and_then(|entry| entry.best_move()),
         );
 
-        for (idx, m) in sorter.enumerate() {
-            if Some(m) == excluded_move {
-                continue;
-            }
-
+        for (idx, m) in sorter
+            .enumerate()
+            .filter(|&(idx, m)| Self::searchable(m, idx, futile, excluded_move))
+        {
             let extension = match tt_entry
                 .filter(|&entry| Self::can_singular_extend(entry, m, depth, excluded_move))
                 .map_or(ControlFlow::Continue(0), |entry| {
@@ -602,6 +604,24 @@ impl<'a> Search<'a> {
             && excluded_move.is_none()
     }
 
+    fn can_apply_futility(
+        depth: i8,
+        in_check: bool,
+        is_pv: bool,
+        alpha: i32,
+        excluded_move: Option<Move>,
+    ) -> bool {
+        depth <= Self::FUTILITY_MAX_DEPTH
+            && !in_check
+            && !is_pv
+            && !alpha.is_checkmate()
+            && excluded_move.is_none()
+    }
+
+    fn searchable(m: Move, idx: usize, futile: bool, excluded_move: Option<Move>) -> bool {
+        Some(m) != excluded_move && !(futile && idx > 0 && m.is_quiet())
+    }
+
     fn can_apply_lmr(m: Move, depth: i8, move_index: usize) -> bool {
         depth >= Self::LMR_MIN_DEPTH && move_index >= Self::LMR_MOVE_WO_REDUCTION && m.is_quiet()
     }
@@ -652,6 +672,10 @@ impl<'a> Search<'a> {
     fn null_reduction(depth: i8) -> i8 {
         // Idea of dividing in null move depth taken from Cosette
         Self::NULL_MIN_DEPTH_REDUCTION + (depth - Self::NULL_MIN_DEPTH) / Self::NULL_DEPTH_DIVIDER
+    }
+
+    fn futility_margin(depth: i8) -> i32 {
+        Self::FUTILITY_MARGIN_MULTIPLIER * (depth as i32)
     }
 
     fn rfp_margin(depth: i8, improving: bool) -> i32 {
@@ -786,6 +810,8 @@ impl<'a> Search<'a> {
 impl Search<'_> {
     const PRINT_CURRMOVENUMBER_TIME: Duration = Duration::from_millis(3000);
     const RFP_MAX_DEPTH: i8 = 9;
+    const FUTILITY_MAX_DEPTH: i8 = 6;
+    const FUTILITY_MARGIN_MULTIPLIER: i32 = 100;
     const RFP_MARGIN_MULTIPLIER: i32 = 63;
     const RFP_IMPROVING_MARGIN: i32 = 30;
     const ASPIRATION_WINDOW: i32 = 16;
