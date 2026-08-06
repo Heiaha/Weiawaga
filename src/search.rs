@@ -463,6 +463,8 @@ impl<'a> Search<'a> {
     }
 
     fn q_search(&mut self, board: &mut Board, mut alpha: i32, mut beta: i32, ply: usize) -> i32 {
+        self.pv_table[ply].clear();
+
         if self.timer.stop_check() {
             return 0;
         }
@@ -472,6 +474,8 @@ impl<'a> Search<'a> {
         }
 
         self.sel_depth = self.sel_depth.max(ply);
+
+        let is_pv = alpha != beta - 1;
 
         let tt_entry = self.tt.get(board, ply);
         if let Some(tt_entry) = tt_entry {
@@ -521,6 +525,9 @@ impl<'a> Search<'a> {
 
                 if value > alpha {
                     best_move = Some(m);
+                    if is_pv {
+                        self.update_pv(m, ply);
+                    }
                     if value >= beta {
                         tt_flag = Bound::Lower;
                         break;
@@ -747,14 +754,8 @@ impl<'a> Search<'a> {
             drawn.or_else(|| board.is_draw().then_some(idx + 1))
         });
 
-        let mut leaf_ply = pv.len();
-        while leaf_ply > 0 && (!pv[leaf_ply - 1].is_quiet() || board.in_check()) {
-            board.pop();
-            leaf_ply -= 1;
-        }
-
-        let wdl = (leaf_ply > 0).then(|| Self::leaf_wdl(board, drawn_ply, leaf_ply));
-        for _ in 0..leaf_ply {
+        let wdl = (!pv.is_empty()).then(|| Self::leaf_wdl(board, drawn_ply, pv.len()));
+        for _ in 0..pv.len() {
             board.pop();
         }
         wdl
