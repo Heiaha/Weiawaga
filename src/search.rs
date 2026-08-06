@@ -200,11 +200,13 @@ impl<'a> Search<'a> {
             }
 
             board.push(m);
-            let value = if idx == 0 || -self.search(board, depth - 1, -alpha - 1, -alpha, 1) > alpha
-            {
+            // A value at or below alpha is only a bound; the standings
+            // may move on an exact score alone.
+            let value = if idx == 0 {
                 -self.search(board, depth - 1, -beta, -alpha, 1)
             } else {
-                -i32::MATE
+                let value = self.pvs_child(board, depth, 0, alpha, beta, 0);
+                if value > alpha { value } else { -i32::MATE }
             };
             board.pop();
 
@@ -393,45 +395,16 @@ impl<'a> Search<'a> {
                 self.tt.prefetch(board);
             }
 
-            let mut value;
-            if idx == 0 {
-                value = -self.search(board, depth + extension - 1, -beta, -alpha, ply + 1);
+            let value = if idx == 0 {
+                -self.search(board, depth + extension - 1, -beta, -alpha, ply + 1)
             } else {
-                let mut reduction = if Self::can_apply_lmr(m, depth, idx) {
+                let reduction = if Self::can_apply_lmr(m, depth, idx) {
                     Self::late_move_reduction(depth, idx)
                 } else {
                     0
                 };
-
-                loop {
-                    value = -self.search(
-                        board,
-                        depth + extension - reduction - 1,
-                        -alpha - 1,
-                        -alpha,
-                        ply + 1,
-                    );
-                    if value > alpha {
-                        value = -self.search(
-                            board,
-                            depth + extension - reduction - 1,
-                            -beta,
-                            -alpha,
-                            ply + 1,
-                        );
-                    }
-
-                    ///////////////////////////////////////////////////////////////////
-                    // A reduced depth may bring us above alpha. This is relatively
-                    // unusual, but if so we need the exact score so we do a full search.
-                    ///////////////////////////////////////////////////////////////////
-                    if reduction > 0 && value > alpha {
-                        reduction = 0;
-                    } else {
-                        break;
-                    }
-                }
-            }
+                self.pvs_child(board, depth + extension, reduction, alpha, beta, ply)
+            };
 
             board.pop();
 
@@ -675,6 +648,41 @@ impl<'a> Search<'a> {
             return ControlFlow::Continue(-1);
         }
         ControlFlow::Continue(0)
+    }
+
+    ///////////////////////////////////////////////////////////////////
+    // Zero-window probe first, then a full-window re-search when the
+    // probe clears alpha.
+    ///////////////////////////////////////////////////////////////////
+    fn pvs_child(
+        &mut self,
+        board: &mut Board,
+        depth: i8,
+        mut reduction: i8,
+        alpha: i32,
+        beta: i32,
+        ply: usize,
+    ) -> i32 {
+        let mut value;
+
+        loop {
+            value = -self.search(board, depth - reduction - 1, -alpha - 1, -alpha, ply + 1);
+            if value > alpha {
+                value = -self.search(board, depth - reduction - 1, -beta, -alpha, ply + 1);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+            // A reduced depth may bring us above alpha. This is relatively
+            // unusual, but if so we need the exact score so we do a full search.
+            ///////////////////////////////////////////////////////////////////
+            if reduction > 0 && value > alpha {
+                reduction = 0;
+            } else {
+                break;
+            }
+        }
+
+        value
     }
 
     fn null_reduction(depth: i8) -> i8 {
