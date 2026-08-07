@@ -2,6 +2,7 @@
 name = "Weiawaga"
 authors = ["Heiaha"]
 repository = "https://github.com/Heiaha/Weiawaga"
+license = "GPL-3.0-or-later"
 version = "6.0.0"
 edition = "2024"
 readme = "README.md"
