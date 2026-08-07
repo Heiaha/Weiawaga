@@ -5,9 +5,9 @@ use super::timer::*;
 use super::tt::*;
 use super::uci::*;
 use std::io::Write;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::Receiver;
-use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
