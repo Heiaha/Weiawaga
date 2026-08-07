@@ -6,8 +6,9 @@ use std::io::BufRead;
 use std::str::FromStr;
 use std::sync::LazyLock;
 use std::sync::{
+    Arc,
     atomic::{AtomicBool, Ordering},
-    mpsc, Arc,
+    mpsc,
 };
 use std::time::Duration;
 use std::{io, thread};

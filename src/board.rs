@@ -238,6 +238,11 @@ impl Board {
             != self.all_pieces_c(self.ctm)
     }
 
+    fn ep_capturable(&self, epsq: SQ, pusher: Color) -> bool {
+        attacks::pawn_attacks_sq(epsq, pusher) & self.bitboard_of(!pusher, PieceType::Pawn)
+            != Bitboard::ZERO
+    }
+
     pub fn push_null(&mut self) {
         self.ply += 1;
 
@@ -280,7 +285,8 @@ impl Board {
             }
             MoveFlags::DoublePush => {
                 self.move_piece_quiet(from_sq, to_sq);
-                epsq = Some(from_sq + Direction::North.relative(self.ctm));
+                let sq = from_sq + Direction::North.relative(self.ctm);
+                epsq = self.ep_capturable(sq, self.ctm).then_some(sq);
             }
             MoveFlags::OO => {
                 self.move_piece_quiet(SQ::E1.relative(self.ctm), SQ::G1.relative(self.ctm));
@@ -931,7 +937,8 @@ impl Board {
 
         let epsq = (en_passant_sq != "-")
             .then(|| en_passant_sq.parse())
-            .transpose()?;
+            .transpose()?
+            .filter(|&sq| self.ep_capturable(sq, !self.ctm));
 
         let half_move_counter = halfmove_clock
             .parse::<u16>()
@@ -1203,6 +1210,26 @@ mod tests {
                 assert_ne!(a.hash(), b.hash());
             }
         }
+    }
+
+    #[test]
+    fn epsq_requires_a_capturer() {
+        let mut board = Board::new();
+        board.push_str("e2e4").unwrap();
+        let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq";
+        let stale = format!("{fen} e3 0 1").parse::<Board>().unwrap();
+        let clean = format!("{fen} - 0 1").parse::<Board>().unwrap();
+        assert_eq!(board.hash(), clean.hash());
+        assert_eq!(stale.hash(), clean.hash());
+
+        for m in ["e7e6", "e4e5", "d7d5"] {
+            board.push_str(m).unwrap();
+        }
+        let fen = "rnbqkbnr/ppp2ppp/4p3/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq";
+        let live = format!("{fen} d6 0 3").parse::<Board>().unwrap();
+        let bare = format!("{fen} - 0 3").parse::<Board>().unwrap();
+        assert_eq!(board.hash(), live.hash());
+        assert_ne!(live.hash(), bare.hash());
     }
 
     #[test]

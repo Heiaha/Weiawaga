@@ -74,6 +74,12 @@ impl TTEntry {
         let cleared = self.0 & !(Self::VALUE_MASK << Self::VALUE_SHIFT);
         Self(cleared | value16)
     }
+
+    const fn with_age(self, age: u8) -> Self {
+        let age6 = ((age & Self::AGE_MASK as u8) as u64) << Self::AGE_SHIFT;
+        let cleared = self.0 & !(Self::AGE_MASK << Self::AGE_SHIFT);
+        Self(cleared | age6)
+    }
 }
 
 impl TTEntry {
@@ -94,16 +100,49 @@ impl TTEntry {
 // Transposition Table
 ///////////////////////////////////////////////////////////////////
 
+const BUCKET_SIZE: usize = 4;
+
+// Half a cache line, so a bucket never straddles lines and one prefetch
+// covers all of its entries.
+#[repr(align(32))]
+struct Bucket([AtomicU64; BUCKET_SIZE]);
+
+impl Bucket {
+    fn probe(&self, key: u64, age: u8) -> Option<TTEntry> {
+        self.0.iter().find_map(|aentry| {
+            let data = aentry.load(Ordering::Relaxed);
+            let entry = TTEntry(data);
+            (data != 0 && entry.key() == key).then(|| {
+                // Refresh the raw word: the caller rebases mate values to
+                // its ply, and those must not be written back.
+                if entry.age() != age {
+                    aentry.store(entry.with_age(age).0, Ordering::Relaxed);
+                }
+                entry
+            })
+        })
+    }
+
+    fn find(&self, key: u64) -> Option<&AtomicU64> {
+        self.0.iter().find(|aentry| {
+            let data = aentry.load(Ordering::Relaxed);
+            data != 0 && TTEntry(data).key() == key
+        })
+    }
+}
+
 pub struct TT {
-    table: Vec<AtomicU64>,
+    table: Vec<Bucket>,
     age: u8,
 }
 
 impl TT {
     pub fn new(megabytes: usize) -> Self {
-        let upper_limit = megabytes * 1024 * 1024 / size_of::<AtomicU64>() + 1;
+        let upper_limit = megabytes * 1024 * 1024 / size_of::<Bucket>() + 1;
         let count = upper_limit.next_power_of_two() / 2;
-        let table = (0..count).map(|_| AtomicU64::new(0)).collect();
+        let table = (0..count)
+            .map(|_| Bucket([const { AtomicU64::new(0) }; BUCKET_SIZE]))
+            .collect();
 
         TT { table, age: 0 }
     }
@@ -118,55 +157,71 @@ impl TT {
         ply: usize,
     ) {
         let hash = board.hash();
-        let idx = (hash as usize) & (self.table.len() - 1);
-        debug_assert!(idx < self.table.len());
+        let bucket = self.bucket(hash);
 
-        let aentry = &self.table[idx];
-        let data = aentry.load(Ordering::Relaxed);
-        let entry = (data != 0).then_some(TTEntry(data));
-
-        if entry.is_none_or(|entry| {
-            bound == Bound::Exact
-                || self.age != entry.age()
-                || depth >= entry.depth() - Self::DEPTH_MARGIN
-        }) {
-            if value.is_checkmate() {
-                value += value.signum() * ply as i32;
+        let slot = match bucket.find(hash >> TTEntry::KEY_SHIFT) {
+            Some(aentry) => {
+                let entry = TTEntry(aentry.load(Ordering::Relaxed));
+                if !self.should_replace(entry, depth, bound) {
+                    return;
+                }
+                aentry
             }
+            // None sorts below Some, so empty slots are the preferred victims.
+            None => bucket
+                .0
+                .iter()
+                .min_by_key(|aentry| {
+                    let data = aentry.load(Ordering::Relaxed);
+                    (data != 0).then(|| self.quality(TTEntry(data)))
+                })
+                .unwrap(),
+        };
 
-            aentry.store(
-                TTEntry::new(hash, value, best_move, depth, bound, self.age).0,
-                Ordering::Relaxed,
-            );
+        if value.is_checkmate() {
+            value += value.signum() * ply as i32;
         }
+
+        slot.store(
+            TTEntry::new(hash, value, best_move, depth, bound, self.age).0,
+            Ordering::Relaxed,
+        );
     }
 
     pub fn get(&self, board: &Board, ply: usize) -> Option<TTEntry> {
         let hash = board.hash();
-        let idx = (hash as usize) & (self.table.len() - 1);
-        debug_assert!(idx < self.table.len());
 
-        let data = self.table[idx].load(Ordering::Relaxed);
-        if data == 0 {
-            return None;
-        }
+        self.bucket(hash)
+            .probe(hash >> TTEntry::KEY_SHIFT, self.age)
+            .map(|entry| {
+                let value = entry.value();
+                if value.is_checkmate() {
+                    entry.with_value(value - value.signum() * ply as i32)
+                } else {
+                    entry
+                }
+            })
+    }
 
-        let mut entry = TTEntry(data);
-        if entry.key() != hash >> TTEntry::KEY_SHIFT {
-            return None;
-        }
+    fn bucket(&self, hash: u64) -> &Bucket {
+        &self.table[(hash as usize) & (self.table.len() - 1)]
+    }
 
-        let value = entry.value();
-        if value.is_checkmate() {
-            entry = entry.with_value(value - value.signum() * ply as i32);
-        }
+    fn should_replace(&self, entry: TTEntry, depth: i8, bound: Bound) -> bool {
+        bound == Bound::Exact
+            || self.age != entry.age()
+            || depth >= entry.depth() - Self::DEPTH_MARGIN
+    }
 
-        Some(entry)
+    fn quality(&self, entry: TTEntry) -> i32 {
+        let relative_age = (self.age.wrapping_sub(entry.age()) & TTEntry::AGE_MASK as u8) as i32;
+        entry.depth() as i32 - Self::AGE_PENALTY * relative_age
     }
 
     pub fn clear(&self) {
         self.table
             .iter()
+            .flat_map(|bucket| bucket.0.iter())
             .for_each(|entry| entry.store(0, Ordering::Relaxed));
     }
 
@@ -178,7 +233,8 @@ impl TT {
         // Sample the first 1000 entries to estimate how full the table is.
         self.table
             .iter()
-            .take(1000)
+            .take(1000 / BUCKET_SIZE)
+            .flat_map(|bucket| bucket.0.iter())
             .filter(|&aentry| {
                 let data = aentry.load(Ordering::Relaxed);
                 data != 0 && TTEntry(data).age() == self.age
@@ -190,13 +246,13 @@ impl TT {
     pub fn prefetch(&self, board: &Board) {
         #[cfg(target_arch = "x86_64")]
         unsafe {
-            let ptr = &self.table[(board.hash() as usize) & (self.table.len() - 1)]
-                as *const AtomicU64 as *const i8;
+            let ptr = self.bucket(board.hash()) as *const Bucket as *const i8;
             x86_64::_mm_prefetch(ptr, x86_64::_MM_HINT_T0);
         }
     }
 }
 
 impl TT {
+    const AGE_PENALTY: i32 = 8;
     const DEPTH_MARGIN: i8 = 2;
 }
