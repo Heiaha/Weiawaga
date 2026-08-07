@@ -106,12 +106,12 @@ impl<const IN: usize> WdlLayer<IN> {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
-struct FeatureCtx {
+struct Perspective {
     bucket: usize,
     mirrored: bool,
 }
 
-impl FeatureCtx {
+impl Perspective {
     fn new(ksq_rel: SQ) -> Self {
         let mirrored = ksq_rel.file() >= File::E;
         let ksq_norm = if mirrored { ksq_rel.hmirror() } else { ksq_rel };
@@ -146,7 +146,7 @@ impl FeatureCtx {
 struct Accumulator {
     acc: ColorMap<[i16x32; Network::L1 / Network::LANES]>,
     pop_count: i16,
-    ctx: ColorMap<FeatureCtx>,
+    perspectives: ColorMap<Perspective>,
 }
 
 #[derive(Clone, Copy)]
@@ -198,7 +198,7 @@ impl Network {
                 Accumulator {
                     acc: ColorMap::new([*input_bias; Color::COUNT]),
                     pop_count: 0,
-                    ctx: ColorMap::default(),
+                    perspectives: ColorMap::default(),
                 };
                 Self::N_ACCUMULATORS
             ],
@@ -232,11 +232,11 @@ impl Network {
     pub fn move_piece_quiet(&mut self, pc: Piece, from_sq: SQ, to_sq: SQ) {
         let cur = &mut self.stack[self.idx];
         for color in [Color::White, Color::Black] {
-            let ctx = cur.ctx[color];
-            let from_idx = ctx.feature_idx(pc, from_sq, color);
-            let to_idx = ctx.feature_idx(pc, to_sq, color);
+            let perspective = cur.perspectives[color];
+            let from_idx = perspective.feature_idx(pc, from_sq, color);
+            let to_idx = perspective.feature_idx(pc, to_sq, color);
 
-            self.input_layers[ctx.bucket].add_sub(to_idx, from_idx, &mut cur.acc[color]);
+            self.input_layers[perspective.bucket].add_sub(to_idx, from_idx, &mut cur.acc[color]);
         }
     }
 
@@ -244,35 +244,35 @@ impl Network {
         let cur = &mut self.stack[self.idx];
 
         for color in [Color::White, Color::Black] {
-            let ctx = cur.ctx[color];
-            let idx = ctx.feature_idx(pc, sq, color);
+            let perspective = cur.perspectives[color];
+            let idx = perspective.feature_idx(pc, sq, color);
 
-            self.input_layers[ctx.bucket].update::<SIGN>(idx, &mut cur.acc[color]);
+            self.input_layers[perspective.bucket].update::<SIGN>(idx, &mut cur.acc[color]);
         }
         cur.pop_count += SIGN;
     }
 
     pub fn needs_refresh(&self, color: Color, ksq_rel: SQ) -> bool {
-        self.stack[self.idx].ctx[color] != FeatureCtx::new(ksq_rel)
+        self.stack[self.idx].perspectives[color] != Perspective::new(ksq_rel)
     }
 
     pub fn refresh(&mut self, color: Color, ksq_rel: SQ, pieces: &PieceMap<Bitboard>) {
-        let ctx = FeatureCtx::new(ksq_rel);
-        let layer = &self.input_layers[ctx.bucket];
-        let entry = &mut self.cache[color][ctx.bucket][ctx.mirrored as usize];
+        let perspective = Perspective::new(ksq_rel);
+        let layer = &self.input_layers[perspective.bucket];
+        let entry = &mut self.cache[color][perspective.bucket][perspective.mirrored as usize];
 
         for pc in Piece::iter() {
             for sq in pieces[pc] & !entry.pieces[pc] {
-                layer.update::<1>(ctx.feature_idx(pc, sq, color), &mut entry.acc);
+                layer.update::<1>(perspective.feature_idx(pc, sq, color), &mut entry.acc);
             }
             for sq in entry.pieces[pc] & !pieces[pc] {
-                layer.update::<-1>(ctx.feature_idx(pc, sq, color), &mut entry.acc);
+                layer.update::<-1>(perspective.feature_idx(pc, sq, color), &mut entry.acc);
             }
             entry.pieces[pc] = pieces[pc];
         }
 
         let cur = &mut self.stack[self.idx];
-        cur.ctx[color] = ctx;
+        cur.perspectives[color] = perspective;
         cur.acc[color] = entry.acc;
     }
 
@@ -335,8 +335,8 @@ impl Network {
 mod tests {
     use super::*;
 
-    fn flat_idx(pc: Piece, sq: SQ, color: Color, ctx: FeatureCtx) -> usize {
-        ctx.bucket * Network::N_INPUTS + ctx.feature_idx(pc, sq, color)
+    fn flat_idx(pc: Piece, sq: SQ, color: Color, perspective: Perspective) -> usize {
+        perspective.bucket * Network::N_INPUTS + perspective.feature_idx(pc, sq, color)
     }
 
     #[test]
@@ -344,14 +344,14 @@ mod tests {
         let wk = Piece::make_piece(Color::White, PieceType::King);
         let bk = Piece::make_piece(Color::Black, PieceType::King);
 
-        let w_ctx = FeatureCtx::new(SQ::B1);
-        let b_ctx = FeatureCtx::new(SQ::G8.relative(Color::Black));
+        let w_perspective = Perspective::new(SQ::B1);
+        let b_perspective = Perspective::new(SQ::G8.relative(Color::Black));
 
-        assert_eq!(flat_idx(wk, SQ::B1, Color::White, w_ctx), 321);
-        assert_eq!(flat_idx(bk, SQ::G8, Color::White, w_ctx), 766);
+        assert_eq!(flat_idx(wk, SQ::B1, Color::White, w_perspective), 321);
+        assert_eq!(flat_idx(bk, SQ::G8, Color::White, w_perspective), 766);
 
-        assert_eq!(flat_idx(wk, SQ::B1, Color::Black, b_ctx), 766);
-        assert_eq!(flat_idx(bk, SQ::G8, Color::Black, b_ctx), 321);
+        assert_eq!(flat_idx(wk, SQ::B1, Color::Black, b_perspective), 766);
+        assert_eq!(flat_idx(bk, SQ::G8, Color::Black, b_perspective), 321);
     }
 
     #[test]
@@ -359,17 +359,17 @@ mod tests {
         let wk = Piece::make_piece(Color::White, PieceType::King);
         let bk = Piece::make_piece(Color::Black, PieceType::King);
 
-        let w_ctx = FeatureCtx::new(SQ::D5);
-        let b_ctx = FeatureCtx::new(SQ::G8.relative(Color::Black));
+        let w_perspective = Perspective::new(SQ::D5);
+        let b_perspective = Perspective::new(SQ::G8.relative(Color::Black));
 
-        assert_eq!(w_ctx.bucket, 3);
-        assert_eq!(b_ctx.bucket, 0);
+        assert_eq!(w_perspective.bucket, 3);
+        assert_eq!(b_perspective.bucket, 0);
 
-        assert_eq!(flat_idx(bk, SQ::G8, Color::White, w_ctx), 3070);
-        assert_eq!(flat_idx(wk, SQ::D5, Color::White, w_ctx), 2659);
+        assert_eq!(flat_idx(bk, SQ::G8, Color::White, w_perspective), 3070);
+        assert_eq!(flat_idx(wk, SQ::D5, Color::White, w_perspective), 2659);
 
-        assert_eq!(flat_idx(bk, SQ::G8, Color::Black, b_ctx), 321);
-        assert_eq!(flat_idx(wk, SQ::D5, Color::Black, b_ctx), 732);
+        assert_eq!(flat_idx(bk, SQ::G8, Color::Black, b_perspective), 321);
+        assert_eq!(flat_idx(wk, SQ::D5, Color::Black, b_perspective), 732);
     }
 
     #[test]
