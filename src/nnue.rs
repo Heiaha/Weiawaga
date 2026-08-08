@@ -127,7 +127,7 @@ impl Perspective {
 struct Delta {
     m: Move,
     pc: Piece,
-    captured: Option<Piece>,
+    captured_pc: Option<Piece>,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -239,7 +239,11 @@ impl Network {
         self.frames[self.idx] = Frame {
             perspectives,
             computed: ColorMap::default(),
-            delta: Some(Delta { m, pc, captured }),
+            delta: Some(Delta {
+                m,
+                pc,
+                captured_pc: captured,
+            }),
         };
     }
 
@@ -306,7 +310,7 @@ impl Network {
     fn materialize_ply(&mut self, i: usize, color: Color) {
         debug_assert!(i > 0, "The root has no parent to materialize from.");
         let frame = self.frames[i];
-        let Delta { m, pc, captured } = frame
+        let Delta { m, pc, captured_pc } = frame
             .delta
             .expect("Uncomputed non-root ply must carry a delta.");
         let perspective = frame.perspectives[color];
@@ -340,12 +344,12 @@ impl Network {
             }
             MoveFlags::EnPassant => {
                 let captured_pc = Piece::make_piece(!pc_color, PieceType::Pawn);
-                let victim_sq = to_sq + Direction::South.relative(pc_color);
-                acc.update::<-1>(emb(captured_pc, victim_sq));
+                let captured_sq = to_sq + Direction::South.relative(pc_color);
+                acc.update::<-1>(emb(captured_pc, captured_sq));
             }
             _ => {
-                if let Some(victim) = captured {
-                    acc.update::<-1>(emb(victim, to_sq));
+                if let Some(captured_pc) = captured_pc {
+                    acc.update::<-1>(emb(captured_pc, to_sq));
                 }
             }
         }
