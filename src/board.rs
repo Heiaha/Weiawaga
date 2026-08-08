@@ -48,7 +48,6 @@ impl Board {
 
     #[inline(always)]
     fn set_piece_at(&mut self, pc: Piece, sq: SQ) {
-        self.network.activate(pc, sq);
         self.material_hash ^= ZOBRIST.update_hash(pc, sq);
 
         let bb = sq.bb();
@@ -61,7 +60,6 @@ impl Board {
     fn remove_piece(&mut self, sq: SQ) -> Option<Piece> {
         let pc = self.board[sq]?;
 
-        self.network.deactivate(pc, sq);
         self.material_hash ^= ZOBRIST.update_hash(pc, sq);
 
         let bb_mask = !sq.bb();
@@ -76,7 +74,6 @@ impl Board {
     fn move_piece_quiet(&mut self, from_sq: SQ, to_sq: SQ) {
         let pc = self.board[from_sq].expect("Tried to move a piece off an empty square");
 
-        self.network.move_piece_quiet(pc, from_sq, to_sq);
         self.material_hash ^= ZOBRIST.move_hash(pc, from_sq, to_sq);
 
         let mask = from_sq.bb() | to_sq.bb();
@@ -86,24 +83,32 @@ impl Board {
         self.board[from_sq] = None;
     }
 
-    pub fn eval(&self) -> i32 {
-        self.network.eval(self.ctm)
+    pub fn eval(&mut self) -> i32 {
+        let pieces = self.piece_map();
+        self.network.eval(self.ctm, &pieces)
     }
 
-    pub fn wdl(&self) -> [f32; 3] {
-        self.network.wdl(self.ctm)
+    pub fn wdl(&mut self) -> [f32; 3] {
+        let pieces = self.piece_map();
+        self.network.wdl(self.ctm, &pieces)
     }
 
-    fn refresh_network_if_needed(&mut self, color: Color) {
-        let king_bb = self.bitboard_of(color, PieceType::King);
+    fn piece_map(&self) -> PieceMap<Bitboard> {
+        let mut pieces = PieceMap::default();
+        for pc in Piece::iter() {
+            pieces[pc] = self.bitboard_of_pc(pc);
+        }
+        pieces
+    }
 
-        let ksq_rel = king_bb.lsb().relative(color);
-        if self.network.needs_refresh(color, ksq_rel) {
-            let mut pieces = PieceMap::default();
-            for pc in Piece::iter() {
-                pieces[pc] = self.bitboard_of_pc(pc);
-            }
-            self.network.refresh(color, ksq_rel, &pieces);
+    fn reset_network(&mut self) {
+        let pieces = self.piece_map();
+        for color in [Color::White, Color::Black] {
+            let ksq_rel = self
+                .bitboard_of(color, PieceType::King)
+                .lsb()
+                .relative(color);
+            self.network.reset_perspective(color, ksq_rel, &pieces);
         }
     }
 
@@ -264,18 +269,17 @@ impl Board {
         self.ctm = !self.ctm;
     }
 
-    // The NNUE stack is copy-make: the piece helpers write to the current
-    // network ply unconditionally, and in pop() those writes land on the ply
-    // that network.pop() then discards.
     pub fn push(&mut self, m: Move) {
         let mut half_move_counter = self.history[self.ply].half_move_counter + 1;
         let mut captured = None;
         let mut epsq = None;
         let (from_sq, to_sq) = m.squares();
+        let pc = self
+            .piece_at(from_sq)
+            .expect("Tried to push a move from an empty square");
         self.ply += 1;
-        self.network.push();
 
-        if self.piece_type_at(from_sq) == Some(PieceType::Pawn) {
+        if pc.type_of() == PieceType::Pawn {
             half_move_counter = 0;
         }
 
@@ -323,7 +327,7 @@ impl Board {
             }
         };
 
-        self.refresh_network_if_needed(self.ctm);
+        self.network.push(m, pc, captured);
 
         self.history[self.ply] = HistoryEntry {
             rights: self.history[self.ply - 1]
@@ -932,8 +936,7 @@ impl Board {
             }
         }
 
-        self.refresh_network_if_needed(Color::White);
-        self.refresh_network_if_needed(Color::Black);
+        self.reset_network();
 
         let epsq = (en_passant_sq != "-")
             .then(|| en_passant_sq.parse())

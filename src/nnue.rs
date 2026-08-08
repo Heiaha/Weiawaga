@@ -1,4 +1,5 @@
 use super::bitboard::*;
+use super::moov::*;
 use super::piece::*;
 use super::square::*;
 use super::traits::*;
@@ -22,31 +23,16 @@ impl Cursor {
     }
 }
 
-#[derive(Clone)]
-struct Embedding<const N: usize, const D: usize> {
-    weights: &'static [[i16x32; D]; N],
+type Embedding = [i16x32; Network::L1 / Network::LANES];
+
+fn clipped_relu(x: i16x32) -> i16x32 {
+    x.max(i16x32::ZERO)
+        .min(i16x32::splat(Network::INPUT_SCALE as i16))
 }
 
-impl<const N: usize, const D: usize> Embedding<N, D> {
-    const fn new(weights: &'static [[i16x32; D]; N]) -> Self {
-        Self { weights }
-    }
-
-    fn update<const SIGN: i16>(&self, idx: usize, acc: &mut [i16x32; D]) {
-        acc.iter_mut()
-            .zip(self.weights[idx].iter())
-            .for_each(|(act, &w)| *act += SIGN * w);
-    }
-
-    fn add_sub(&self, add_idx: usize, sub_idx: usize, acc: &mut [i16x32; D]) {
-        acc.iter_mut()
-            .zip(
-                self.weights[add_idx]
-                    .iter()
-                    .zip(self.weights[sub_idx].iter()),
-            )
-            .for_each(|(act, (&w_add, &w_sub))| *act += w_add - w_sub);
-    }
+#[derive(Clone)]
+struct Embeddings {
+    weights: &'static [Embedding; Network::N_INPUTS],
 }
 
 #[derive(Clone)]
@@ -56,10 +42,6 @@ struct Linear<const IN: usize, const OUT: usize> {
 }
 
 impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
-    const fn new(weights: &'static [i16x32; IN], biases: &'static [i16; OUT]) -> Self {
-        Self { weights, biases }
-    }
-
     // Fused clipped-relu-square dot product over both perspective halves,
     // side to move first. Returns the raw quantized sum; scaling and the
     // bias are the caller's concern.
@@ -70,7 +52,7 @@ impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
             acts.iter()
                 .zip(weights)
                 .map(|(&act, &w)| {
-                    let clamped = Network::clipped_relu(act);
+                    let clamped = clipped_relu(act);
                     (w * clamped).dot(clamped)
                 })
                 .sum()
@@ -87,10 +69,6 @@ struct WdlLayer<const IN: usize> {
 }
 
 impl<const IN: usize> WdlLayer<IN> {
-    const fn new(weights: &'static [[f32; IN]; 3], biases: &'static [f32; 3]) -> Self {
-        Self { weights, biases }
-    }
-
     // Softmaxed loss/draw/win probabilities for the given activations.
     fn forward(&self, activations: &[f32; IN]) -> [f32; 3] {
         let mut logits = *self.biases;
@@ -145,30 +123,66 @@ impl Perspective {
     }
 }
 
-#[derive(Clone)]
-#[repr(C, align(64))]
-struct Accumulator {
-    acc: ColorMap<[i16x32; Network::L1 / Network::LANES]>,
-    pop_count: i16,
+#[derive(Clone, Copy)]
+struct Delta {
+    m: Move,
+    pc: Piece,
+    captured: Option<Piece>,
+}
+
+#[derive(Clone, Copy, Default)]
+struct Frame {
     perspectives: ColorMap<Perspective>,
+    computed: ColorMap<bool>,
+    delta: Option<Delta>,
 }
 
 #[derive(Clone, Copy)]
 #[repr(C, align(64))]
-struct CacheEntry {
-    acc: [i16x32; Network::L1 / Network::LANES],
+struct Accumulator(Embedding);
+
+impl Accumulator {
+    fn update<const SIGN: i16>(&mut self, emb: &Embedding) {
+        self.0
+            .iter_mut()
+            .zip(emb)
+            .for_each(|(act, &w)| *act += SIGN * w);
+    }
+
+    fn move_piece(&mut self, from_emb: &Embedding, to_emb: &Embedding) {
+        self.0
+            .iter_mut()
+            .zip(to_emb.iter().zip(from_emb))
+            .for_each(|(act, (&w_to, &w_from))| *act += w_to - w_from);
+    }
+
+    // Out-of-place move_piece: the copy from the parent accumulator rides
+    // along in the same pass.
+    fn move_piece_from(&mut self, src: &Accumulator, from_emb: &Embedding, to_emb: &Embedding) {
+        self.0
+            .iter_mut()
+            .zip(src.0.iter().zip(to_emb.iter().zip(from_emb)))
+            .for_each(|(act, (&s, (&w_to, &w_from)))| *act = s + w_to - w_from);
+    }
+}
+
+#[derive(Clone, Copy)]
+#[repr(C, align(64))]
+struct Snapshot {
+    acc: Accumulator,
     pieces: PieceMap<Bitboard>,
 }
 
 #[derive(Clone)]
 pub struct Network {
-    input_layers: [Embedding<{ Self::N_INPUTS }, { Self::L1 / Self::LANES }>; Self::N_KING_BUCKETS],
+    embeddings: [Embeddings; Self::N_KING_BUCKETS],
     hidden_layers: [Linear<{ 2 * Self::L1 / Self::LANES }, 1>; Self::N_BUCKETS],
     wdl_layers: [WdlLayer<{ 2 * Self::L1 }>; Self::N_BUCKETS],
 
-    stack: Vec<Accumulator>,
+    stack: Vec<ColorMap<Accumulator>>,
+    frames: Vec<Frame>,
     idx: usize,
-    cache: ColorMap<[[CacheEntry; 2]; Self::N_KING_BUCKETS]>,
+    snapshots: ColorMap<[[Snapshot; 2]; Self::N_KING_BUCKETS]>,
 }
 
 impl Network {
@@ -178,45 +192,55 @@ impl Network {
         let mut w = Cursor { bytes: weights };
         let mut b = Cursor { bytes: biases };
 
-        let input_weights: [&'static [[i16x32; Self::L1 / Self::LANES]; Self::N_INPUTS];
-            Self::N_KING_BUCKETS] = core::array::from_fn(|_| w.take());
-        let input_bias = w.take::<[i16x32; Self::L1 / Self::LANES]>();
-        let input_layers = input_weights.map(Embedding::new);
+        let embeddings = core::array::from_fn(|_| Embeddings { weights: w.take() });
+        let input_bias = w.take::<Embedding>();
 
-        let hidden_layers = core::array::from_fn(|_| Linear::new(w.take(), b.take()));
+        let hidden_layers = core::array::from_fn(|_| Linear {
+            weights: w.take(),
+            biases: b.take(),
+        });
 
         let wdl_weights: [_; Self::N_BUCKETS] = core::array::from_fn(|_| b.take());
         let wdl_biases: [_; Self::N_BUCKETS] = core::array::from_fn(|_| b.take());
-        let wdl_layers = core::array::from_fn(|i| WdlLayer::new(wdl_weights[i], wdl_biases[i]));
+        let wdl_layers = core::array::from_fn(|i| WdlLayer {
+            weights: wdl_weights[i],
+            biases: wdl_biases[i],
+        });
 
-        let cold_entry = CacheEntry {
-            acc: *input_bias,
+        let cold = Snapshot {
+            acc: Accumulator(*input_bias),
             pieces: PieceMap::default(),
         };
 
         Self {
-            input_layers,
+            embeddings,
             hidden_layers,
             wdl_layers,
             stack: vec![
-                Accumulator {
-                    acc: ColorMap::new([*input_bias; Color::COUNT]),
-                    pop_count: 0,
-                    perspectives: ColorMap::default(),
-                };
+                ColorMap::new([Accumulator(*input_bias); Color::COUNT]);
                 Self::N_ACCUMULATORS
             ],
+            frames: vec![Frame::default(); Self::N_ACCUMULATORS],
             idx: 0,
-            cache: ColorMap::new([[[cold_entry; 2]; Self::N_KING_BUCKETS]; Color::COUNT]),
+            snapshots: ColorMap::new([[[cold; 2]; Self::N_KING_BUCKETS]; Color::COUNT]),
         }
     }
 
     #[inline]
-    pub fn push(&mut self) {
-        debug_assert!(self.idx < Self::N_ACCUMULATORS);
-        let next = self.idx + 1;
-        self.stack[next] = self.stack[self.idx].clone();
-        self.idx = next;
+    pub fn push(&mut self, m: Move, pc: Piece, captured: Option<Piece>) {
+        debug_assert!(self.idx + 1 < Self::N_ACCUMULATORS);
+        let mut perspectives = self.frames[self.idx].perspectives;
+        if pc.type_of() == PieceType::King {
+            let color = pc.color_of();
+            perspectives[color] = Perspective::new(m.to_sq().relative(color));
+        }
+
+        self.idx += 1;
+        self.frames[self.idx] = Frame {
+            perspectives,
+            computed: ColorMap::default(),
+            delta: Some(Delta { m, pc, captured }),
+        };
     }
 
     #[inline]
@@ -225,92 +249,148 @@ impl Network {
         self.idx -= 1;
     }
 
-    pub fn activate(&mut self, pc: Piece, sq: SQ) {
-        self.update_activation::<1>(pc, sq);
+    pub fn reset_perspective(&mut self, color: Color, ksq_rel: SQ, pieces: &PieceMap<Bitboard>) {
+        self.frames[self.idx].perspectives[color] = Perspective::new(ksq_rel);
+        self.refresh_from_snapshot(color, pieces);
     }
 
-    pub fn deactivate(&mut self, pc: Piece, sq: SQ) {
-        self.update_activation::<-1>(pc, sq);
-    }
-
-    pub fn move_piece_quiet(&mut self, pc: Piece, from_sq: SQ, to_sq: SQ) {
-        let cur = &mut self.stack[self.idx];
-        for color in [Color::White, Color::Black] {
-            let perspective = cur.perspectives[color];
-            let from_idx = perspective.feature_idx(pc, from_sq, color);
-            let to_idx = perspective.feature_idx(pc, to_sq, color);
-
-            self.input_layers[perspective.bucket].add_sub(to_idx, from_idx, &mut cur.acc[color]);
-        }
-    }
-
-    fn update_activation<const SIGN: i16>(&mut self, pc: Piece, sq: SQ) {
-        let cur = &mut self.stack[self.idx];
-
-        for color in [Color::White, Color::Black] {
-            let perspective = cur.perspectives[color];
-            let idx = perspective.feature_idx(pc, sq, color);
-
-            self.input_layers[perspective.bucket].update::<SIGN>(idx, &mut cur.acc[color]);
-        }
-        cur.pop_count += SIGN;
-    }
-
-    pub fn needs_refresh(&self, color: Color, ksq_rel: SQ) -> bool {
-        self.stack[self.idx].perspectives[color] != Perspective::new(ksq_rel)
-    }
-
-    pub fn refresh(&mut self, color: Color, ksq_rel: SQ, pieces: &PieceMap<Bitboard>) {
-        let perspective = Perspective::new(ksq_rel);
-        let layer = &self.input_layers[perspective.bucket];
-        let entry = &mut self.cache[color][perspective.bucket][perspective.mirrored as usize];
+    fn refresh_from_snapshot(&mut self, color: Color, pieces: &PieceMap<Bitboard>) {
+        let perspective = self.frames[self.idx].perspectives[color];
+        let embedding = &self.embeddings[perspective.bucket];
+        let snapshot =
+            &mut self.snapshots[color][perspective.bucket][perspective.mirrored as usize];
+        let emb = |pc: Piece, sq: SQ| &embedding.weights[perspective.feature_idx(pc, sq, color)];
 
         for pc in Piece::iter() {
-            for sq in pieces[pc] & !entry.pieces[pc] {
-                layer.update::<1>(perspective.feature_idx(pc, sq, color), &mut entry.acc);
+            for sq in pieces[pc] & !snapshot.pieces[pc] {
+                snapshot.acc.update::<1>(emb(pc, sq));
             }
-            for sq in entry.pieces[pc] & !pieces[pc] {
-                layer.update::<-1>(perspective.feature_idx(pc, sq, color), &mut entry.acc);
+            for sq in snapshot.pieces[pc] & !pieces[pc] {
+                snapshot.acc.update::<-1>(emb(pc, sq));
             }
-            entry.pieces[pc] = pieces[pc];
+            snapshot.pieces[pc] = pieces[pc];
         }
 
-        let cur = &mut self.stack[self.idx];
-        cur.perspectives[color] = perspective;
-        cur.acc[color] = entry.acc;
+        self.stack[self.idx][color] = snapshot.acc;
+        self.frames[self.idx].computed[color] = true;
     }
 
-    pub fn eval(&self, ctm: Color) -> i32 {
-        let acc = &self.stack[self.idx];
-        let bucket = (acc.pop_count as usize - 2) / Self::BUCKET_DIV;
-        let hidden_layer = &self.hidden_layers[bucket];
+    fn materialize_perspective(&mut self, color: Color, pieces: &PieceMap<Bitboard>) {
+        if self.frames[self.idx].computed[color] {
+            return;
+        }
 
-        let output = hidden_layer.forward(&acc.acc[ctm], &acc.acc[!ctm]);
+        let perspective = self.frames[self.idx].perspectives[color];
+
+        // Walk to the nearest computed ancestor. A perspective change in
+        // the span means incompatible feature bases.
+        // rebuild from the snapshot instead.
+        let mut idx = self.idx;
+        loop {
+            if self.frames[idx].perspectives[color] != perspective {
+                self.refresh_from_snapshot(color, pieces);
+                return;
+            }
+            if self.frames[idx].computed[color] {
+                break;
+            }
+            debug_assert!(idx > 0, "Root accumulator must always be computed.");
+            idx -= 1;
+        }
+
+        for i in idx + 1..=self.idx {
+            self.materialize_ply(i, color);
+        }
+    }
+
+    fn materialize_ply(&mut self, i: usize, color: Color) {
+        debug_assert!(i > 0, "The root has no parent to materialize from.");
+        let frame = self.frames[i];
+        let Delta { m, pc, captured } = frame
+            .delta
+            .expect("Uncomputed non-root ply must carry a delta.");
+        let perspective = frame.perspectives[color];
+        let embedding = &self.embeddings[perspective.bucket];
+        let [parent, child] = self.stack.get_disjoint_mut([i - 1, i]).unwrap();
+        let acc = &mut child[color];
+
+        let (from_sq, to_sq) = m.squares();
+        let pc_color = pc.color_of();
+        let emb = |pc: Piece, sq: SQ| &embedding.weights[perspective.feature_idx(pc, sq, color)];
+
+        let promo_pc = m
+            .promotion()
+            .map_or(pc, |pt| Piece::make_piece(pc_color, pt));
+        acc.move_piece_from(&parent[color], emb(pc, from_sq), emb(promo_pc, to_sq));
+
+        match m.flags() {
+            MoveFlags::OO => {
+                let rook = Piece::make_piece(pc_color, PieceType::Rook);
+                acc.move_piece(
+                    emb(rook, SQ::H1.relative(pc_color)),
+                    emb(rook, SQ::F1.relative(pc_color)),
+                );
+            }
+            MoveFlags::OOO => {
+                let rook = Piece::make_piece(pc_color, PieceType::Rook);
+                acc.move_piece(
+                    emb(rook, SQ::A1.relative(pc_color)),
+                    emb(rook, SQ::D1.relative(pc_color)),
+                );
+            }
+            MoveFlags::EnPassant => {
+                let captured_pc = Piece::make_piece(!pc_color, PieceType::Pawn);
+                let victim_sq = to_sq + Direction::South.relative(pc_color);
+                acc.update::<-1>(emb(captured_pc, victim_sq));
+            }
+            _ => {
+                if let Some(victim) = captured {
+                    acc.update::<-1>(emb(victim, to_sq));
+                }
+            }
+        }
+
+        self.frames[i].computed[color] = true;
+    }
+
+    fn materialize(&mut self, pieces: &PieceMap<Bitboard>) {
+        self.materialize_perspective(Color::White, pieces);
+        self.materialize_perspective(Color::Black, pieces);
+    }
+
+    fn output_bucket(pieces: &PieceMap<Bitboard>) -> usize {
+        let pop_count: usize = pieces.iter().map(|bb| usize::from(bb.pop_count())).sum();
+        (pop_count - 2) / Self::BUCKET_DIV
+    }
+
+    pub fn eval(&mut self, ctm: Color, pieces: &PieceMap<Bitboard>) -> i32 {
+        self.materialize(pieces);
+
+        let acc = &self.stack[self.idx];
+        let hidden_layer = &self.hidden_layers[Self::output_bucket(pieces)];
+
+        let output = hidden_layer.forward(&acc[ctm].0, &acc[!ctm].0);
 
         i32::from(hidden_layer.biases[0]) * Self::NNUE2SCORE / Self::HIDDEN_SCALE
             + (output / Self::INPUT_SCALE) * Self::NNUE2SCORE / Self::COMB_SCALE
     }
 
-    fn clipped_relu(x: i16x32) -> i16x32 {
-        x.max(i16x32::ZERO)
-            .min(i16x32::splat(Self::INPUT_SCALE as i16))
-    }
+    pub fn wdl(&mut self, ctm: Color, pieces: &PieceMap<Bitboard>) -> [f32; 3] {
+        self.materialize(pieces);
 
-    pub fn wdl(&self, ctm: Color) -> [f32; 3] {
         let acc = &self.stack[self.idx];
 
         let mut activations = [0.0; 2 * Self::L1];
         let lanes = [ctm, !ctm]
             .into_iter()
-            .flat_map(|color| &acc.acc[color])
-            .flat_map(|&act| Self::clipped_relu(act).to_array());
+            .flat_map(|color| &acc[color].0)
+            .flat_map(|&act| clipped_relu(act).to_array());
         for (activation, x) in activations.iter_mut().zip(lanes) {
             let a = f32::from(x) / Self::INPUT_SCALE as f32;
             *activation = a * a;
         }
 
-        let bucket = (acc.pop_count as usize - 2) / Self::BUCKET_DIV;
-        self.wdl_layers[bucket].forward(&activations)
+        self.wdl_layers[Self::output_bucket(pieces)].forward(&activations)
     }
 }
 
@@ -394,8 +474,8 @@ mod tests {
 
         // Same pointers after clone, and they point into NETWORK itself.
         assert!(std::ptr::eq(
-            a.input_layers[0].weights,
-            b.input_layers[0].weights
+            a.embeddings[0].weights,
+            b.embeddings[0].weights
         ));
         assert!(std::ptr::eq(
             a.hidden_layers[0].weights,
@@ -407,7 +487,7 @@ mod tests {
         ));
 
         let blob = NETWORK.0.as_ptr_range();
-        let w = a.input_layers[0].weights.as_ptr() as *const u8;
+        let w = a.embeddings[0].weights.as_ptr() as *const u8;
         assert!(blob.contains(&w));
 
         println!(
