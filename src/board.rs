@@ -165,34 +165,20 @@ impl Board {
             | (self.orthogonal_sliders_c(color) & attacks::rook_attacks(sq, occ))
     }
 
-    pub fn is_attacked(&self, sq: SQ) -> bool {
-        let us = self.ctm;
-        let them = !self.ctm;
+    fn attackers_to_king(&self, us: Color) -> Bitboard {
+        self.attackers_from_c(
+            self.bitboard_of(us, PieceType::King).lsb(),
+            self.all_pieces(),
+            !us,
+        )
+    }
 
-        if attacks::knight_attacks(sq) & self.bitboard_of(them, PieceType::Knight) != Bitboard::ZERO
-        {
-            return true;
-        }
-
-        if attacks::pawn_attacks_sq(sq, us) & self.bitboard_of(them, PieceType::Pawn)
-            != Bitboard::ZERO
-        {
-            return true;
-        }
-
-        let all = self.all_pieces();
-        if attacks::rook_attacks(sq, all) & self.orthogonal_sliders_c(them) != Bitboard::ZERO {
-            return true;
-        }
-
-        if attacks::bishop_attacks(sq, all) & self.diagonal_sliders_c(them) != Bitboard::ZERO {
-            return true;
-        }
-        false
+    fn checkers(&self) -> Bitboard {
+        self.history[self.ply].checkers
     }
 
     pub fn in_check(&self) -> bool {
-        self.is_attacked(self.bitboard_of(self.ctm, PieceType::King).lsb())
+        self.checkers() != Bitboard::ZERO
     }
 
     pub fn peek(&self) -> Option<Move> {
@@ -259,6 +245,7 @@ impl Board {
             captured: None,
             epsq: None,
             material_hash: self.history[self.ply - 1].material_hash,
+            checkers: self.attackers_to_king(!self.ctm),
         };
 
         self.ctm = !self.ctm;
@@ -336,6 +323,7 @@ impl Board {
             moov: Some(m),
             plies_from_null: self.history[self.ply - 1].plies_from_null + 1,
             material_hash: self.material_hash,
+            checkers: self.attackers_to_king(!self.ctm),
             half_move_counter,
             captured,
             epsq,
@@ -468,17 +456,10 @@ impl Board {
         ///////////////////////////////////////////////////////////////////
         let quiet_mask;
 
-        ///////////////////////////////////////////////////////////////////
-        // Checkers are identified by projecting attacks from the king
-        // square and then intersecting them with the enemy bitboard of the
-        // respective piece.
-        ///////////////////////////////////////////////////////////////////
-        let mut checkers = (attacks::knight_attacks(our_king)
-            & self.bitboard_of(them, PieceType::Knight))
-            | (attacks::pawn_attacks_sq(our_king, us) & self.bitboard_of(them, PieceType::Pawn));
+        let checkers = self.checkers();
 
         ///////////////////////////////////////////////////////////////////
-        // Candidates are potential slider checkers and pinners.
+        // Candidates are potential pinners.
         ///////////////////////////////////////////////////////////////////
         let candidates = (attacks::rook_attacks(our_king, them_bb) & their_orth_sliders)
             | (attacks::bishop_attacks(our_king, them_bb) & their_diag_sliders);
@@ -489,12 +470,10 @@ impl Board {
             let potentially_pinned = Bitboard::between(our_king, sq) & us_bb;
 
             ///////////////////////////////////////////////////////////////////
-            // Do the squares between an enemy slider and our king contain any
-            // pieces? If yes, that piece is pinned. Otherwise, we are checked.
+            // A single one of our pieces between an enemy slider and our king
+            // is pinned to it.
             ///////////////////////////////////////////////////////////////////
-            if potentially_pinned == Bitboard::ZERO {
-                checkers ^= sq.bb();
-            } else if potentially_pinned.is_single() {
+            if potentially_pinned.is_single() {
                 pinned ^= potentially_pinned;
             }
         }
@@ -953,6 +932,7 @@ impl Board {
             material_hash: self.material_hash,
             plies_from_null: 0,
             captured: None,
+            checkers: self.attackers_to_king(self.ctm),
             epsq,
             half_move_counter,
         };
@@ -1091,6 +1071,7 @@ pub struct HistoryEntry {
     epsq: Option<SQ>,
     moov: Option<Move>,
     material_hash: u64,
+    checkers: Bitboard,
     half_move_counter: u16,
     plies_from_null: u16,
 }
@@ -1152,6 +1133,71 @@ mod tests {
             let mut board = Board::new();
             board.set_fen(fen).expect("Test FEN should be valid.");
             walk_evals(&mut board, depth);
+        }
+    }
+
+    // Walk every move sequence to the given depth, checking at each node
+    // that the checkers carried through push/pop/push_null agree with a
+    // board built from scratch via FEN.
+    fn walk_checkers(board: &mut Board, depth: u8) {
+        let mut fresh = Board::new();
+        fresh.set_fen(&board.to_string()).expect("Roundtrip FEN.");
+        assert_eq!(
+            board.in_check(),
+            fresh.in_check(),
+            "carried checkers != from-scratch checkers at {board}"
+        );
+
+        if !board.in_check() {
+            board.push_null();
+            let mut after_null = Board::new();
+            after_null
+                .set_fen(&board.to_string())
+                .expect("Roundtrip FEN.");
+            assert_eq!(
+                board.in_check(),
+                after_null.in_check(),
+                "carried checkers != from-scratch checkers after a null move at {board}"
+            );
+            board.pop_null();
+        }
+
+        if depth == 0 {
+            return;
+        }
+
+        let moves = MoveList::from::<false>(board);
+        for &m in &moves {
+            board.push(m);
+            walk_checkers(board, depth - 1);
+            board.pop();
+        }
+    }
+
+    #[test]
+    fn checkers_incremental_consistency() {
+        let positions = [
+            (Board::STARTING_FEN, 2),
+            (
+                "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+                2,
+            ),
+            // En passant, and a rook check available on the fifth rank.
+            ("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1", 3),
+            // Side to move already in check, so every node starts in an
+            // evasion.
+            ("4k3/8/8/8/8/8/8/4R1K1 b - - 0 1", 3),
+            // Promotions with captures, discovered checks on the back rank.
+            (
+                "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+                2,
+            ),
+        ];
+
+        for (fen, depth) in positions {
+            let mut board = Board::new();
+            board.set_fen(fen).expect("Test FEN should be valid.");
+            walk_checkers(&mut board, depth);
         }
     }
 

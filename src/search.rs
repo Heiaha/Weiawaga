@@ -463,6 +463,10 @@ impl<'a> Search<'a> {
     }
 
     fn q_search(&mut self, board: &mut Board, mut alpha: i32, mut beta: i32, ply: usize) -> i32 {
+        if ply >= MAX_PLY - 1 {
+            return if board.in_check() { 0 } else { board.eval() };
+        }
+
         self.pv_table[ply].clear();
 
         if self.timer.stop_check() {
@@ -491,27 +495,47 @@ impl<'a> Search<'a> {
             }
         }
 
-        let eval = board.eval();
+        let in_check = board.in_check();
+        let mate_value = i32::MATE - (ply as i32);
 
-        if eval >= beta {
-            self.tt.insert(board, 0, eval, None, Bound::Lower, ply);
-            return eval;
-        }
-        alpha = alpha.max(eval);
+        ///////////////////////////////////////////////////////////////////
+        // There is no standing pat in check: the check has to be answered,
+        // so every evasion is searched and having none is mate.
+        ///////////////////////////////////////////////////////////////////
 
-        let mut moves = MoveList::from::<true>(board);
-        let mut sorter = self.scorer.create_sorter::<true>(
-            &mut moves,
-            board,
-            ply,
-            tt_entry.and_then(|entry| entry.best_move()),
-        );
+        let (eval, mut best_value) = if in_check {
+            (-i32::MATE, -mate_value)
+        } else {
+            let eval = board.eval();
+
+            if eval >= beta {
+                self.tt.insert(board, 0, eval, None, Bound::Lower, ply);
+                return eval;
+            }
+            alpha = alpha.max(eval);
+            (eval, eval)
+        };
+
+        let mut moves = if in_check {
+            MoveList::from::<false>(board)
+        } else {
+            MoveList::from::<true>(board)
+        };
+
+        let hash_move = tt_entry.and_then(|entry| entry.best_move());
+        let mut sorter = if in_check {
+            self.scorer
+                .create_sorter::<false>(&mut moves, board, ply, hash_move)
+        } else {
+            self.scorer
+                .create_sorter::<true>(&mut moves, board, ply, hash_move)
+        };
 
         let mut tt_flag = Bound::Upper;
         let mut best_move = None;
-        let mut best_value = eval;
 
-        while let Some(m) = sorter.find(|&m| Self::q_searchable(board, m, eval, alpha)) {
+        while let Some(m) = sorter.find(|&m| in_check || Self::q_searchable(board, m, eval, alpha))
+        {
             board.push(m);
             let value = -self.q_search(board, -beta, -alpha, ply + 1);
             board.pop();
