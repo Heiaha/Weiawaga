@@ -16,12 +16,21 @@ fn manifest_path(path: &str) -> PathBuf {
 }
 
 fn fetch(url: &str, dest: &Path) -> bool {
-    let status = Command::new("curl")
-        .args(["-fsSL", "--connect-timeout", "10", "--retry", "2", "-o"])
-        .arg(dest)
-        .arg(url)
-        .status();
-    matches!(status, Ok(status) if status.success()) && dest.exists()
+    let mut curl = Command::new("curl");
+    curl.args(["-fsSL", "--connect-timeout", "10", "--retry", "2", "-o"]);
+
+    let mut wget = Command::new("wget");
+    wget.args(["-q", "-T", "10", "-t", "2", "-O"]);
+
+    for mut command in [curl, wget] {
+        let status = command.arg(dest).arg(url).status();
+        if matches!(status, Ok(status) if status.success()) && dest.exists() {
+            return true;
+        }
+        // Both tools can leave empty or partial files behind on failure.
+        let _ = fs::remove_file(dest);
+    }
+    false
 }
 
 fn emit(path: &Path) {
@@ -53,9 +62,12 @@ fn main() {
     let cache = manifest_path("nets").join(name);
     if !cache.exists() {
         fs::create_dir_all(manifest_path("nets")).expect("Unable to create nets dir.");
+        println!("cargo:warning=Downloading {name} from {SOURCE}.");
         assert!(
             fetch(&format!("{SOURCE}/{name}"), &cache),
-            "Unable to fetch {name} from {SOURCE}."
+            "Unable to download {name} (is curl or wget installed?). \
+             Either place it at nets/{name} by downloading {SOURCE}/{name} \
+             yourself, or point EVALFILE at a network file."
         );
     }
 
