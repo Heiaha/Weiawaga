@@ -9,7 +9,7 @@ use wide::*;
 #[repr(C, align(64))]
 struct Aligned<const N: usize>([u8; N]);
 
-static NETWORK: Aligned<{ Network::NET_BYTES }> = Aligned(*include_bytes!("network.bin"));
+static NETWORK: Aligned<{ Network::NET_BYTES }> = Aligned(*include_bytes!(env!("NET_PATH")));
 
 struct Cursor {
     bytes: &'static [u8],
