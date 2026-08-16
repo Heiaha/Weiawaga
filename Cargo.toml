@@ -6,7 +6,7 @@ license = "GPL-3.0-or-later"
 version = "6.0.0"
 edition = "2024"
 readme = "README.md"
-rust-version = "1.89.0"
+rust-version = "1.97.0"
 
 [dependencies]
 arrayvec = "0.7.6"
