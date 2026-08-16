@@ -30,7 +30,7 @@ impl Bitboard {
     }
 
     pub const fn is_several(&self) -> bool {
-        self.0 & (self.0.wrapping_sub(1)) != 0
+        self.0.isolate_lowest_one() != self.0
     }
 
     pub const fn is_single(&self) -> bool {
