@@ -18,7 +18,7 @@ efficiently updatable neural network (NNUE) with SIMD inference, trained with
 
 ## Building
 
-Requires stable Rust (1.89+). The network weights are embedded in the binary
+Requires stable Rust (1.97+). The network weights are embedded in the binary
 at compile time, so a build is fully self-contained:
 
 ```
