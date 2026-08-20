@@ -1,4 +1,6 @@
 use super::board::Board;
+#[cfg(feature = "tune")]
+use super::params;
 use super::search_master::*;
 use super::timer::*;
 use regex::Regex;
@@ -75,6 +77,8 @@ pub enum EngineOption {
     ShowWDL(bool),
     MultiPV(usize),
     ClearHash,
+    #[cfg(feature = "tune")]
+    Tunable(String, i32),
 }
 
 impl EngineOption {
@@ -158,6 +162,10 @@ impl FromStr for EngineOption {
             "UCI_ShowWDL" => Self::ShowWDL(Self::parse_bool(value)?),
             "MultiPV" => Self::MultiPV(Self::parse_value(value)?),
             "Clear Hash" => Self::ClearHash,
+            #[cfg(feature = "tune")]
+            name if params::contains(name) => {
+                Self::Tunable(name.to_string(), Self::parse_value(value)?)
+            }
             _ => return Err("Unable to parse option."),
         })
     }

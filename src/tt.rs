@@ -1,5 +1,6 @@
 use super::board::*;
 use super::moov::*;
+use super::params;
 use super::search::*;
 use super::types::*;
 #[cfg(target_arch = "x86_64")]
@@ -215,7 +216,7 @@ impl TT {
 
     fn quality(&self, entry: TTEntry) -> i32 {
         let relative_age = (self.age.wrapping_sub(entry.age()) & TTEntry::AGE_MASK as u8) as i32;
-        entry.depth() as i32 - Self::AGE_PENALTY * relative_age
+        entry.depth() as i32 - params::tt_age_penalty() * relative_age
     }
 
     pub fn clear(&self) {
@@ -253,6 +254,5 @@ impl TT {
 }
 
 impl TT {
-    const AGE_PENALTY: i32 = 8;
     const DEPTH_MARGIN: i8 = 2;
 }

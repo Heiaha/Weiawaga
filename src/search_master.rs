@@ -1,4 +1,6 @@
 use super::board::*;
+#[cfg(feature = "tune")]
+use super::params::{self, Tunable};
 use super::perft::*;
 use super::search::*;
 use super::timer::*;
@@ -84,6 +86,18 @@ impl SearchMaster {
                         EngineOption::MULTIPV_MAX,
                     );
                     println!("option name Clear Hash type button");
+                    #[cfg(feature = "tune")]
+                    for &Tunable {
+                        name,
+                        default,
+                        min,
+                        max,
+                    } in params::OPTIONS
+                    {
+                        println!(
+                            "option name {name} type spin default {default} min {min} max {max}"
+                        );
+                    }
                     println!("uciok");
                 }
                 UCICommand::Position(board) => self.board = *board,
@@ -223,6 +237,8 @@ impl SearchMaster {
             EngineOption::ClearHash => {
                 self.tt.clear();
             }
+            #[cfg(feature = "tune")]
+            EngineOption::Tunable(name, value) => params::set(&name, value)?,
         };
         Ok(())
     }

@@ -11,14 +11,37 @@ env:
   RUSTFLAGS: -C target-cpu=x86-64-v3
 
 jobs:
-  build:
+  clippy:
+    name: Clippy (${{ matrix.name }})
+    runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: default
+            features: ""
+          - name: datagen
+            features: "--features datagen"
+          - name: tune
+            features: "--features tune"
+          - name: all
+            features: "--all-features"
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ matrix.name }}
+    - name: Clippy
+      run: cargo clippy --release --all-targets ${{ matrix.features }} -- -D warnings
+
+  test:
+    name: Tests
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
     - uses: Swatinem/rust-cache@v2
-    - name: Clippy
-      run: cargo clippy --release --all-targets --all-features -- -D warnings
     - name: Run tests
       run: cargo test --verbose --release

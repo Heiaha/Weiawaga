@@ -32,3 +32,4 @@ panic = "abort"
 
 [features]
 datagen = ["dep:parquet", "dep:arrow-array", "dep:arrow-schema"]
+tune = []
