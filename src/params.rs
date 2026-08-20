@@ -68,4 +68,10 @@ tunables! {
     aspiration_window: 12, 5, 50;
     aspiration_growth: 50, 20, 150;
     tt_age_penalty: 8, 2, 24;
+    lmr_base_reduction: 11, 0, 50;
+    lmr_move_divider: 156, 80, 300;
+    rfp_margin_multiplier: 63, 20, 150;
+    rfp_improving_margin: 30, 0, 100;
+    singular_margin: 200, 50, 400;
+    null_depth_divider: 200, 120, 400;
 }

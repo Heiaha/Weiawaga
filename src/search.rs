@@ -1,5 +1,7 @@
 use std::ops::ControlFlow;
 use std::sync::LazyLock;
+#[cfg(feature = "tune")]
+use std::sync::atomic::{AtomicI8, Ordering};
 use std::time::Duration;
 
 use arrayvec::ArrayVec;
@@ -662,7 +664,7 @@ impl<'a> Search<'a> {
         beta: i32,
         ply: usize,
     ) -> ControlFlow<i32, i8> {
-        let target = entry.value() - (2 * depth as i32);
+        let target = entry.value() - params::singular_margin() * (depth as i32) / 100;
         self.excluded_moves[ply] = Some(m);
         let value = self.search(board, (depth - 1) / 2, target - 1, target, ply);
         self.excluded_moves[ply] = None;
@@ -719,7 +721,8 @@ impl<'a> Search<'a> {
 
     fn null_reduction(depth: i8) -> i8 {
         // Idea of dividing in null move depth taken from Cosette
-        Self::NULL_MIN_DEPTH_REDUCTION + (depth - Self::NULL_MIN_DEPTH) / Self::NULL_DEPTH_DIVIDER
+        Self::NULL_MIN_DEPTH_REDUCTION
+            + ((depth - Self::NULL_MIN_DEPTH) as i32 * 100 / params::null_depth_divider()) as i8
     }
 
     fn futility_margin(depth: i8) -> i32 {
@@ -738,25 +741,35 @@ impl<'a> Search<'a> {
     }
 
     fn rfp_margin(depth: i8, improving: bool) -> i32 {
-        Self::RFP_MARGIN_MULTIPLIER * (depth as i32)
-            - Self::RFP_IMPROVING_MARGIN * (improving as i32)
+        params::rfp_margin_multiplier() * (depth as i32)
+            - params::rfp_improving_margin() * (improving as i32)
     }
 
+    #[cfg(not(feature = "tune"))]
     fn late_move_reduction(depth: i8, move_index: usize) -> i8 {
-        // LMR table idea from Ethereal
         static LMR_TABLE: LazyLock<[[i8; 64]; 64]> = LazyLock::new(|| {
             let mut lmr_table = [[0; 64]; 64];
             for (depth, row) in lmr_table.iter_mut().enumerate().skip(1) {
                 for (move_number, reduction) in row.iter_mut().enumerate().skip(1) {
-                    *reduction = (Search::LMR_BASE_REDUCTION
-                        + (depth as f32).ln() * (move_number as f32).ln()
-                            / Search::LMR_MOVE_DIVIDER) as i8;
+                    *reduction = Search::lmr_entry(depth, move_number);
                 }
             }
             lmr_table
         });
 
         LMR_TABLE[depth.min(63) as usize][move_index.min(63)]
+    }
+
+    #[cfg(feature = "tune")]
+    fn late_move_reduction(depth: i8, move_index: usize) -> i8 {
+        LMR_TABLE[depth.min(63) as usize][move_index.min(63)].load(Ordering::Relaxed)
+    }
+
+    // LMR table idea from Ethereal
+    fn lmr_entry(depth: usize, move_number: usize) -> i8 {
+        (params::lmr_base_reduction() as f32 / 100.0
+            + (depth as f32).ln() * (move_number as f32).ln()
+                / (params::lmr_move_divider() as f32 / 100.0)) as i8
     }
 
     fn update_pv(&mut self, m: Move, ply: usize) {
@@ -860,21 +873,39 @@ impl<'a> Search<'a> {
     }
 }
 
+#[cfg(feature = "tune")]
+static LMR_TABLE: LazyLock<[[AtomicI8; 64]; 64]> = LazyLock::new(|| {
+    let table = [const { [const { AtomicI8::new(0) }; 64] }; 64];
+    fill_lmr_table(&table);
+    table
+});
+
+#[cfg(feature = "tune")]
+fn fill_lmr_table(table: &[[AtomicI8; 64]; 64]) {
+    for (depth, row) in table.iter().enumerate().skip(1) {
+        for (move_number, entry) in row.iter().enumerate().skip(1) {
+            entry.store(Search::lmr_entry(depth, move_number), Ordering::Relaxed);
+        }
+    }
+}
+
+#[cfg(feature = "tune")]
+impl Search<'_> {
+    pub fn rebuild_lmr_table() {
+        fill_lmr_table(&LMR_TABLE);
+    }
+}
+
 impl Search<'_> {
     const PRINT_CURRMOVENUMBER_TIME: Duration = Duration::from_millis(3000);
     const RFP_MAX_DEPTH: i8 = 9;
-    const RFP_MARGIN_MULTIPLIER: i32 = 63;
-    const RFP_IMPROVING_MARGIN: i32 = 30;
     const ASPIRATION_MIN_DEPTH: i8 = 4;
     const NULL_MIN_DEPTH: i8 = 2;
     const NULL_MIN_DEPTH_REDUCTION: i8 = 1;
-    const NULL_DEPTH_DIVIDER: i8 = 2;
     const IID_MIN_DEPTH: i8 = 4;
     const IID_DEPTH_REDUCTION: i8 = 1;
     const LMR_MOVE_WO_REDUCTION: usize = 3;
     const LMR_MIN_DEPTH: i8 = 2;
-    const LMR_BASE_REDUCTION: f32 = 0.11;
-    const LMR_MOVE_DIVIDER: f32 = 1.56;
     const SING_EXTEND_MIN_DEPTH: i8 = 4;
     const SING_EXTEND_DEPTH_MARGIN: i8 = 2;
 }

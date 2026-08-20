@@ -156,6 +156,7 @@ impl Board {
             | (self.bitboard_of_pt(PieceType::Knight) & attacks::knight_attacks(sq))
             | (self.diagonal_sliders() & attacks::bishop_attacks(sq, occ))
             | (self.orthogonal_sliders() & attacks::rook_attacks(sq, occ))
+            | (self.bitboard_of_pt(PieceType::King) & attacks::king_attacks(sq))
     }
 
     pub fn attackers_from_c(&self, sq: SQ, occ: Bitboard, color: Color) -> Bitboard {

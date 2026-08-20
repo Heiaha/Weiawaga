@@ -238,7 +238,10 @@ impl SearchMaster {
                 self.tt.clear();
             }
             #[cfg(feature = "tune")]
-            EngineOption::Tunable(name, value) => params::set(&name, value)?,
+            EngineOption::Tunable(name, value) => {
+                params::set(&name, value)?;
+                Search::rebuild_lmr_table();
+            }
         };
         Ok(())
     }
