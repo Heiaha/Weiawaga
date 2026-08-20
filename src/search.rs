@@ -8,6 +8,7 @@ use super::board::*;
 use super::moov::*;
 use super::move_list::*;
 use super::move_sorting::*;
+use super::params;
 use super::piece::*;
 use super::timer::*;
 use super::tt::*;
@@ -132,7 +133,7 @@ impl<'a> Search<'a> {
         }
 
         let pred = lines[0].value;
-        let mut delta = Self::ASPIRATION_WINDOW;
+        let mut delta = params::aspiration_window();
         let mut alpha = (pred - delta).max(-i32::MATE);
         let mut beta = (pred + delta).min(i32::MATE);
 
@@ -151,7 +152,7 @@ impl<'a> Search<'a> {
                 return (value, bound);
             }
 
-            delta += delta / 2;
+            delta += delta * params::aspiration_growth() / 100;
         }
     }
 
@@ -593,7 +594,7 @@ impl<'a> Search<'a> {
         alpha: i32,
         excluded_move: Option<Move>,
     ) -> bool {
-        depth <= Self::FUTILITY_MAX_DEPTH
+        (depth as i32) <= params::futility_max_depth()
             && !in_check
             && !is_pv
             && !alpha.is_checkmate()
@@ -688,7 +689,7 @@ impl<'a> Search<'a> {
     }
 
     fn futility_margin(depth: i8) -> i32 {
-        Self::FUTILITY_MARGIN_MULTIPLIER * (depth as i32)
+        params::futility_margin_multiplier() * (depth as i32)
     }
 
     fn delta_margin(board: &Board, m: Move) -> i32 {
@@ -699,7 +700,7 @@ impl<'a> Search<'a> {
                 .piece_type_at(m.to_sq())
                 .expect("No captured piece in delta margin.")
         };
-        MoveScorer::piece_value(captured) + Self::DELTA_MARGIN
+        MoveScorer::piece_value(captured) + params::delta_margin()
     }
 
     fn rfp_margin(depth: i8, improving: bool) -> i32 {
@@ -826,12 +827,8 @@ impl<'a> Search<'a> {
 impl Search<'_> {
     const PRINT_CURRMOVENUMBER_TIME: Duration = Duration::from_millis(3000);
     const RFP_MAX_DEPTH: i8 = 9;
-    const FUTILITY_MAX_DEPTH: i8 = 6;
-    const FUTILITY_MARGIN_MULTIPLIER: i32 = 100;
-    const DELTA_MARGIN: i32 = 200;
     const RFP_MARGIN_MULTIPLIER: i32 = 63;
     const RFP_IMPROVING_MARGIN: i32 = 30;
-    const ASPIRATION_WINDOW: i32 = 16;
     const ASPIRATION_MIN_DEPTH: i8 = 4;
     const NULL_MIN_DEPTH: i8 = 2;
     const NULL_MIN_DEPTH_REDUCTION: i8 = 1;
