@@ -201,20 +201,20 @@ impl Board {
 
     fn is_fifty(&self) -> bool {
         self.history[self.ply].half_move_counter >= 100
+            && (!self.in_check() || !MoveList::from::<false>(self).is_empty())
     }
 
     fn is_repetition(&self) -> bool {
         let current = &self.history[self.ply];
         let lookback = current.plies_from_null.min(current.half_move_counter) as usize;
 
+        let hash = self.hash();
         self.history[self.ply - lookback..self.ply]
             .iter()
             .rev()
             .skip(1)
             .step_by(2)
-            .any(|entry| {
-                entry.material_hash == self.material_hash && entry.rights == current.rights
-            })
+            .any(|entry| entry.hash(self.ctm) == hash)
     }
 
     pub fn is_draw(&self) -> bool {
@@ -949,12 +949,7 @@ impl Board {
     }
 
     pub fn hash(&self) -> u64 {
-        self.material_hash
-            ^ ZOBRIST.castling_hash(self.history[self.ply].rights)
-            ^ self.history[self.ply]
-                .epsq
-                .map_or(0, |sq| ZOBRIST.ep_hash(sq))
-            ^ ZOBRIST.color_hash(self.ctm)
+        self.history[self.ply].hash(self.ctm)
     }
 
     pub fn material_hash(&self) -> u64 {
@@ -1075,6 +1070,15 @@ pub struct HistoryEntry {
     checkers: Bitboard,
     half_move_counter: u16,
     plies_from_null: u16,
+}
+
+impl HistoryEntry {
+    fn hash(&self, ctm: Color) -> u64 {
+        self.material_hash
+            ^ ZOBRIST.castling_hash(self.rights)
+            ^ self.epsq.map_or(0, |sq| ZOBRIST.ep_hash(sq))
+            ^ ZOBRIST.color_hash(ctm)
+    }
 }
 
 #[cfg(test)]

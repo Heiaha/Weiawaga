@@ -264,6 +264,10 @@ impl<'a> Search<'a> {
         mut beta: i32,
         ply: usize,
     ) -> i32 {
+        if ply >= MAX_PLY - 1 {
+            return if board.in_check() { 0 } else { board.eval() };
+        }
+
         self.pv_table[ply].clear();
         self.sel_depth = self.sel_depth.max(ply);
 
