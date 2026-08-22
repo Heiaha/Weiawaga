@@ -1,6 +1,9 @@
 <h1 align="center">Weiawaga</h1>
 <p align="center">
   <img src="https://github.com/heiaha/weiawaga/actions/workflows/rust.yml/badge.svg">
+  <img src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FHeiaha%2FWeiawaga%2Fmaster%2FCargo.toml&query=package.rust-version&label=rust&logo=rust&color=orange">
+  <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Flichess.org%2Fapi%2Fuser%2FWeiawaga&query=%24.perfs.blitz.rating&label=lichess%20blitz&logo=lichess&color=success">
+  <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Flichess.org%2Fapi%2Fuser%2FWeiawaga&query=%24.count.all&label=games%20played&logo=lichess&color=blue">
 </p>
 
 A UCI chess engine written in Rust. If you find this repository, come play me on lichess!
