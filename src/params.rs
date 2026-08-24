@@ -62,16 +62,16 @@ macro_rules! tunables {
 }
 
 tunables! {
-    futility_margin_multiplier: 100, 40, 200;
+    futility_margin_multiplier: 106, 40, 200;
     futility_max_depth: 6, 2, 12;
-    delta_margin: 200, 80, 400;
-    aspiration_window: 12, 5, 50;
+    delta_margin: 193, 80, 400;
+    aspiration_window: 7, 5, 50;
     aspiration_growth: 50, 20, 150;
-    tt_age_penalty: 8, 2, 24;
+    tt_age_penalty: 7, 2, 24;
     lmr_base_reduction: 11, 0, 50;
-    lmr_move_divider: 156, 80, 300;
-    rfp_margin_multiplier: 63, 20, 150;
-    rfp_improving_margin: 30, 0, 100;
-    singular_margin: 200, 50, 400;
-    null_depth_divider: 200, 120, 400;
+    lmr_move_divider: 163, 80, 300;
+    rfp_margin_multiplier: 61, 20, 150;
+    rfp_improving_margin: 29, 0, 100;
+    singular_margin: 183, 50, 400;
+    null_depth_divider: 173, 120, 400;
 }
