@@ -3,7 +3,7 @@ use super::board::Board;
 use super::params;
 use super::search_master::*;
 use super::timer::*;
-use regex::Regex;
+use regex_lite::Regex;
 use std::io::BufRead;
 use std::str::FromStr;
 use std::sync::LazyLock;

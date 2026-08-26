@@ -15,7 +15,7 @@ use rand::{
     Rng,
     seq::{IndexedRandom, IteratorRandom},
 };
-use regex::{Captures, Regex};
+use regex_lite::{Captures, Regex};
 
 use super::board::*;
 use super::moov::*;

@@ -2,7 +2,7 @@ use super::board::*;
 use super::moov::*;
 use super::piece::*;
 use super::square::*;
-use regex::{Captures, Regex};
+use regex_lite::{Captures, Regex};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock};
