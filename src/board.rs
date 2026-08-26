@@ -8,7 +8,7 @@ use super::piece::*;
 use super::square::*;
 use super::traits::*;
 use super::zobrist::*;
-use regex::Regex;
+use regex_lite::Regex;
 use std::fmt;
 use std::str::FromStr;
 use std::sync::LazyLock;
