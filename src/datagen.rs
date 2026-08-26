@@ -146,8 +146,9 @@ impl DataGen {
         let mut nudge_attempts = 0;
         let mut nudge_deviations = 0;
         let mut adjudicated = false;
-        let mut prev_call = None;
-        let mut streak = 0;
+        let mut draw_streak = 0;
+        let mut win_streak = 0;
+        let mut prev_call = 0;
         let outcome = loop {
             let moves = MoveList::from::<false>(&board);
             if moves.is_empty() {
@@ -159,12 +160,12 @@ impl DataGen {
                 };
             }
 
-            if board.is_draw() || board.ply() >= Self::MAX_GAME_PLIES {
+            if board.is_draw() || board.ply() >= self.cfg.max_game_plies {
                 break 0;
             }
 
             let nudge_here = nudge_plies.contains(&board.ply());
-            let multi_pv = if nudge_here { Self::NUDGE_LINES } else { 1 };
+            let multi_pv = if nudge_here { self.cfg.nudge_lines } else { 1 };
 
             let timer = Timer::new(
                 &board,
@@ -195,18 +196,44 @@ impl DataGen {
             let sample =
                 quiet_spot.then(|| (board.to_string(), white_value.clamp(-16000, 16000) as i16));
 
-            if sample.is_some() {
-                let call = Self::adjudication_call(&mut board, &best.pv, white_value);
-                streak = if call == prev_call { streak + 1 } else { 1 };
-                prev_call = call;
+            ///////////////////////////////////////////////////////////////////
+            // Adjudication reads the pv-end WDL head instead of the score,
+            // so the rules do not move with the cp scaling. Win adjudication
+            // is off by default: decided games play out to mate so the
+            // corpus keeps its decisive tail.
+            ///////////////////////////////////////////////////////////////////
+            let wdl = (self.cfg.draw_adj_streak != 0 || self.cfg.win_adj != 0.0)
+                .then(|| Self::white_wdl(&mut board, &best.pv))
+                .flatten();
 
-                if let Some(result) = call
-                    && self.cfg.adj_streak != 0
-                    && streak >= self.cfg.adj_streak
-                {
+            if self.cfg.draw_adj_streak != 0 {
+                let drawish = board.ply() >= self.cfg.draw_adj_ply
+                    && wdl.is_some_and(|[_, draw, _]| draw >= self.cfg.draw_adj_prob);
+                draw_streak = if drawish { draw_streak + 1 } else { 0 };
+                if draw_streak >= self.cfg.draw_adj_streak {
                     samples.extend(sample);
                     adjudicated = true;
-                    break result;
+                    break 0;
+                }
+            }
+
+            if self.cfg.win_adj != 0.0 {
+                let call = match wdl {
+                    Some([_, _, win]) if win >= self.cfg.win_adj && white_value > 0 => 1,
+                    Some([loss, _, _]) if loss >= self.cfg.win_adj && white_value < 0 => -1,
+                    _ => 0,
+                };
+                win_streak = if call != 0 && call == prev_call {
+                    win_streak + 1
+                } else {
+                    1
+                };
+                prev_call = call;
+
+                if call != 0 && win_streak >= self.cfg.win_adj_streak {
+                    samples.extend(sample);
+                    adjudicated = true;
+                    break call;
                 }
             }
 
@@ -240,20 +267,13 @@ impl DataGen {
         })
     }
 
-    fn adjudication_call(board: &mut Board, pv: &[Move], white_value: i32) -> Option<i8> {
+    // Loss/draw/win at the end of the pv, from White's point of view.
+    fn white_wdl(board: &mut Board, pv: &[Move]) -> Option<[f32; 3]> {
         let mut wdl = Search::pv_wdl(board, pv)?;
         if board.ctm() == Color::Black {
             wdl.reverse();
         }
-
-        let [loss, _, win] = wdl;
-        if win >= Self::ADJ_THRESHOLD && white_value > 0 {
-            Some(1)
-        } else if loss >= Self::ADJ_THRESHOLD && white_value < 0 {
-            Some(-1)
-        } else {
-            None
-        }
+        Some(wdl)
     }
 
     fn pick_nudge_plies(&self, first_ply: usize, rng: &mut impl Rng) -> Vec<usize> {
@@ -297,12 +317,6 @@ impl DataGen {
         }
         Some(board)
     }
-}
-
-impl DataGen {
-    const MAX_GAME_PLIES: usize = 800;
-    const NUDGE_LINES: usize = 4;
-    const ADJ_THRESHOLD: f32 = 0.999;
 }
 
 struct Game {
@@ -492,7 +506,13 @@ struct Config {
     nudges: usize,
     nudge_max_ply: usize,
     nudge_margin: f32,
-    adj_streak: usize,
+    nudge_lines: usize,
+    win_adj: f32,
+    win_adj_streak: usize,
+    draw_adj_ply: usize,
+    draw_adj_prob: f32,
+    draw_adj_streak: usize,
+    max_game_plies: usize,
     rows_per_file: usize,
     hash_mb: usize,
 }
@@ -526,7 +546,13 @@ impl Config {
                     \s*--nudges\s+(?P<nudges>\d+) |
                     \s*--nudge-max-ply\s+(?P<nudge_max_ply>\d+) |
                     \s*--nudge-margin\s+(?P<nudge_margin>[\d.]+) |
-                    \s*--adj-streak\s+(?P<adj_streak>\d+) |
+                    \s*--nudge-lines\s+(?P<nudge_lines>\d+) |
+                    \s*--win-adj\s+(?P<win_adj>[\d.]+) |
+                    \s*--win-adj-streak\s+(?P<win_adj_streak>\d+) |
+                    \s*--draw-adj-ply\s+(?P<draw_adj_ply>\d+) |
+                    \s*--draw-adj-prob\s+(?P<draw_adj_prob>[\d.]+) |
+                    \s*--draw-adj-streak\s+(?P<draw_adj_streak>\d+) |
+                    \s*--max-game-plies\s+(?P<max_game_plies>\d+) |
                     \s*--rows-per-file\s+(?P<rows_per_file>\d+) |
                     \s*--hash\s+(?P<hash>\d+)
                 )*
@@ -555,7 +581,21 @@ impl Config {
             nudge_max_ply: Self::opt_number(&caps, "nudge_max_ply")?
                 .unwrap_or(defaults.nudge_max_ply),
             nudge_margin: Self::opt_number(&caps, "nudge_margin")?.unwrap_or(defaults.nudge_margin),
-            adj_streak: Self::opt_number(&caps, "adj_streak")?.unwrap_or(defaults.adj_streak),
+            nudge_lines: Self::opt_number(&caps, "nudge_lines")?
+                .unwrap_or(defaults.nudge_lines)
+                .max(1),
+            win_adj: Self::opt_number(&caps, "win_adj")?.unwrap_or(defaults.win_adj),
+            win_adj_streak: Self::opt_number(&caps, "win_adj_streak")?
+                .unwrap_or(defaults.win_adj_streak)
+                .max(1),
+            draw_adj_ply: Self::opt_number(&caps, "draw_adj_ply")?.unwrap_or(defaults.draw_adj_ply),
+            draw_adj_prob: Self::opt_number(&caps, "draw_adj_prob")?
+                .unwrap_or(defaults.draw_adj_prob),
+            draw_adj_streak: Self::opt_number(&caps, "draw_adj_streak")?
+                .unwrap_or(defaults.draw_adj_streak),
+            max_game_plies: Self::opt_number(&caps, "max_game_plies")?
+                .unwrap_or(defaults.max_game_plies)
+                .max(1),
             rows_per_file: Self::opt_number(&caps, "rows_per_file")?
                 .unwrap_or(defaults.rows_per_file)
                 .max(1),
@@ -576,7 +616,13 @@ impl Default for Config {
             nudges: 5,
             nudge_max_ply: 24,
             nudge_margin: 0.1,
-            adj_streak: 2,
+            nudge_lines: 4,
+            win_adj: 0.0,
+            win_adj_streak: 4,
+            draw_adj_ply: 80,
+            draw_adj_prob: 0.97,
+            draw_adj_streak: 10,
+            max_game_plies: 800,
             rows_per_file: 1_000_000,
             hash_mb: 16,
         }
@@ -594,6 +640,12 @@ usage: weiawaga datagen --out DIR [options]
   --nudges N            plies per game where a random near-best move is played (default 5)
   --nudge-max-ply N     nudges happen before this ply (default 24)
   --nudge-margin E      wdl expected-score drop (0-1) a nudge may accept (default 0.1)
-  --adj-streak N        consecutive same-call samples required to adjudicate, 0 disables (default 2)
+  --nudge-lines N       lines searched at a nudge ply (default 4)
+  --win-adj P           adjudicate once the pv win/loss probability holds >= P, 0 disables (default 0)
+  --win-adj-streak N    consecutive plies at the threshold to call a win (default 4)
+  --draw-adj-ply N      draw adjudication starts at this ply (default 80)
+  --draw-adj-prob P     pv draw-probability threshold (default 0.97)
+  --draw-adj-streak N   consecutive plies at the threshold to call a draw, 0 disables (default 10)
+  --max-game-plies N    game length cap in plies (default 800)
   --rows-per-file N     rows per parquet file (default 1000000)
   --hash MB             per-thread transposition table size (default 16)";
