@@ -848,8 +848,8 @@ impl Board {
                 r"(?x)^
                 (?P<piece_placement>[KQRBNPkqrbnp1-8/]+)\s+
                 (?P<active_color>[wb])\s+
-                (?P<castling>[KQkq\-]+)\s+
-                (?P<en_passant>[a-h1-8\-]+)
+                (?P<castling>-|KQ?k?q?|Qk?q?|kq?|q)\s+
+                (?P<en_passant>-|[a-h][36])
                 (?:\s+(?P<halfmove>\d+))?
                 (?:\s+(?P<fullmove>\d+))?
             $",
@@ -885,9 +885,13 @@ impl Board {
             * (fullmove_counter
                 .parse::<usize>()
                 .map_err(|_| "Invalid full move counter.")?
+                .max(1)
                 - 1);
         if self.ctm == Color::Black {
             self.ply += 1;
+        }
+        if self.ply >= Self::N_HISTORIES - super::types::MAX_PLY {
+            return Err("Full move counter too large.");
         }
 
         let ranks = piece_placement.split('/');
@@ -913,6 +917,12 @@ impl Board {
 
             if idx != 64 - 8 * rank_idx {
                 return Err("FEN rank does not fill expected number of squares.");
+            }
+        }
+
+        for color in [Color::White, Color::Black] {
+            if self.bitboard_of(color, PieceType::King).pop_count() != 1 {
+                return Err("Each side must have exactly one king.");
             }
         }
 
@@ -1084,6 +1094,40 @@ impl HistoryEntry {
 #[cfg(test)]
 mod tests {
     use crate::board::*;
+
+    #[test]
+    fn fen_rejects_missing_or_extra_kings() {
+        assert!("8/8/8/8/8/8/8/8 w - - 0 1".parse::<Board>().is_err());
+        assert!("kk6/8/8/8/8/8/8/7K w - - 0 1".parse::<Board>().is_err());
+        assert!("k7/8/8/8/8/8/8/6KK w - - 0 1".parse::<Board>().is_err());
+    }
+
+    #[test]
+    fn fen_rejects_malformed_castling_and_ep() {
+        assert!(
+            "r3k2r/8/8/8/8/8/8/R3K2R w qK - 0 1"
+                .parse::<Board>()
+                .is_err()
+        );
+        assert!(
+            "r3k2r/8/8/8/8/8/8/R3K2R w KKQ - 0 1"
+                .parse::<Board>()
+                .is_err()
+        );
+        assert!("k7/8/8/8/8/8/8/7K w - e5 0 1".parse::<Board>().is_err());
+        assert!(
+            "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"
+                .parse::<Board>()
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn fen_bounds_the_full_move_counter() {
+        assert!("k7/8/8/8/8/8/8/7K w - - 0 0".parse::<Board>().is_ok());
+        assert!("k7/8/8/8/8/8/8/7K w - - 0 300".parse::<Board>().is_ok());
+        assert!("k7/8/8/8/8/8/8/7K w - - 0 500".parse::<Board>().is_err());
+    }
 
     // Walk every move sequence to the given depth, checking at each node
     // that the incrementally maintained accumulator gives the same eval as

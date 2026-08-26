@@ -62,13 +62,16 @@ impl TimeControl {
         let wtime = Self::opt_duration(caps, "wtime")?;
         let btime = Self::opt_duration(caps, "btime")?;
 
-        if wtime.is_none() && btime.is_none() {
-            return Ok(None);
-        }
-
         let winc = Self::opt_duration(caps, "winc")?;
         let binc = Self::opt_duration(caps, "binc")?;
         let moves_to_go = Self::opt_number::<u32>(caps, "movestogo", "Unable to parse movestogo.")?;
+
+        if wtime.is_none() && btime.is_none() {
+            if winc.is_some() || binc.is_some() || moves_to_go.is_some() {
+                return Err("Increment or movestogo given without a clock time.");
+            }
+            return Ok(None);
+        }
 
         Ok(Some(Self::Variable {
             wtime: wtime.unwrap_or(Duration::ZERO),
@@ -84,16 +87,15 @@ impl FromStr for TimeControl {
     type Err = &'static str;
 
     fn from_str(line: &str) -> Result<Self, Self::Err> {
-        if line == "go" || line == "go ponder" || line.contains("infinite") {
-            return Ok(TimeControl::Infinite);
-        }
-
+        // Unknown tokens match the trailing catch-all and are skipped, as
+        // the protocol asks. This includes searchmoves: the restriction is
+        // ignored and every root move is searched.
         static GO_RE: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(
                 r"(?x)^
                 go
                 (?:
-                    \s+infinite |
+                    \s+(?P<infinite>infinite) |
                     \s+depth\s+(?P<depth>\d+) |
                     \s+nodes\s+(?P<nodes>\d+) |
                     \s+movetime\s+(?P<movetime>\d+) |
@@ -103,9 +105,10 @@ impl FromStr for TimeControl {
                     \s+binc\s+(?P<binc>\d+) |
                     \s+mate\s+(?P<mate>\d+) |
                     \s+movestogo\s+(?P<movestogo>\d+) |
-                    \s+ponder
+                    \s+(?P<ponder>ponder) |
+                    \s+\S+
                 )*
-            $",
+            \s*$",
             )
             .expect("Go regex should be valid.")
         });
@@ -116,9 +119,21 @@ impl FromStr for TimeControl {
             return Err("Feature is not implemented.");
         }
 
-        Self::parse_fixed(&caps)?
-            .xor(Self::parse_variable(&caps)?)
-            .ok_or("No recognizable or bad combination of go parameters provided.")
+        if caps.name("infinite").is_some() {
+            return Ok(TimeControl::Infinite);
+        }
+
+        let fixed = Self::parse_fixed(&caps)?;
+        let variable = Self::parse_variable(&caps)?;
+
+        if fixed.is_some() && variable.is_some() {
+            return Err("Bad combination of go parameters provided.");
+        }
+
+        // Nothing recognized searches until told to stop, as for a bare go;
+        // an error here would leave the GUI waiting on a bestmove that
+        // never comes.
+        Ok(fixed.or(variable).unwrap_or(TimeControl::Infinite))
     }
 }
 
@@ -312,4 +327,95 @@ impl Timer {
     const MIN_TIMER_UPDATE: f64 = 0.5;
     const MAX_TIMER_UPDATE: f64 = 3.0;
     const SEARCHES_WO_TIMER_UPDATE: i8 = 8;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn go_fixed_controls_parse() {
+        assert_eq!("go".parse(), Ok(TimeControl::Infinite));
+        assert_eq!("go ponder".parse(), Ok(TimeControl::Infinite));
+        assert_eq!("go infinite".parse(), Ok(TimeControl::Infinite));
+        // Infinite outranks any clocks given alongside it.
+        assert_eq!("go infinite wtime 100".parse(), Ok(TimeControl::Infinite));
+        assert_eq!("go depth 8".parse(), Ok(TimeControl::FixedDepth(8)));
+        assert_eq!("go nodes 50000".parse(), Ok(TimeControl::FixedNodes(50000)));
+        assert_eq!(
+            "go movetime 200".parse(),
+            Ok(TimeControl::FixedDuration(Duration::from_millis(200)))
+        );
+    }
+
+    #[test]
+    fn go_clocks_parse_in_any_order() {
+        let control = Ok(TimeControl::Variable {
+            wtime: Duration::from_millis(3000),
+            btime: Duration::from_millis(2000),
+            winc: Some(Duration::from_millis(100)),
+            binc: Some(Duration::from_millis(50)),
+            moves_to_go: Some(40),
+        });
+        assert_eq!(
+            "go wtime 3000 btime 2000 winc 100 binc 50 movestogo 40".parse(),
+            control
+        );
+        assert_eq!(
+            "go movestogo 40 binc 50 wtime 3000 winc 100 btime 2000".parse(),
+            control
+        );
+    }
+
+    #[test]
+    fn go_negative_clock_clamps_to_zero() {
+        assert_eq!(
+            "go wtime -50 btime 1000".parse(),
+            Ok(TimeControl::Variable {
+                wtime: Duration::ZERO,
+                btime: Duration::from_millis(1000),
+                winc: None,
+                binc: None,
+                moves_to_go: None,
+            })
+        );
+    }
+
+    #[test]
+    fn go_skips_unknown_tokens() {
+        assert_eq!(
+            "go wtime 1000 btime 1000 searchmoves e2e4 xyzzy".parse(),
+            Ok(TimeControl::Variable {
+                wtime: Duration::from_millis(1000),
+                btime: Duration::from_millis(1000),
+                winc: None,
+                binc: None,
+                moves_to_go: None,
+            })
+        );
+        assert_eq!("go frobnicate".parse(), Ok(TimeControl::Infinite));
+        assert!("go movetime 200  ".parse::<TimeControl>().is_ok());
+    }
+
+    #[test]
+    fn go_rejects_conflicting_limits() {
+        assert!(
+            "go depth 5 wtime 1000 btime 1000"
+                .parse::<TimeControl>()
+                .is_err()
+        );
+        assert!("go depth 5 nodes 100".parse::<TimeControl>().is_err());
+    }
+
+    #[test]
+    fn go_rejects_orphan_clock_parameters() {
+        assert!("go movestogo 30".parse::<TimeControl>().is_err());
+        assert!("go winc 100".parse::<TimeControl>().is_err());
+    }
+
+    #[test]
+    fn go_rejects_unsupported_or_overflowing_values() {
+        assert!("go mate 3".parse::<TimeControl>().is_err());
+        assert!("go depth 200".parse::<TimeControl>().is_err());
+    }
 }

@@ -104,7 +104,8 @@ impl SearchMaster {
                 UCICommand::Go {
                     time_control,
                     ponder,
-                } => self.go(time_control, ponder),
+                    searchmoves,
+                } => self.go(time_control, ponder, searchmoves),
                 UCICommand::Perft(depth) => {
                     let mut board = self.board.clone();
                     print_perft(&mut board, depth);
@@ -122,7 +123,7 @@ impl SearchMaster {
         }
     }
 
-    fn go(&mut self, time_control: TimeControl, ponder: bool) {
+    fn go(&mut self, time_control: TimeControl, ponder: bool, searchmoves: Vec<String>) {
         if ponder && !self.ponder_enabled {
             eprintln!("Pondering is not enabled.");
             return;
@@ -149,6 +150,7 @@ impl SearchMaster {
                 0,
                 self.show_wdl,
                 self.multi_pv,
+                searchmoves.clone(),
             );
 
             // Create helper search threads which will stop when self.stop resolves to true.
@@ -168,6 +170,7 @@ impl SearchMaster {
                     self.show_wdl,
                     // Helpers stay single-pv; they only feed the tt.
                     EngineOption::MULTIPV_DEFAULT,
+                    searchmoves.clone(),
                 );
                 s.spawn(move || helper_search_thread.go(thread_board));
             }

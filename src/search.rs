@@ -42,19 +42,28 @@ pub struct Search<'a> {
     timer: Timer,
     tt: &'a TT,
     scorer: MoveScorer,
+    searchmoves: Vec<String>,
     excluded_moves: [Option<Move>; MAX_PLY],
     eval_stack: [i32; MAX_PLY],
     pv_table: Vec<Vec<Move>>,
 }
 
 impl<'a> Search<'a> {
-    pub fn new(timer: Timer, tt: &'a TT, id: u16, show_wdl: bool, multi_pv: usize) -> Self {
+    pub fn new(
+        timer: Timer,
+        tt: &'a TT,
+        id: u16,
+        show_wdl: bool,
+        multi_pv: usize,
+        searchmoves: Vec<String>,
+    ) -> Self {
         Self {
             id,
             timer,
             tt,
             show_wdl,
             multi_pv,
+            searchmoves,
             sel_depth: 0,
             scorer: MoveScorer::new(),
             excluded_moves: [None; MAX_PLY],
@@ -81,6 +90,18 @@ impl<'a> Search<'a> {
             .create_sorter::<false>(&mut moves, &board, 0, hash_move)
             .map(RootMove::new)
             .collect::<Vec<_>>();
+
+        ///////////////////////////////////////////////////////////////////
+        // A searchmoves restriction keeps only the listed root moves. A
+        // list matching nothing legal is ignored rather than leaving the
+        // GUI without a bestmove.
+        ///////////////////////////////////////////////////////////////////
+        if !self.searchmoves.is_empty() {
+            let listed = |line: &RootMove| self.searchmoves.contains(&line.m.to_string());
+            if root_moves.iter().any(listed) {
+                root_moves.retain(listed);
+            }
+        }
 
         let multi_pv = self.multi_pv.min(root_moves.len());
 
