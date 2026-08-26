@@ -12,7 +12,7 @@ use parquet::arrow::ArrowWriter;
 use parquet::basic::{Compression, ZstdLevel};
 use parquet::file::properties::WriterProperties;
 use rand::{
-    Rng,
+    Rng, RngExt,
     seq::{IndexedRandom, IteratorRandom},
 };
 use regex_lite::{Captures, Regex};
