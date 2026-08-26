@@ -137,8 +137,8 @@ impl FromStr for EngineOption {
                 r"(?x)^
                 setoption\s+
                 name\s+(?P<name>.*?)
-                (?:\s+value\s+(?P<value>.+))?
-            $",
+                (?:\s+value\s+(?P<value>.+?))?
+            \s*$",
             )
             .expect("Failed to compile option regex.")
         });
@@ -178,6 +178,7 @@ pub enum UCICommand {
     Go {
         time_control: TimeControl,
         ponder: bool,
+        searchmoves: Vec<String>,
     },
     PonderHit,
     Quit,
@@ -223,11 +224,18 @@ impl FromStr for UCICommand {
 
 impl UCICommand {
     fn parse_go(line: &str) -> Result<Self, &'static str> {
-        let ponder = line.contains("ponder");
+        let ponder = line.split_whitespace().any(|token| token == "ponder");
+        let searchmoves = line
+            .split_whitespace()
+            .skip_while(|&token| token != "searchmoves")
+            .skip(1)
+            .map(String::from)
+            .collect();
         let time_control = line.parse()?;
         Ok(Self::Go {
             time_control,
             ponder,
+            searchmoves,
         })
     }
 
@@ -237,8 +245,8 @@ impl UCICommand {
                 r"(?x)^
                 position\s+
                 (?:(?P<startpos>startpos)|fen\s+(?P<fen>.+?))
-                (\s+moves\s+(?P<moves>(?:.+?)+))?
-            $",
+                (\s+moves\s+(?P<moves>.+?))?
+            \s*$",
             )
             .expect("Failed to compile position regex.")
         });
@@ -286,7 +294,7 @@ impl UCICommand {
                 r"(?x)^
                 perft\s+
                 (?P<depth>.*?)
-            $",
+            \s*$",
             )
             .expect("Failed to compile perft regex.")
         });

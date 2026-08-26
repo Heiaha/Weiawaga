@@ -169,7 +169,7 @@ impl DataGen {
                 Arc::new(AtomicU64::new(0)),
                 Duration::ZERO,
             );
-            let mut search = Search::new(timer, tt, 1, false, multi_pv);
+            let mut search = Search::new(timer, tt, 1, false, multi_pv, Vec::new());
             let lines = search.go_datagen(&mut board, self.cfg.nodes * multi_pv as u64);
             let best = lines
                 .first()
