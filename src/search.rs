@@ -34,6 +34,13 @@ impl RootMove {
     }
 }
 
+#[derive(Clone, Copy)]
+struct NodeCtx {
+    ply: usize,
+    is_pv: bool,
+    is_cut: bool,
+}
+
 pub struct Search<'a> {
     id: u16,
     sel_depth: usize,
@@ -45,6 +52,7 @@ pub struct Search<'a> {
     searchmoves: Vec<String>,
     excluded_moves: [Option<Move>; MAX_PLY],
     eval_stack: [i32; MAX_PLY],
+    double_exts: [i32; MAX_PLY],
     pv_table: Vec<Vec<Move>>,
 }
 
@@ -68,6 +76,7 @@ impl<'a> Search<'a> {
             scorer: MoveScorer::new(),
             excluded_moves: [None; MAX_PLY],
             eval_stack: [0; MAX_PLY],
+            double_exts: [0; MAX_PLY],
             pv_table: vec![Vec::new(); MAX_PLY],
         }
     }
@@ -211,9 +220,14 @@ impl<'a> Search<'a> {
 
             board.push(m);
             let value = if idx == 0 {
-                -self.search(board, depth - 1, -beta, -alpha, 1)
+                -self.search(board, depth - 1, -beta, -alpha, 1, false)
             } else {
-                let value = self.pvs_child(board, depth, 0, alpha, beta, 0);
+                let root = NodeCtx {
+                    ply: 0,
+                    is_pv: true,
+                    is_cut: false,
+                };
+                let value = self.pvs_child(board, depth, 0, alpha, beta, root);
                 if value > alpha { value } else { -i32::MATE }
             };
             board.pop();
@@ -263,6 +277,7 @@ impl<'a> Search<'a> {
         mut alpha: i32,
         mut beta: i32,
         ply: usize,
+        is_cut: bool,
     ) -> i32 {
         if ply >= MAX_PLY - 1 {
             return if board.in_check() { 0 } else { board.eval() };
@@ -296,6 +311,8 @@ impl<'a> Search<'a> {
         }
 
         let is_pv = alpha != beta - 1;
+        let ctx = NodeCtx { ply, is_pv, is_cut };
+        let child_cut = !is_pv && !is_cut;
         let excluded_move = self.excluded_moves[ply];
 
         let tt_entry = self.tt.get(board, ply);
@@ -343,7 +360,7 @@ impl<'a> Search<'a> {
         ) {
             let r = Self::null_reduction(depth);
             board.push_null();
-            let value = -self.search(board, depth - r - 1, -beta, -beta + 1, ply);
+            let value = -self.search(board, depth - r - 1, -beta, -beta + 1, ply, !is_cut);
             board.pop_null();
             self.eval_stack[ply] = static_eval;
             if self.timer.is_stopped() {
@@ -383,7 +400,7 @@ impl<'a> Search<'a> {
             let extension = match tt_entry
                 .filter(|&entry| Self::can_singular_extend(entry, m, depth, excluded_move))
                 .map_or(ControlFlow::Continue(0), |entry| {
-                    self.singular_extension(board, entry, m, depth, beta, ply)
+                    self.singular_extension(board, entry, depth, beta, ctx)
                 }) {
                 ControlFlow::Continue(extension) => extension,
                 ControlFlow::Break(value) => return value,
@@ -395,15 +412,23 @@ impl<'a> Search<'a> {
                 self.tt.prefetch(board);
             }
 
+            self.double_exts[ply + 1] = self.double_exts[ply] + i32::from(extension >= 2);
             let value = if idx == 0 {
-                -self.search(board, depth + extension - 1, -beta, -alpha, ply + 1)
+                -self.search(
+                    board,
+                    depth + extension - 1,
+                    -beta,
+                    -alpha,
+                    ply + 1,
+                    child_cut,
+                )
             } else {
                 let reduction = if Self::can_apply_lmr(m, depth, idx) {
                     Self::late_move_reduction(depth, idx)
                 } else {
                     0
                 };
-                self.pvs_child(board, depth + extension, reduction, alpha, beta, ply)
+                self.pvs_child(board, depth + extension, reduction, alpha, beta, ctx)
             };
 
             board.pop();
@@ -649,26 +674,35 @@ impl<'a> Search<'a> {
         &mut self,
         board: &mut Board,
         entry: TTEntry,
-        m: Move,
         depth: i8,
         beta: i32,
-        ply: usize,
+        ctx: NodeCtx,
     ) -> ControlFlow<i32, i8> {
         let target = entry.value() - params::singular_margin() * (depth as i32) / 100;
-        self.excluded_moves[ply] = Some(m);
-        let value = self.search(board, (depth - 1) / 2, target - 1, target, ply);
-        self.excluded_moves[ply] = None;
+        self.excluded_moves[ctx.ply] = entry.best_move();
+        let value = self.search(
+            board,
+            (depth - 1) / 2,
+            target - 1,
+            target,
+            ctx.ply,
+            ctx.is_cut,
+        );
+        self.excluded_moves[ctx.ply] = None;
 
         if self.timer.is_stopped() {
             return ControlFlow::Break(0);
         }
         if value < target {
-            return ControlFlow::Continue(1);
+            let double = !ctx.is_pv
+                && value < target - params::singular_double_margin()
+                && self.double_exts[ctx.ply] < params::singular_double_cap();
+            return ControlFlow::Continue(1 + i8::from(double));
         }
         if target >= beta {
             return ControlFlow::Break(target);
         }
-        if entry.value() >= beta {
+        if entry.value() >= beta || ctx.is_cut {
             return ControlFlow::Continue(-1);
         }
         ControlFlow::Continue(0)
@@ -681,14 +715,31 @@ impl<'a> Search<'a> {
         mut reduction: i8,
         alpha: i32,
         beta: i32,
-        ply: usize,
+        ctx: NodeCtx,
     ) -> i32 {
         let mut value;
 
+        let research_cut = beta == alpha + 1 && !ctx.is_cut;
+
         loop {
-            value = -self.search(board, depth - reduction - 1, -alpha - 1, -alpha, ply + 1);
+            let probe_cut = reduction > 0 || !ctx.is_cut;
+            value = -self.search(
+                board,
+                depth - reduction - 1,
+                -alpha - 1,
+                -alpha,
+                ctx.ply + 1,
+                probe_cut,
+            );
             if value > alpha {
-                value = -self.search(board, depth - reduction - 1, -beta, -alpha, ply + 1);
+                value = -self.search(
+                    board,
+                    depth - reduction - 1,
+                    -beta,
+                    -alpha,
+                    ctx.ply + 1,
+                    research_cut,
+                );
             }
 
             ///////////////////////////////////////////////////////////////////
