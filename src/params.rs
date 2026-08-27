@@ -73,5 +73,7 @@ tunables! {
     rfp_margin_multiplier: 61, 20, 150;
     rfp_improving_margin: 29, 0, 100;
     singular_margin: 183, 50, 400;
+    singular_double_margin: 25, 5, 100;
+    singular_double_cap: 6, 2, 12;
     null_depth_divider: 173, 120, 400;
 }
