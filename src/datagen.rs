@@ -290,14 +290,21 @@ impl DataGen {
         lines: &[RootMove],
         rng: &mut impl Rng,
     ) -> Option<Move> {
-        let [_, draw, win] = Search::pv_wdl(board, &lines[0].pv)?;
-        let best = win + draw / 2.0;
+        // A proven mate needs no reading of the head.
+        fn expected(board: &mut Board, line: &RootMove) -> Option<f32> {
+            if line.value.is_checkmate() {
+                return Some(if line.value > 0 { 1.0 } else { 0.0 });
+            }
+            let [_, draw, win] = Search::pv_wdl(board, &line.pv)?;
+            Some(win + draw / 2.0)
+        }
+
+        let best = expected(board, &lines[0])?;
 
         lines
             .iter()
             .filter_map(|line| {
-                let [_, draw, win] = Search::pv_wdl(board, &line.pv)?;
-                (best - (win + draw / 2.0) <= self.cfg.nudge_margin).then_some(line.m)
+                (best - expected(board, line)? <= self.cfg.nudge_margin).then_some(line.m)
             })
             .choose(rng)
     }

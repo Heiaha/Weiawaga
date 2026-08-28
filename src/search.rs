@@ -865,21 +865,37 @@ impl<'a> Search<'a> {
     }
 
     pub fn pv_wdl(board: &mut Board, pv: &[Move]) -> Option<[f32; 3]> {
-        let drawn_ply = pv.iter().enumerate().fold(None, |drawn, (idx, &pv_move)| {
+        let mut drawn = false;
+        for &pv_move in pv {
             board.push(pv_move);
-            drawn.or_else(|| board.is_draw().then_some(idx + 1))
-        });
+            drawn |= board.is_draw();
+        }
 
-        let wdl = (!pv.is_empty()).then(|| Self::leaf_wdl(board, drawn_ply, pv.len()));
-        for _ in 0..pv.len() {
+        ///////////////////////////////////////////////////////////////////
+        // The pv can end mid-tactics, where the wdl head has never seen
+        // a position; back up to the last quiet point before reading it.
+        ///////////////////////////////////////////////////////////////////
+        let mut ply = pv.len();
+        while ply > 0 && (board.in_check() || !pv[ply - 1].is_quiet()) {
+            board.pop();
+            ply -= 1;
+        }
+
+        // A line that reaches a drawn position is a draw no matter where
+        // the head is read.
+        let wdl = if drawn {
+            Some([0.0, 1.0, 0.0])
+        } else {
+            (ply > 0).then(|| Self::leaf_wdl(board, ply))
+        };
+        for _ in 0..ply {
             board.pop();
         }
         wdl
     }
 
-    fn leaf_wdl(board: &mut Board, drawn_ply: Option<usize>, ply: usize) -> [f32; 3] {
-        if drawn_ply.is_some_and(|drawn| drawn <= ply) || MoveList::from::<false>(board).is_empty()
-        {
+    fn leaf_wdl(board: &mut Board, ply: usize) -> [f32; 3] {
+        if MoveList::from::<false>(board).is_empty() {
             return [0.0, 1.0, 0.0];
         }
 
