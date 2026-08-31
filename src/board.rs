@@ -398,7 +398,6 @@ impl Board {
         let all = us_bb | them_bb;
 
         let our_king = self.bitboard_of(us, PieceType::King).lsb();
-
         let their_king = self.bitboard_of(them, PieceType::King).lsb();
 
         let our_diag_sliders = self.diagonal_sliders_c(us);
