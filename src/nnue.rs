@@ -36,17 +36,17 @@ struct Embeddings {
 }
 
 #[derive(Clone)]
-struct Linear<const IN: usize, const OUT: usize> {
-    weights: &'static [i16x32; IN],
-    biases: &'static [i16; OUT],
+struct Linear {
+    weights: &'static [i16x32; 2 * Network::L1 / Network::LANES],
+    bias: &'static i16,
 }
 
-impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
+impl Linear {
     // Fused clipped-relu-square dot product over both perspective halves,
     // side to move first. Returns the raw quantized sum; scaling and the
     // bias are the caller's concern.
-    fn forward(&self, stm: &[i16x32], nstm: &[i16x32]) -> i32 {
-        let (stm_weights, nstm_weights) = self.weights.split_at(stm.len());
+    fn forward(&self, acc: &ColorMap<Accumulator>, stm: Color) -> i32 {
+        let (stm_weights, nstm_weights) = self.weights.split_at(acc[stm].0.len());
 
         let dot = |acts: &[i16x32], weights: &[i16x32]| -> i32x16 {
             acts.iter()
@@ -58,24 +58,34 @@ impl<const IN: usize, const OUT: usize> Linear<IN, OUT> {
                 .sum()
         };
 
-        (dot(stm, stm_weights) + dot(nstm, nstm_weights)).reduce_add()
+        (dot(&acc[stm].0, stm_weights) + dot(&acc[!stm].0, nstm_weights)).reduce_add()
     }
 }
 
 #[derive(Clone)]
-struct WdlLayer<const IN: usize> {
-    weights: &'static [[f32; IN]; 3],
+struct WdlLayer {
+    weights: &'static [[f32; 2 * Network::L1]; 3],
     biases: &'static [f32; 3],
 }
 
-impl<const IN: usize> WdlLayer<IN> {
-    // Softmaxed loss/draw/win probabilities for the given activations.
-    fn forward(&self, activations: &[f32; IN]) -> [f32; 3] {
+impl WdlLayer {
+    // Softmaxed loss/draw/win probabilities, side to move first.
+    fn forward(&self, acc: &ColorMap<Accumulator>, stm: Color) -> [f32; 3] {
+        let mut activations = [0.0; 2 * Network::L1];
+        let lanes = [stm, !stm]
+            .into_iter()
+            .flat_map(|color| &acc[color].0)
+            .flat_map(|&act| clipped_relu(act).to_array());
+        for (activation, x) in activations.iter_mut().zip(lanes) {
+            let a = f32::from(x) / Network::INPUT_SCALE as f32;
+            *activation = a * a;
+        }
+
         let mut logits = *self.biases;
         for (logit, weights) in logits.iter_mut().zip(self.weights) {
             *logit += weights
                 .iter()
-                .zip(activations)
+                .zip(&activations)
                 .map(|(w, a)| w * a)
                 .sum::<f32>();
         }
@@ -176,8 +186,8 @@ struct Snapshot {
 #[derive(Clone)]
 pub struct Network {
     embeddings: [Embeddings; Self::N_KING_BUCKETS],
-    hidden_layers: [Linear<{ 2 * Self::L1 / Self::LANES }, 1>; Self::N_BUCKETS],
-    wdl_layers: [WdlLayer<{ 2 * Self::L1 }>; Self::N_BUCKETS],
+    hidden_layers: [Linear; Self::N_BUCKETS],
+    wdl_layers: [WdlLayer; Self::N_BUCKETS],
 
     stack: Vec<ColorMap<Accumulator>>,
     frames: Vec<Frame>,
@@ -188,23 +198,22 @@ pub struct Network {
 impl Network {
     pub fn new() -> Self {
         let bytes: &'static [u8] = &NETWORK.0;
-        let (weights, biases) = bytes.split_at(2 * Self::W_I16);
+        let (weights, tail) = bytes.split_at(2 * Self::W_I16);
         let mut w = Cursor { bytes: weights };
-        let mut b = Cursor { bytes: biases };
+        let mut tail = Cursor { bytes: tail };
 
         let embeddings = core::array::from_fn(|_| Embeddings { weights: w.take() });
         let input_bias = w.take::<Embedding>();
 
         let hidden_layers = core::array::from_fn(|_| Linear {
             weights: w.take(),
-            biases: b.take(),
+            bias: tail.take(),
         });
 
-        let wdl_weights: [_; Self::N_BUCKETS] = core::array::from_fn(|_| b.take());
-        let wdl_biases: [_; Self::N_BUCKETS] = core::array::from_fn(|_| b.take());
-        let wdl_layers = core::array::from_fn(|i| WdlLayer {
-            weights: wdl_weights[i],
-            biases: wdl_biases[i],
+        let wdl_weights: [_; Self::N_BUCKETS] = core::array::from_fn(|_| tail.take());
+        let wdl_layers = wdl_weights.map(|weights| WdlLayer {
+            weights,
+            biases: tail.take(),
         });
 
         let cold = Snapshot {
@@ -285,10 +294,6 @@ impl Network {
         }
 
         let perspective = self.frames[self.idx].perspectives[color];
-
-        // Walk to the nearest computed ancestor. A perspective change in
-        // the span means incompatible feature bases.
-        // rebuild from the snapshot instead.
         let mut idx = self.idx;
         loop {
             if self.frames[idx].perspectives[color] != perspective {
@@ -373,28 +378,16 @@ impl Network {
         let acc = &self.stack[self.idx];
         let hidden_layer = &self.hidden_layers[Self::output_bucket(pieces)];
 
-        let output = hidden_layer.forward(&acc[ctm].0, &acc[!ctm].0);
+        let output = hidden_layer.forward(acc, ctm);
 
-        i32::from(hidden_layer.biases[0]) * Self::NNUE2SCORE / Self::HIDDEN_SCALE
-            + (output / Self::INPUT_SCALE) * Self::NNUE2SCORE / Self::COMB_SCALE
+        let bias = i32::from(*hidden_layer.bias) * Self::NNUE2SCORE / Self::HIDDEN_SCALE;
+        let hidden = (output / Self::INPUT_SCALE) * Self::NNUE2SCORE / Self::COMB_SCALE;
+        bias + hidden
     }
 
     pub fn wdl(&mut self, ctm: Color, pieces: &PieceMap<Bitboard>) -> [f32; 3] {
         self.materialize(pieces);
-
-        let acc = &self.stack[self.idx];
-
-        let mut activations = [0.0; 2 * Self::L1];
-        let lanes = [ctm, !ctm]
-            .into_iter()
-            .flat_map(|color| &acc[color].0)
-            .flat_map(|&act| clipped_relu(act).to_array());
-        for (activation, x) in activations.iter_mut().zip(lanes) {
-            let a = f32::from(x) / Self::INPUT_SCALE as f32;
-            *activation = a * a;
-        }
-
-        self.wdl_layers[Self::output_bucket(pieces)].forward(&activations)
+        self.wdl_layers[Self::output_bucket(pieces)].forward(&self.stack[self.idx], ctm)
     }
 }
 

@@ -28,9 +28,6 @@ impl CastlingRights {
         }
     }
 
-    // The between-king-and-rook squares that must be empty, and the king's
-    // crossing squares that must be unattacked; they differ only for the
-    // queenside rook path through the b-file.
     pub fn oo_path(color: Color) -> Bitboard {
         Self::OO_PATH[color]
     }
