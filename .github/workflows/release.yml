@@ -90,8 +90,10 @@ jobs:
             fi
           fi
 
-          # Checksums
-          (cd "$OUT" && sha256sum * > "SHA256SUMS.txt") || (cd "$OUT" && shasum -a 256 * > "SHA256SUMS.txt")
+          # Checksums, named per-target: same-named release assets overwrite
+          # each other across matrix jobs.
+          SUMS="SHA256SUMS-${{ matrix.target }}.txt"
+          (cd "$OUT" && sha256sum * > "$SUMS") || (cd "$OUT" && shasum -a 256 * > "$SUMS")
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
@@ -99,6 +101,6 @@ jobs:
           files: |
             dist/*.tar.gz
             dist/*.zip
-            dist/SHA256SUMS.txt
+            dist/SHA256SUMS-*.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
