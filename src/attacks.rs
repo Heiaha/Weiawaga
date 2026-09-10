@@ -116,12 +116,12 @@ pub fn sliding_attacks(sq: SQ, occ: Bitboard, mask: Bitboard) -> Bitboard {
 
 pub fn attacks(pt: PieceType, sq: SQ, occ: Bitboard) -> Bitboard {
     match pt {
+        PieceType::Pawn => panic!("Called generic attacks on pawn."),
         PieceType::Knight => knight_attacks(sq),
         PieceType::Bishop => bishop_attacks(sq, occ),
         PieceType::Rook => rook_attacks(sq, occ),
         PieceType::Queen => bishop_attacks(sq, occ) | rook_attacks(sq, occ),
         PieceType::King => king_attacks(sq),
-        _ => Bitboard::ZERO,
     }
 }
 
