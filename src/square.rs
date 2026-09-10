@@ -132,6 +132,7 @@ impl Relative for Direction {
 
 impl From<i8> for Direction {
     fn from(n: i8) -> Self {
+        debug_assert!(matches!(n.abs(), 1 | 7 | 8 | 9 | 16));
         unsafe { std::mem::transmute::<i8, Self>(n) }
     }
 }
@@ -174,7 +175,7 @@ impl Relative for Rank {
 
 impl fmt::Display for Rank {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", *self as u8 + 1)
+        write!(f, "{}", self.index() + 1)
     }
 }
 
@@ -236,7 +237,7 @@ impl TryFrom<char> for File {
 
 impl fmt::Display for File {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let file_char = b'a' + *self as u8;
+        let file_char = b'a' + self.index() as u8;
         write!(f, "{}", file_char as char)
     }
 }

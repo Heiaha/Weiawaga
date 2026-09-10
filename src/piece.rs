@@ -59,6 +59,7 @@ impl Relative for Piece {
 
 impl From<u8> for Piece {
     fn from(n: u8) -> Self {
+        debug_assert!(matches!(n, 0..=5 | 8..=13));
         unsafe { std::mem::transmute::<u8, Self>(n) }
     }
 }
@@ -70,8 +71,8 @@ impl TryFrom<char> for Piece {
         Self::PIECE_STR
             .chars()
             .position(|c| c == value)
-            .map(|x| Self::from(x as u8))
-            .ok_or("Piece symbols should be one of \"KQRBNPkqrbnp\"")
+            .map(|n| Self::from_repr(n as u8))
+            .ok_or("Piece symbols should be one of \"PNBRQKpnbrqk\"")
     }
 }
 
@@ -82,14 +83,14 @@ impl fmt::Display for Piece {
             "{}",
             Self::PIECE_STR
                 .chars()
-                .nth(*self as usize)
+                .nth(self.index())
                 .expect("Piece symbol should be valid.")
         )
     }
 }
 
 impl Piece {
-    const PIECE_STR: &'static str = "PNBRQK  pnbrqk";
+    const PIECE_STR: &'static str = "PNBRQKpnbrqk";
 }
 
 pub type PieceTypeMap<T> = EnumMap<T, { PieceType::COUNT }>;
@@ -116,7 +117,7 @@ impl fmt::Display for PieceType {
             "{}",
             Self::PIECE_TYPE_STR
                 .chars()
-                .nth(*self as usize)
+                .nth(self.index())
                 .expect("PieceType symbol should be valid.")
         )
     }
@@ -169,5 +170,20 @@ impl TryFrom<char> for Color {
             'b' => Ok(Self::Black),
             _ => Err("Color must be either 'w' or 'b'."),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn piece_symbols_roundtrip() {
+        for pc in Piece::iter() {
+            let symbol = pc.to_string().chars().next().unwrap();
+            assert_eq!(Piece::try_from(symbol), Ok(pc));
+        }
+        assert!(Piece::try_from(' ').is_err());
+        assert!(Piece::try_from('x').is_err());
     }
 }

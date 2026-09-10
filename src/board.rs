@@ -298,8 +298,14 @@ impl Board {
                 self.remove_piece(to_sq);
                 self.move_piece_quiet(from_sq, to_sq);
             }
-            // Promotions:
-            _ => {
+            MoveFlags::PrKnight
+            | MoveFlags::PrBishop
+            | MoveFlags::PrRook
+            | MoveFlags::PrQueen
+            | MoveFlags::PcKnight
+            | MoveFlags::PcBishop
+            | MoveFlags::PcRook
+            | MoveFlags::PcQueen => {
                 if m.is_capture() {
                     captured = self.remove_piece(to_sq);
                 }
@@ -481,7 +487,7 @@ impl Board {
         let not_pinned = !pinned;
 
         match checkers.pop_count() {
-            2 => {
+            2.. => {
                 ///////////////////////////////////////////////////////////////////
                 // If we're in a double check, we have to move the king. We've already
                 // generated those moves, so just return.
@@ -523,7 +529,7 @@ impl Board {
                         }
                         return;
                     }
-                    _ => {
+                    PieceType::Bishop | PieceType::Rook | PieceType::Queen => {
                         ///////////////////////////////////////////////////////////////////
                         // We have to either capture the piece or block it, since it must be
                         // a slider.
@@ -531,9 +537,10 @@ impl Board {
                         capture_mask = checkers;
                         quiet_mask = Bitboard::between(our_king, checker_square);
                     }
+                    PieceType::King => unreachable!("Kings cannot give check."),
                 }
             }
-            _ => {
+            0 => {
                 ///////////////////////////////////////////////////////////////////
                 // At this point, we can capture any enemy piece or play into any
                 // quiet square.
@@ -925,6 +932,36 @@ impl Board {
             }
         }
 
+        let our_king = self.bitboard_of(self.ctm, PieceType::King).lsb();
+        let their_king = self.bitboard_of(!self.ctm, PieceType::King);
+        if self.attackers_to_king(!self.ctm) != Bitboard::ZERO
+            || attacks::king_attacks(our_king) & their_king != Bitboard::ZERO
+        {
+            return Err("Side not to move is in check.");
+        }
+
+        let checkers = self.attackers_to_king(self.ctm);
+        if checkers.pop_count() > 2 {
+            return Err("Too many checkers.");
+        }
+
+        let rights: CastlingRights = castling.parse()?;
+        for color in [Color::White, Color::Black] {
+            let king = Some(Piece::make_piece(color, PieceType::King));
+            let rook = Some(Piece::make_piece(color, PieceType::Rook));
+            for (right, rook_sq) in [
+                (CastlingRights::oo(color), SQ::H1),
+                (CastlingRights::ooo(color), SQ::A1),
+            ] {
+                if rights.contains(right)
+                    && (self.piece_at(SQ::E1.relative(color)) != king
+                        || self.piece_at(rook_sq.relative(color)) != rook)
+                {
+                    return Err("Castling rights do not match the piece placement.");
+                }
+            }
+        }
+
         self.reset_network();
 
         let epsq = (en_passant_sq != "-")
@@ -937,12 +974,12 @@ impl Board {
             .map_err(|_| "Invalid half move counter.")?;
 
         self.history[self.ply] = HistoryEntry {
-            rights: castling.parse()?,
+            rights,
             moov: None,
             material_hash: self.material_hash,
             plies_from_null: 0,
             captured: None,
-            checkers: self.attackers_to_king(self.ctm),
+            checkers,
             epsq,
             half_move_counter,
         };
@@ -1126,6 +1163,38 @@ mod tests {
         assert!("k7/8/8/8/8/8/8/7K w - - 0 0".parse::<Board>().is_ok());
         assert!("k7/8/8/8/8/8/8/7K w - - 0 300".parse::<Board>().is_ok());
         assert!("k7/8/8/8/8/8/8/7K w - - 0 500".parse::<Board>().is_err());
+    }
+
+    #[test]
+    fn fen_rejects_illegal_king_exposure() {
+        assert!("4k3/8/8/8/8/8/8/K3R3 w - - 0 1".parse::<Board>().is_err());
+        assert!("8/8/8/3kK3/8/8/8/8 w - - 0 1".parse::<Board>().is_err());
+        assert!(
+            "4k3/p7/8/7Q/Q7/8/8/4Q2K b - - 0 1"
+                .parse::<Board>()
+                .is_err()
+        );
+        assert!("4k3/8/8/8/B7/8/8/4R2K b - - 0 1".parse::<Board>().is_ok());
+    }
+
+    #[test]
+    fn fen_rejects_castling_rights_without_pieces() {
+        assert!("4k3/8/8/8/8/8/8/4K3 w KQkq - 0 1".parse::<Board>().is_err());
+        assert!(
+            "r3k2r/8/8/8/8/8/8/R4K1R w KQkq - 0 1"
+                .parse::<Board>()
+                .is_err()
+        );
+        assert!(
+            "r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1"
+                .parse::<Board>()
+                .is_err()
+        );
+        assert!(
+            "r3k2r/8/8/8/8/8/8/R3K3 w Qkq - 0 1"
+                .parse::<Board>()
+                .is_ok()
+        );
     }
 
     // Walk every move sequence to the given depth, checking at each node

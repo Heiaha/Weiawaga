@@ -102,6 +102,7 @@ pub enum MoveFlags {
 
 impl From<u8> for MoveFlags {
     fn from(n: u8) -> Self {
+        debug_assert!(matches!(n, 0..=5 | 8..=15));
         unsafe { std::mem::transmute::<u8, Self>(n) }
     }
 }
