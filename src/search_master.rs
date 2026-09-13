@@ -8,7 +8,7 @@ use super::tt::*;
 use super::uci::*;
 use std::io::Write;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::thread;
 use std::time::Duration;
@@ -133,7 +133,9 @@ impl SearchMaster {
 
         self.pondering.store(ponder, Ordering::Release);
         self.stop.store(false, Ordering::Release);
-        let nodes = Arc::new(AtomicU64::new(0));
+        let counters: Arc<[NodeCounter]> = (0..self.n_threads)
+            .map(|_| NodeCounter::default())
+            .collect();
 
         let (best_move, ponder_move) = thread::scope(|s| {
             // Create main search thread with the actual time control. This thread controls self.stop.
@@ -143,7 +145,8 @@ impl SearchMaster {
                     time_control,
                     self.pondering.clone(),
                     self.stop.clone(),
-                    nodes.clone(),
+                    counters.clone(),
+                    0,
                     self.overhead,
                 ),
                 &self.tt,
@@ -162,7 +165,8 @@ impl SearchMaster {
                         TimeControl::Infinite,
                         self.pondering.clone(),
                         self.stop.clone(),
-                        nodes.clone(),
+                        counters.clone(),
+                        id as usize,
                         self.overhead,
                     ),
                     &self.tt,

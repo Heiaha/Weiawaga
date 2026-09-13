@@ -172,7 +172,8 @@ impl DataGen {
                 TimeControl::Infinite,
                 Arc::new(AtomicBool::new(false)),
                 Arc::new(AtomicBool::new(false)),
-                Arc::new(AtomicU64::new(0)),
+                Arc::from([NodeCounter::default()]),
+                0,
                 Duration::ZERO,
             );
             // The node budget scales with the line count so the label line

@@ -137,18 +137,25 @@ impl FromStr for TimeControl {
     }
 }
 
-#[derive(Clone)]
+// Cache aligned
+#[repr(align(64))]
+#[derive(Default)]
+pub struct NodeCounter(pub AtomicU64);
+
 pub struct Timer {
     control: TimeControl,
     start_time: Instant,
-    pondering: Arc<AtomicBool>,
-    stop: Arc<AtomicBool>,
-    nodes: Arc<AtomicU64>,
-    batch: u64,
     time_target: Duration,
     time_maximum: Duration,
     overhead: Duration,
-    current_nodes: u64,
+
+    stop: Arc<AtomicBool>,
+    pondering: Arc<AtomicBool>,
+
+    counters: Arc<[NodeCounter]>,
+    id: usize,
+    local_nodes: u64,
+    move_nodes: u64,
     nodes_table: SQMap<SQMap<u64>>,
 }
 
@@ -158,7 +165,8 @@ impl Timer {
         control: TimeControl,
         pondering: Arc<AtomicBool>,
         stop: Arc<AtomicBool>,
-        nodes: Arc<AtomicU64>,
+        counters: Arc<[NodeCounter]>,
+        id: usize,
         overhead: Duration,
     ) -> Self {
         let (time_target, time_maximum) = match control {
@@ -173,16 +181,17 @@ impl Timer {
         };
 
         Self {
-            start_time: Instant::now(),
-            pondering,
-            stop,
-            batch: 0,
-            nodes,
             control,
-            overhead,
+            start_time: Instant::now(),
             time_target,
             time_maximum,
-            current_nodes: 0,
+            overhead,
+            stop,
+            pondering,
+            counters,
+            id,
+            local_nodes: 0,
+            move_nodes: 0,
             nodes_table: SQMap::default(),
         }
     }
@@ -248,6 +257,10 @@ impl Timer {
             return true;
         }
 
+        if self.local_nodes & (Self::CHECK_INTERVAL - 1) != 0 {
+            return false;
+        }
+
         if self.pondering.load(Ordering::Acquire) {
             return false;
         }
@@ -276,16 +289,18 @@ impl Timer {
     }
 
     pub fn increment(&mut self) {
-        self.batch += 1;
-        self.current_nodes += 1;
-        if self.batch >= Self::BATCH_SIZE {
-            self.nodes.fetch_add(self.batch, Ordering::Relaxed);
-            self.batch = 0;
-        }
+        self.local_nodes += 1;
+        self.move_nodes += 1;
+        self.counters[self.id]
+            .0
+            .store(self.local_nodes, Ordering::Relaxed);
     }
 
     pub fn nodes(&self) -> u64 {
-        self.nodes.load(Ordering::Relaxed) + self.batch
+        self.counters
+            .iter()
+            .map(|counter| counter.0.load(Ordering::Relaxed))
+            .sum()
     }
 
     pub fn is_stopped(&self) -> bool {
@@ -294,8 +309,8 @@ impl Timer {
 
     pub fn update_node_table(&mut self, m: Move) {
         let (from_sq, to_sq) = m.squares();
-        self.nodes_table[from_sq][to_sq] += self.current_nodes;
-        self.current_nodes = 0;
+        self.nodes_table[from_sq][to_sq] += self.move_nodes;
+        self.move_nodes = 0;
     }
 
     pub fn scale_factor(&self, best_move: Option<Move>, depth: i8) -> f64 {
@@ -321,13 +336,15 @@ impl Timer {
 }
 
 impl Timer {
-    const BATCH_SIZE: u64 = 4096;
+    const CHECK_INTERVAL: u64 = 1024;
     const K: f64 = 10.0;
     const X0: f64 = 0.5;
     const MIN_TIMER_UPDATE: f64 = 0.5;
     const MAX_TIMER_UPDATE: f64 = 3.0;
     const SEARCHES_WO_TIMER_UPDATE: i8 = 8;
 }
+
+const _: () = assert!(Timer::CHECK_INTERVAL.is_power_of_two());
 
 #[cfg(test)]
 mod tests {
