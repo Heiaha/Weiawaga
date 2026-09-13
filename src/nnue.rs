@@ -395,7 +395,7 @@ impl Network {
     const N_INPUTS: usize = Piece::COUNT * SQ::COUNT;
     const N_KING_BUCKETS: usize = 4;
     const N_ACCUMULATORS: usize = 1024;
-    const L1: usize = 768;
+    const L1: usize = 1024;
     const N_BUCKETS: usize = 8;
     const BUCKET_DIV: usize = 32_usize.div_ceil(Self::N_BUCKETS);
     const LANES: usize = i16x32::LANES as usize;
