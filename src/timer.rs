@@ -318,17 +318,17 @@ impl Timer {
             return 1.0;
         };
 
-        if depth <= Self::SEARCHES_WO_TIMER_UPDATE {
+        if depth <= Self::SEARCHES_WO_TIMER_UPDATE || self.local_nodes == 0 {
             return 1.0;
         }
 
-        let total_nodes = self.nodes_table.iter().flatten().sum::<u64>();
-        if total_nodes == 0 {
-            return 1.0;
-        }
+        debug_assert_eq!(
+            self.nodes_table.iter().flatten().sum::<u64>(),
+            self.local_nodes
+        );
 
         let (from_sq, to_sq) = m.squares();
-        let effort_ratio = self.nodes_table[from_sq][to_sq] as f64 / total_nodes as f64;
+        let effort_ratio = self.nodes_table[from_sq][to_sq] as f64 / self.local_nodes as f64;
         let logistic = 1.0 / (1.0 + (-Self::K * (effort_ratio - Self::X0)).exp());
         Self::MIN_TIMER_UPDATE
             + (Self::MAX_TIMER_UPDATE - Self::MIN_TIMER_UPDATE) * (1.0 - logistic)
