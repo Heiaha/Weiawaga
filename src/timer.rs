@@ -133,7 +133,30 @@ impl FromStr for TimeControl {
 
 #[repr(align(64))]
 #[derive(Default)]
-pub struct NodeCounter(pub AtomicU64);
+struct NodeCounter(AtomicU64);
+
+#[derive(Clone)]
+pub struct Signals {
+    stop: Arc<AtomicBool>,
+    pondering: Arc<AtomicBool>,
+    counters: Arc<[NodeCounter]>,
+}
+
+impl Signals {
+    pub fn new(stop: Arc<AtomicBool>, pondering: Arc<AtomicBool>, threads: usize) -> Self {
+        Self {
+            stop,
+            pondering,
+            counters: (0..threads).map(|_| NodeCounter::default()).collect(),
+        }
+    }
+}
+
+impl Default for Signals {
+    fn default() -> Self {
+        Self::new(Arc::default(), Arc::default(), 1)
+    }
+}
 
 pub struct Timer {
     control: TimeControl,
@@ -142,10 +165,7 @@ pub struct Timer {
     time_maximum: Duration,
     overhead: Duration,
 
-    stop: Arc<AtomicBool>,
-    pondering: Arc<AtomicBool>,
-
-    counters: Arc<[NodeCounter]>,
+    signals: Signals,
     id: usize,
     local_nodes: u64,
     move_nodes: u64,
@@ -156,9 +176,7 @@ impl Timer {
     pub fn new(
         board: &Board,
         control: TimeControl,
-        pondering: Arc<AtomicBool>,
-        stop: Arc<AtomicBool>,
-        counters: Arc<[NodeCounter]>,
+        signals: Signals,
         id: usize,
         overhead: Duration,
     ) -> Self {
@@ -179,9 +197,7 @@ impl Timer {
             time_target,
             time_maximum,
             overhead,
-            stop,
-            pondering,
-            counters,
+            signals,
             id,
             local_nodes: 0,
             move_nodes: 0,
@@ -211,11 +227,11 @@ impl Timer {
     }
 
     pub fn start_check(&mut self, best_move: Option<Move>, depth: i8) -> bool {
-        if self.stop.load(Ordering::Acquire) {
+        if self.signals.stop.load(Ordering::Acquire) {
             return false;
         }
 
-        if self.pondering.load(Ordering::Acquire) {
+        if self.signals.pondering.load(Ordering::Acquire) {
             return true;
         }
 
@@ -246,7 +262,7 @@ impl Timer {
     pub fn stop_check(&mut self) -> bool {
         self.increment();
 
-        if self.stop.load(Ordering::Acquire) {
+        if self.signals.stop.load(Ordering::Acquire) {
             return true;
         }
 
@@ -254,7 +270,7 @@ impl Timer {
             return false;
         }
 
-        if self.pondering.load(Ordering::Acquire) {
+        if self.signals.pondering.load(Ordering::Acquire) {
             return false;
         }
 
@@ -274,7 +290,7 @@ impl Timer {
     }
 
     pub fn set_stop(&mut self) {
-        self.stop.store(true, Ordering::Release);
+        self.signals.stop.store(true, Ordering::Release);
     }
 
     pub fn elapsed(&self) -> Duration {
@@ -284,20 +300,21 @@ impl Timer {
     pub fn increment(&mut self) {
         self.local_nodes += 1;
         self.move_nodes += 1;
-        self.counters[self.id]
+        self.signals.counters[self.id]
             .0
             .store(self.local_nodes, Ordering::Relaxed);
     }
 
     pub fn nodes(&self) -> u64 {
-        self.counters
+        self.signals
+            .counters
             .iter()
             .map(|counter| counter.0.load(Ordering::Relaxed))
             .sum()
     }
 
     pub fn is_stopped(&self) -> bool {
-        self.stop.load(Ordering::Acquire)
+        self.signals.stop.load(Ordering::Acquire)
     }
 
     pub fn update_node_table(&mut self, m: Move) {
