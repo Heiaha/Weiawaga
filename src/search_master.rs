@@ -1,4 +1,5 @@
 use super::board::*;
+use super::move_sorting::*;
 #[cfg(feature = "tune")]
 use super::params::{self, Tunable};
 use super::perft::*;
@@ -20,8 +21,8 @@ pub struct SearchMaster {
     show_wdl: bool,
     multi_pv: usize,
     board: Board,
-    n_threads: u16,
     tt: TT,
+    scorers: Vec<MoveScorer>,
     overhead: Duration,
 }
 
@@ -34,8 +35,8 @@ impl SearchMaster {
             show_wdl: false,
             multi_pv: EngineOption::MULTIPV_DEFAULT,
             board: Board::new(),
-            n_threads: 1,
             tt: TT::new(16),
+            scorers: vec![MoveScorer::new()],
             overhead: Duration::from_millis(10),
         }
     }
@@ -49,6 +50,7 @@ impl SearchMaster {
                 UCICommand::UCINewGame => {
                     self.board.reset();
                     self.tt.clear();
+                    self.scorers.fill_with(MoveScorer::new);
                 }
                 UCICommand::UCI => {
                     println!("id name Weiawaga v{}", env!("CARGO_PKG_VERSION"));
@@ -129,56 +131,52 @@ impl SearchMaster {
             return;
         }
 
-        let board = self.board.clone();
-
         self.pondering.store(ponder, Ordering::Release);
         self.stop.store(false, Ordering::Release);
-        let counters: Arc<[NodeCounter]> = (0..self.n_threads)
-            .map(|_| NodeCounter::default())
-            .collect();
+        let options = SearchOptions {
+            show_wdl: self.show_wdl,
+            multi_pv: self.multi_pv,
+            searchmoves,
+        };
+        let signals = Signals::new(
+            self.stop.clone(),
+            self.pondering.clone(),
+            self.scorers.len(),
+        );
 
+        ///////////////////////////////////////////////////////////////////
+        // Only the main thread keeps the clock and reports the requested
+        // lines. Helpers search until it stops them and only feed the tt.
+        ///////////////////////////////////////////////////////////////////
+        let mut searches = self
+            .scorers
+            .iter_mut()
+            .enumerate()
+            .map(|(id, scorer)| {
+                scorer.clear_killers();
+                let (control, options) = if id == 0 {
+                    (time_control, options.clone())
+                } else {
+                    let options = SearchOptions {
+                        multi_pv: EngineOption::MULTIPV_DEFAULT,
+                        ..options.clone()
+                    };
+                    (TimeControl::Infinite, options)
+                };
+                let timer = Timer::new(&self.board, control, signals.clone(), id, self.overhead);
+                Search::new(id as u16, timer, &self.tt, scorer, options)
+            })
+            .collect::<Vec<_>>();
+
+        let (main, helpers) = searches
+            .split_first_mut()
+            .expect("There is always at least one search thread.");
         let (best_move, ponder_move) = thread::scope(|s| {
-            // Create main search thread with the actual time control. This thread controls self.stop.
-            let mut main_search_thread = Search::new(
-                Timer::new(
-                    &board,
-                    time_control,
-                    self.pondering.clone(),
-                    self.stop.clone(),
-                    counters.clone(),
-                    0,
-                    self.overhead,
-                ),
-                &self.tt,
-                0,
-                self.show_wdl,
-                self.multi_pv,
-                searchmoves.clone(),
-            );
-
-            // Create helper search threads which will stop when self.stop resolves to true.
-            for id in 1..self.n_threads {
-                let thread_board = board.clone();
-                let mut helper_search_thread = Search::new(
-                    Timer::new(
-                        &thread_board,
-                        TimeControl::Infinite,
-                        self.pondering.clone(),
-                        self.stop.clone(),
-                        counters.clone(),
-                        id as usize,
-                        self.overhead,
-                    ),
-                    &self.tt,
-                    id,
-                    self.show_wdl,
-                    // Helpers stay single-pv; they only feed the tt.
-                    EngineOption::MULTIPV_DEFAULT,
-                    searchmoves.clone(),
-                );
-                s.spawn(move || helper_search_thread.go(thread_board));
+            for helper in helpers {
+                let board = self.board.clone();
+                s.spawn(move || helper.go(board));
             }
-            main_search_thread.go(board)
+            main.go(self.board.clone())
         });
 
         // UCI forbids sending bestmove while in ponder mode; if the search
@@ -215,11 +213,13 @@ impl SearchMaster {
                 )?);
             }
             EngineOption::Threads(n_threads) => {
-                self.n_threads = Self::checked(
+                let n_threads = Self::checked(
                     n_threads,
                     EngineOption::THREADS_MIN..=EngineOption::THREADS_MAX,
                     "Threads out of range.",
                 )?;
+                self.scorers
+                    .resize_with(usize::from(n_threads), MoveScorer::new);
             }
             EngineOption::MoveOverhead(overhead) => {
                 self.overhead = Self::checked(

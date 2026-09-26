@@ -3,6 +3,7 @@ use super::bitboard::*;
 use super::board::*;
 use super::moov::*;
 use super::move_list::*;
+use super::params;
 use super::piece::*;
 use super::square::*;
 use super::traits::*;
@@ -116,16 +117,24 @@ impl MoveScorer {
         Self::MVV_LVA_SCORES[captured_pt][attacking_pt]
     }
 
+    pub fn clear_killers(&mut self) {
+        self.killer_moves = [None; MAX_PLY];
+    }
+
     pub fn add_killer(&mut self, m: Move, ply: usize) {
         self.killer_moves[ply] = Some(m);
     }
 
     pub fn add_history(&mut self, m: Move, ctm: Color, depth: i8) {
-        self.update_history(m, ctm, (depth as i32).pow(2));
+        let depth = i32::from(depth).min(params::history_bonus_max_depth());
+        let bonus = params::history_bonus_multiplier() * depth + params::history_bonus_offset();
+        self.update_history(m, ctm, bonus);
     }
 
     pub fn sub_history(&mut self, m: Move, ctm: Color, depth: i8) {
-        self.update_history(m, ctm, -(depth as i32).pow(2));
+        let depth = i32::from(depth).min(params::history_malus_max_depth());
+        let malus = params::history_malus_multiplier() * depth + params::history_malus_offset();
+        self.update_history(m, ctm, -malus);
     }
 
     fn update_history(&mut self, m: Move, ctm: Color, delta: i32) {

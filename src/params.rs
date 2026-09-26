@@ -76,4 +76,10 @@ tunables! {
     singular_double_margin: 25, 5, 100;
     singular_double_cap: 6, 2, 12;
     null_depth_divider: 173, 120, 400;
+    history_bonus_multiplier: 134, 30, 400;
+    history_bonus_offset: -31, -100, 100;
+    history_bonus_max_depth: 14, 3, 30;
+    history_malus_multiplier: 184, 30, 400;
+    history_malus_offset: 25, -100, 150;
+    history_malus_max_depth: 9, 3, 30;
 }

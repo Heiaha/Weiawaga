@@ -34,6 +34,14 @@ impl RootMove {
     }
 }
 
+// The UCI settings a search runs under.
+#[derive(Clone)]
+pub struct SearchOptions {
+    pub show_wdl: bool,
+    pub multi_pv: usize,
+    pub searchmoves: Vec<String>,
+}
+
 // A node's place in the tree: its ply and whether it is a PV node or
 // one expected to fail high.
 #[derive(Clone, Copy)]
@@ -46,12 +54,10 @@ struct NodeCtx {
 pub struct Search<'a> {
     id: u16,
     sel_depth: usize,
-    show_wdl: bool,
-    multi_pv: usize,
+    options: SearchOptions,
     timer: Timer,
     tt: &'a TT,
-    scorer: MoveScorer,
-    searchmoves: Vec<String>,
+    scorer: &'a mut MoveScorer,
     excluded_moves: [Option<Move>; MAX_PLY],
     eval_stack: [i32; MAX_PLY],
     double_exts: [i32; MAX_PLY],
@@ -60,22 +66,19 @@ pub struct Search<'a> {
 
 impl<'a> Search<'a> {
     pub fn new(
+        id: u16,
         timer: Timer,
         tt: &'a TT,
-        id: u16,
-        show_wdl: bool,
-        multi_pv: usize,
-        searchmoves: Vec<String>,
+        scorer: &'a mut MoveScorer,
+        options: SearchOptions,
     ) -> Self {
         Self {
             id,
             timer,
             tt,
-            show_wdl,
-            multi_pv,
-            searchmoves,
+            scorer,
+            options,
             sel_depth: 0,
-            scorer: MoveScorer::new(),
             excluded_moves: [None; MAX_PLY],
             eval_stack: [0; MAX_PLY],
             double_exts: [0; MAX_PLY],
@@ -107,14 +110,14 @@ impl<'a> Search<'a> {
         // list matching nothing legal is ignored rather than leaving the
         // GUI without a bestmove.
         ///////////////////////////////////////////////////////////////////
-        if !self.searchmoves.is_empty() {
-            let listed = |line: &RootMove| self.searchmoves.contains(&line.m.to_string());
+        if !self.options.searchmoves.is_empty() {
+            let listed = |line: &RootMove| self.options.searchmoves.contains(&line.m.to_string());
             if root_moves.iter().any(listed) {
                 root_moves.retain(listed);
             }
         }
 
-        let multi_pv = self.multi_pv.min(root_moves.len());
+        let multi_pv = self.options.multi_pv.min(root_moves.len());
 
         'deepening: for depth in 1..i8::MAX {
             if !self.timer.start_check(Some(root_moves[0].m), depth) {
@@ -387,12 +390,10 @@ impl<'a> Search<'a> {
             excluded_move,
         ) {
             let r = Self::null_reduction(depth);
+            self.double_exts[ply + 1] = self.double_exts[ply];
             board.push_null();
-            let value = -self.search(board, depth - r - 1, -beta, -beta + 1, ply, !is_cut);
+            let value = -self.search(board, depth - r - 1, -beta, -beta + 1, ply + 1, !is_cut);
             board.pop_null();
-            // The null-move search runs at this same ply and overwrites our
-            // stack entry with the opponent-side eval, so restore it.
-            self.eval_stack[ply] = static_eval;
             if self.timer.is_stopped() {
                 return 0;
             }
@@ -921,7 +922,7 @@ impl<'a> Search<'a> {
             format!("cp {value}")
         };
 
-        let wdl_str = if self.show_wdl {
+        let wdl_str = if self.options.show_wdl {
             // A proven mate overrides the network's prior.
             let [loss, draw, win] = if value.is_checkmate() {
                 if value > 0 {
@@ -1021,7 +1022,7 @@ impl Search<'_> {
             .map(RootMove::new)
             .collect::<Vec<_>>();
 
-        let multi_pv = self.multi_pv.min(root_moves.len());
+        let multi_pv = self.options.multi_pv.min(root_moves.len());
 
         for depth in 1..i8::MAX {
             for pv_idx in 0..multi_pv {

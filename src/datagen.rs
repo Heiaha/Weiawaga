@@ -1,7 +1,7 @@
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -20,6 +20,7 @@ use regex_lite::{Captures, Regex};
 use super::board::*;
 use super::moov::*;
 use super::move_list::*;
+use super::move_sorting::*;
 use super::piece::*;
 use super::search::*;
 use super::timer::*;
@@ -149,6 +150,7 @@ impl DataGen {
         let mut draw_streak = 0;
         let mut win_streak = 0;
         let mut prev_call = 0;
+        let mut scorer = MoveScorer::new();
         let outcome = loop {
             let moves = MoveList::from::<false>(&board);
             if moves.is_empty() {
@@ -170,15 +172,19 @@ impl DataGen {
             let timer = Timer::new(
                 &board,
                 TimeControl::Infinite,
-                Arc::new(AtomicBool::new(false)),
-                Arc::new(AtomicBool::new(false)),
-                Arc::from([NodeCounter::default()]),
+                Signals::default(),
                 0,
                 Duration::ZERO,
             );
             // The node budget scales with the line count so the label line
             // keeps its usual depth at nudge plies.
-            let mut search = Search::new(timer, tt, 1, false, multi_pv, Vec::new());
+            let options = SearchOptions {
+                show_wdl: false,
+                multi_pv,
+                searchmoves: Vec::new(),
+            };
+            scorer.clear_killers();
+            let mut search = Search::new(1, timer, tt, &mut scorer, options);
             let lines = search.go_datagen(&mut board, self.cfg.nodes * multi_pv as u64);
             let best = lines
                 .first()
