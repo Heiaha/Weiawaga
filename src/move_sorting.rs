@@ -31,9 +31,28 @@ impl Iterator for MoveSorter<'_> {
     }
 }
 
+#[derive(Clone, Copy)]
+struct PieceTo {
+    pc: Piece,
+    to_sq: SQ,
+}
+
+impl PieceTo {
+    fn new(board: &Board, m: Move) -> Self {
+        Self {
+            pc: board
+                .piece_at(m.from_sq())
+                .expect("No piece on the moving square."),
+            to_sq: m.to_sq(),
+        }
+    }
+}
+
 pub struct MoveScorer {
     killer_moves: [Option<Move>; MAX_PLY],
+    played: [Option<PieceTo>; MAX_PLY],
     history_scores: ColorMap<SQMap<SQMap<i32>>>,
+    continuation_scores: PieceMap<Box<SQMap<PieceMap<SQMap<i16>>>>>,
     counter_moves: SQMap<SQMap<Option<Move>>>,
 }
 
@@ -41,7 +60,9 @@ impl MoveScorer {
     pub fn new() -> Self {
         Self {
             killer_moves: [None; MAX_PLY],
+            played: [None; MAX_PLY],
             history_scores: ColorMap::default(),
+            continuation_scores: PieceMap::default(),
             counter_moves: SQMap::default(),
         }
     }
@@ -80,10 +101,8 @@ impl MoveScorer {
                 Self::KILLER_MOVE_SCORE
             } else if self.is_counter(board, m) {
                 Self::COUNTER_MOVE_SCORE
-            } else if m.is_castling() {
-                Self::CASTLING_SCORE
             } else {
-                self.history_score(m, board.ctm())
+                self.history_score(m, board, ply)
             };
         }
 
@@ -121,30 +140,55 @@ impl MoveScorer {
         self.killer_moves = [None; MAX_PLY];
     }
 
+    pub fn record_move(&mut self, board: &Board, m: Move, ply: usize) {
+        self.played[ply] = Some(PieceTo::new(board, m));
+    }
+
+    pub fn record_null(&mut self, ply: usize) {
+        self.played[ply] = None;
+    }
+
     pub fn add_killer(&mut self, m: Move, ply: usize) {
         self.killer_moves[ply] = Some(m);
     }
 
-    pub fn add_history(&mut self, m: Move, ctm: Color, depth: i8) {
+    pub fn add_history(&mut self, m: Move, board: &Board, ply: usize, depth: i8) {
         let depth = i32::from(depth).min(params::history_bonus_max_depth());
         let bonus = params::history_bonus_multiplier() * depth + params::history_bonus_offset();
-        self.update_history(m, ctm, bonus);
+        self.update_history(m, board, ply, bonus);
     }
 
-    pub fn sub_history(&mut self, m: Move, ctm: Color, depth: i8) {
+    pub fn sub_history(&mut self, m: Move, board: &Board, ply: usize, depth: i8) {
         let depth = i32::from(depth).min(params::history_malus_max_depth());
         let malus = params::history_malus_multiplier() * depth + params::history_malus_offset();
-        self.update_history(m, ctm, -malus);
-    }
-
-    fn update_history(&mut self, m: Move, ctm: Color, delta: i32) {
-        let (from_sq, to_sq) = m.squares();
-        let score = &mut self.history_scores[ctm][from_sq][to_sq];
-        *score += delta - *score * delta.abs() / Self::HISTORY_MAX;
+        self.update_history(m, board, ply, -malus);
     }
 
     pub fn add_counter(&mut self, p_move: Move, m: Move) {
         self.counter_moves[p_move.from_sq()][p_move.to_sq()] = Some(m);
+    }
+
+    fn update_history(&mut self, m: Move, board: &Board, ply: usize, delta: i32) {
+        let (from_sq, to_sq) = m.squares();
+        let score = &mut self.history_scores[board.ctm()][from_sq][to_sq];
+        *score = Self::gravity(*score, delta);
+
+        let cur = PieceTo::new(board, m);
+        for prev in self.continuations(ply) {
+            let score = &mut self.continuation_scores[prev.pc][prev.to_sq][cur.pc][cur.to_sq];
+            *score = Self::gravity(i32::from(*score), delta) as i16;
+        }
+    }
+
+    fn gravity(score: i32, delta: i32) -> i32 {
+        score + delta - score * delta.abs() / Self::HISTORY_MAX
+    }
+
+    fn continuations(&self, ply: usize) -> impl Iterator<Item = PieceTo> + use<> {
+        [1, 2]
+            .map(|offset| ply.checked_sub(offset).and_then(|prev| self.played[prev]))
+            .into_iter()
+            .flatten()
     }
 
     fn is_killer(&self, m: Move, ply: usize) -> bool {
@@ -157,8 +201,13 @@ impl MoveScorer {
             .is_some_and(|p_move| self.counter_moves[p_move.from_sq()][p_move.to_sq()] == Some(m))
     }
 
-    fn history_score(&self, m: Move, ctm: Color) -> i32 {
-        self.history_scores[ctm][m.from_sq()][m.to_sq()]
+    fn history_score(&self, m: Move, board: &Board, ply: usize) -> i32 {
+        let cur = PieceTo::new(board, m);
+        let continuation: i32 = self
+            .continuations(ply)
+            .map(|prev| i32::from(self.continuation_scores[prev.pc][prev.to_sq][cur.pc][cur.to_sq]))
+            .sum();
+        self.history_scores[board.ctm()][m.from_sq()][m.to_sq()] + continuation
     }
 
     pub fn piece_value(pt: PieceType) -> i32 {
@@ -257,7 +306,6 @@ impl MoveScorer {
     const CAPTURE_SCORE: i32 = 10 * Self::HISTORY_MAX;
     const KILLER_MOVE_SCORE: i32 = 5 * Self::HISTORY_MAX;
     const COUNTER_MOVE_SCORE: i32 = 3 * Self::HISTORY_MAX;
-    const CASTLING_SCORE: i32 = 2 * Self::HISTORY_MAX;
 
     const SEE_PIECE_TYPE: PieceTypeMap<i32> = PieceTypeMap::new([100, 375, 375, 500, 1025, 10000]);
 

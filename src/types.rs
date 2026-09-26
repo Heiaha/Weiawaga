@@ -63,9 +63,9 @@ where
     }
 }
 
-impl<T: Copy + Default, const N: usize> Default for EnumMap<T, N> {
+impl<T: Default, const N: usize> Default for EnumMap<T, N> {
     fn default() -> Self {
-        Self([T::default(); N])
+        Self(std::array::from_fn(|_| T::default()))
     }
 }
 

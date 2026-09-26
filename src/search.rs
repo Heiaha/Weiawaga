@@ -220,6 +220,7 @@ impl<'a> Search<'a> {
                 Self::print_currmovenumber(depth, m, idx);
             }
 
+            self.scorer.record_move(board, m, 0);
             board.push(m);
             let value = if idx == 0 {
                 -self.search(board, depth - 1, -beta, -alpha, 1, false)
@@ -362,6 +363,7 @@ impl<'a> Search<'a> {
         ) {
             let r = Self::null_reduction(depth);
             self.double_exts[ply + 1] = self.double_exts[ply];
+            self.scorer.record_null(ply);
             board.push_null();
             let value = -self.search(board, depth - r - 1, -beta, -beta + 1, ply + 1, !is_cut);
             board.pop_null();
@@ -408,6 +410,7 @@ impl<'a> Search<'a> {
                 ControlFlow::Break(value) => return value,
             };
 
+            self.scorer.record_move(board, m, ply);
             board.push(m);
 
             if depth > 1 {
@@ -451,9 +454,9 @@ impl<'a> Search<'a> {
                     if value >= beta {
                         if m.is_quiet() {
                             self.scorer.add_killer(m, ply);
-                            self.scorer.add_history(m, board.ctm(), depth);
+                            self.scorer.add_history(m, board, ply, depth);
                             for &q in &quiets_tried {
-                                self.scorer.sub_history(q, board.ctm(), depth);
+                                self.scorer.sub_history(q, board, ply, depth);
                             }
                             if let Some(p_move) = board.peek() {
                                 self.scorer.add_counter(p_move, m);
@@ -556,6 +559,7 @@ impl<'a> Search<'a> {
 
         while let Some(m) = sorter.find(|&m| in_check || Self::q_searchable(board, m, eval, alpha))
         {
+            self.scorer.record_move(board, m, ply);
             board.push(m);
             let value = -self.q_search(board, -beta, -alpha, ply + 1);
             board.pop();
