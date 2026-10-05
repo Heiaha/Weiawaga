@@ -510,7 +510,9 @@ impl<'a> Search<'a> {
         let is_pv = alpha != beta - 1;
 
         let tt_entry = self.tt.get(board, ply);
-        if let Some(tt_entry) = tt_entry {
+        if let Some(tt_entry) = tt_entry
+            && !is_pv
+        {
             let tt_value = tt_entry.value();
 
             match tt_entry.bound() {
@@ -836,18 +838,12 @@ impl<'a> Search<'a> {
             drawn |= board.is_draw();
         }
 
-        let mut ply = pv.len();
-        while ply > 0 && (board.in_check() || !pv[ply - 1].is_quiet()) {
-            board.pop();
-            ply -= 1;
-        }
-
         let wdl = if drawn {
             Some([0.0, 1.0, 0.0])
         } else {
-            (ply > 0).then(|| Self::leaf_wdl(board, ply))
+            (!pv.is_empty()).then(|| Self::leaf_wdl(board, pv.len()))
         };
-        for _ in 0..ply {
+        for _ in pv {
             board.pop();
         }
         wdl
