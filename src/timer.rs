@@ -87,9 +87,6 @@ impl FromStr for TimeControl {
     type Err = &'static str;
 
     fn from_str(line: &str) -> Result<Self, Self::Err> {
-        // Unknown tokens match the trailing catch-all and are skipped, as
-        // the protocol asks. This includes searchmoves: the restriction is
-        // ignored and every root move is searched.
         static GO_RE: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(
                 r"(?x)^

@@ -42,9 +42,6 @@ struct Linear {
 }
 
 impl Linear {
-    // Fused clipped-relu-square dot product over both perspective halves,
-    // side to move first. Returns the raw quantized sum; scaling and the
-    // bias are the caller's concern.
     fn forward(&self, acc: &ColorMap<Accumulator>, stm: Color) -> i32 {
         let (stm_weights, nstm_weights) = self.weights.split_at(acc[stm].0.len());
 
@@ -166,8 +163,6 @@ impl Accumulator {
             .for_each(|(act, (&w_to, &w_from))| *act += w_to - w_from);
     }
 
-    // Out-of-place move_piece: the copy from the parent accumulator rides
-    // along in the same pass.
     fn move_piece_from(&mut self, src: &Accumulator, from_emb: &Embedding, to_emb: &Embedding) {
         self.0
             .iter_mut()

@@ -1,6 +1,5 @@
 use std::ops::ControlFlow;
 use std::sync::LazyLock;
-#[cfg(feature = "tune")]
 use std::sync::atomic::{AtomicI8, Ordering};
 use std::time::Duration;
 
@@ -129,8 +128,7 @@ impl<'a> Search<'a> {
                 if self.timer.is_stopped() {
                     break 'deepening;
                 }
-                // A tail search covers only part of the root moves; only the
-                // full-width line may write the root position's entry.
+
                 if pv_idx == 0 {
                     self.tt
                         .insert(&board, depth, value, Some(root_moves[0].m), bound, 0);
@@ -239,8 +237,7 @@ impl<'a> Search<'a> {
 
             self.scorer.record_move(board, m, 0);
             board.push(m);
-            // A value at or below alpha is only a bound; the standings
-            // may move on an exact score alone.
+
             let value = if idx == 0 {
                 -self.search(board, depth - 1, -beta, -alpha, 1, false)
             } else {
@@ -830,22 +827,6 @@ impl<'a> Search<'a> {
             - params::rfp_improving_margin() * (improving as i32)
     }
 
-    #[cfg(not(feature = "tune"))]
-    fn late_move_reduction(depth: i8, move_index: usize) -> i8 {
-        static LMR_TABLE: LazyLock<[[i8; 64]; 64]> = LazyLock::new(|| {
-            let mut lmr_table = [[0; 64]; 64];
-            for (depth, row) in lmr_table.iter_mut().enumerate().skip(1) {
-                for (move_number, reduction) in row.iter_mut().enumerate().skip(1) {
-                    *reduction = Search::lmr_entry(depth, move_number);
-                }
-            }
-            lmr_table
-        });
-
-        LMR_TABLE[depth.min(63) as usize][move_index.min(63)]
-    }
-
-    #[cfg(feature = "tune")]
     fn late_move_reduction(depth: i8, move_index: usize) -> i8 {
         LMR_TABLE[depth.min(63) as usize][move_index.min(63)].load(Ordering::Relaxed)
     }
@@ -963,14 +944,12 @@ impl<'a> Search<'a> {
     }
 }
 
-#[cfg(feature = "tune")]
 static LMR_TABLE: LazyLock<[[AtomicI8; 64]; 64]> = LazyLock::new(|| {
     let table = [const { [const { AtomicI8::new(0) }; 64] }; 64];
     fill_lmr_table(&table);
     table
 });
 
-#[cfg(feature = "tune")]
 fn fill_lmr_table(table: &[[AtomicI8; 64]; 64]) {
     for (depth, row) in table.iter().enumerate().skip(1) {
         for (move_number, entry) in row.iter().enumerate().skip(1) {
