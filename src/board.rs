@@ -1115,8 +1115,7 @@ mod tests {
     use crate::board::*;
 
     fn walk_evals(board: &mut Board, depth: u8) {
-        let mut fresh = Board::new();
-        fresh.set_fen(&board.to_string()).expect("Roundtrip FEN.");
+        let mut fresh: Board = board.to_string().parse().expect("Roundtrip FEN.");
         assert_eq!(
             board.eval(),
             fresh.eval(),
