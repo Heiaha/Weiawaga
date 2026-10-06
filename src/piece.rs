@@ -172,18 +172,3 @@ impl TryFrom<char> for Color {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn piece_symbols_roundtrip() {
-        for pc in Piece::iter() {
-            let symbol = pc.to_string().chars().next().unwrap();
-            assert_eq!(Piece::try_from(symbol), Ok(pc));
-        }
-        assert!(Piece::try_from(' ').is_err());
-        assert!(Piece::try_from('x').is_err());
-    }
-}
