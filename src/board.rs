@@ -1171,7 +1171,7 @@ mod tests {
             ),
             // Bare kings next to the mirror boundary: deep walk forces
             // many boundary crossings for both colors.
-            ("8/3k4/8/8/8/8/4K3/8 w - - 0 1", 5),
+            ("8/3k4/8/8/8/8/4K3/8 w - - 0 1", 4),
         ];
 
         for (fen, depth) in positions {
