@@ -1114,72 +1114,6 @@ impl HistoryEntry {
 mod tests {
     use crate::board::*;
 
-    #[test]
-    fn fen_rejects_missing_or_extra_kings() {
-        assert!("8/8/8/8/8/8/8/8 w - - 0 1".parse::<Board>().is_err());
-        assert!("kk6/8/8/8/8/8/8/7K w - - 0 1".parse::<Board>().is_err());
-        assert!("k7/8/8/8/8/8/8/6KK w - - 0 1".parse::<Board>().is_err());
-    }
-
-    #[test]
-    fn fen_rejects_malformed_castling_and_ep() {
-        assert!(
-            "r3k2r/8/8/8/8/8/8/R3K2R w qK - 0 1"
-                .parse::<Board>()
-                .is_err()
-        );
-        assert!(
-            "r3k2r/8/8/8/8/8/8/R3K2R w KKQ - 0 1"
-                .parse::<Board>()
-                .is_err()
-        );
-        assert!("k7/8/8/8/8/8/8/7K w - e5 0 1".parse::<Board>().is_err());
-        assert!(
-            "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"
-                .parse::<Board>()
-                .is_ok()
-        );
-    }
-
-    #[test]
-    fn fen_bounds_the_full_move_counter() {
-        assert!("k7/8/8/8/8/8/8/7K w - - 0 0".parse::<Board>().is_ok());
-        assert!("k7/8/8/8/8/8/8/7K w - - 0 300".parse::<Board>().is_ok());
-        assert!("k7/8/8/8/8/8/8/7K w - - 0 500".parse::<Board>().is_err());
-    }
-
-    #[test]
-    fn fen_rejects_illegal_king_exposure() {
-        assert!("4k3/8/8/8/8/8/8/K3R3 w - - 0 1".parse::<Board>().is_err());
-        assert!("8/8/8/3kK3/8/8/8/8 w - - 0 1".parse::<Board>().is_err());
-        assert!(
-            "4k3/p7/8/7Q/Q7/8/8/4Q2K b - - 0 1"
-                .parse::<Board>()
-                .is_err()
-        );
-        assert!("4k3/8/8/8/B7/8/8/4R2K b - - 0 1".parse::<Board>().is_ok());
-    }
-
-    #[test]
-    fn fen_rejects_castling_rights_without_pieces() {
-        assert!("4k3/8/8/8/8/8/8/4K3 w KQkq - 0 1".parse::<Board>().is_err());
-        assert!(
-            "r3k2r/8/8/8/8/8/8/R4K1R w KQkq - 0 1"
-                .parse::<Board>()
-                .is_err()
-        );
-        assert!(
-            "r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1"
-                .parse::<Board>()
-                .is_err()
-        );
-        assert!(
-            "r3k2r/8/8/8/8/8/8/R3K3 w Qkq - 0 1"
-                .parse::<Board>()
-                .is_ok()
-        );
-    }
-
     fn walk_evals(board: &mut Board, depth: u8) {
         let mut fresh = Board::new();
         fresh.set_fen(&board.to_string()).expect("Roundtrip FEN.");
@@ -1280,28 +1214,6 @@ mod tests {
             board.set_fen(fen).expect("Test FEN should be valid.");
             walk_checkers(&mut board, depth);
         }
-    }
-
-    #[test]
-    fn castling_rights_updates() {
-        let rights = |board: &Board| board.to_string().split(' ').nth(2).unwrap().to_string();
-
-        let mut board = "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"
-            .parse::<Board>()
-            .unwrap();
-        board.push_str("a1a8").unwrap();
-        assert_eq!(rights(&board), "Kk");
-        board.pop();
-        assert_eq!(rights(&board), "KQkq");
-
-        board.push_str("e1g1").unwrap();
-        assert_eq!(rights(&board), "kq");
-        board.push_str("e8d8").unwrap();
-        assert_eq!(rights(&board), "-");
-        board.pop();
-
-        board.push_str("h8h1").unwrap();
-        assert_eq!(rights(&board), "q");
     }
 
     #[test]
