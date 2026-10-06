@@ -1131,14 +1131,8 @@ impl HistoryEntry {
 mod tests {
     use crate::board::*;
 
-    // Walk every move sequence to the given depth, checking at each node
-    // that the incrementally maintained accumulator gives the same eval as
-    // one rebuilt from scratch via FEN. This is the safety net for the
-    // mirror-refresh machinery: a missed or wrong refresh shows up as a
-    // divergence at the first node whose king crossed the d/e boundary.
     fn walk_evals(board: &mut Board, depth: u8) {
-        let mut fresh = Board::new();
-        fresh.set_fen(&board.to_string()).expect("Roundtrip FEN.");
+        let mut fresh: Board = board.to_string().parse().expect("Roundtrip FEN.");
         assert_eq!(
             board.eval(),
             fresh.eval(),
@@ -1187,9 +1181,6 @@ mod tests {
         }
     }
 
-    // Walk every move sequence to the given depth, checking at each node
-    // that the checkers carried through push/pop/push_null agree with a
-    // board built from scratch via FEN.
     fn walk_checkers(board: &mut Board, depth: u8) {
         let mut fresh = Board::new();
         fresh.set_fen(&board.to_string()).expect("Roundtrip FEN.");
