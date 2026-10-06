@@ -31,13 +31,13 @@ impl SearchMaster {
         Self {
             stop,
             pondering,
-            ponder_enabled: false,
-            show_wdl: false,
+            ponder_enabled: EngineOption::PONDER_DEFAULT,
+            show_wdl: EngineOption::SHOW_WDL_DEFAULT,
             multi_pv: EngineOption::MULTIPV_DEFAULT,
             board: Board::new(),
-            tt: TT::new(16),
+            tt: TT::new(EngineOption::HASH_DEFAULT),
             scorers: vec![MoveScorer::new()],
-            overhead: Duration::from_millis(10),
+            overhead: EngineOption::MOVE_OVERHEAD_DEFAULT,
         }
     }
 
